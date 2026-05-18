@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" fill="none">
+  <title>Exploration B — Pocket pouch (rejected)</title>
+  <path d="M5 11a3 3 0 0 1 3-3h16a3 3 0 0 1 3 3v3c0 8-4 13-11 13S5 22 5 14v-3Z" fill="#2A6FDB"></path>
+  <path d="M5 11h22" stroke="#2A6FDB" stroke-width="1.5" stroke-opacity="0.4"></path>
+  <circle cx="22" cy="13" r="3.5" fill="#fff" stroke="#2A6FDB" stroke-width="1.4"></circle>
+  <text x="22" y="15.5" text-anchor="middle" font-size="4.5" font-weight="700" font-family="Geist,system-ui,sans-serif" fill="#2A6FDB">$</text>
+</svg>

@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" fill="none">
+  <title>Exploration F — Receipt (rejected)</title>
+  <path d="M7 3h18v22l-3-2-3 2-3-2-3 2-3-2-3 2V3Z" fill="#2A6FDB" stroke="#2A6FDB" stroke-width="0.5" stroke-linejoin="round"></path>
+  <rect x="10" y="8" width="12" height="1.6" rx="0.8" fill="#fff"></rect>
+  <rect x="10" y="12" width="8" height="1.6" rx="0.8" fill="#fff"></rect>
+  <rect x="10" y="16" width="10" height="1.6" rx="0.8" fill="#fff"></rect>
+  <circle cx="22" cy="13" r="1.4" fill="#fff"></circle>
+</svg>
