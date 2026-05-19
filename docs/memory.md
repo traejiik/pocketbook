@@ -38,3 +38,50 @@ Running log of decisions, deviations, and important context for future sessions.
 - Commit: `58013fa feat: bootstrap project, tokens, shell, auth scaffold`
 
 ---
+
+## Session 2 — 2026-05-19
+
+### Stack deviations from the handoff (intentional, locked in)
+
+| Area | Handoff said | What we actually did | Why |
+|---|---|---|---|
+| Prisma enum syntax | Single-line `enum Foo { A B }` (from overview) | Multi-line, one value per line | Prisma PSL does not support single-line enum definitions — parser errors |
+| `badge.tsx` | Extend shadcn with `kind`/`color` props | Rewrote — dropped `@base-ui/react` `useRender`/`mergeProps` entirely | Plain React component is simpler; polymorphic render API adds nothing for badge usage |
+| `React.cache()` in `lib/fx.ts` | Marked as Session 4 teaching concept | Used in Session 2 | Handoff spec for `lib/fx.ts` explicitly required it; brief intro here, deep dive in Session 4 |
+| `.env` (new file) | Not mentioned | Created, gitignored | Prisma CLI reads `.env` not `.env.local`; needs `DATABASE_URL` + `POSTGRES_PASSWORD` for `prisma migrate dev` and Docker Compose variable substitution |
+| `docker-compose.override.yml` (new file) | Not mentioned | Created | Base compose had no `ports` on `db` — Postgres unreachable from host. Override adds `5432:5432` without touching the production compose file |
+
+### Key files added / changed
+
+| File | Purpose |
+|---|---|
+| `prisma/schema.prisma` | Full 8-model, 4-enum schema |
+| `prisma/seed.ts` | Seeds user (bcrypt cost 12), 12 categories, AppSettings singleton, 4 FX rates, 15 recurring rules. Loads `.env.local` manually before `new PrismaClient()` |
+| `prisma/migrations/20260519021228_init/` | Initial migration SQL — committed |
+| `lib/prisma.ts` | Singleton PrismaClient (replaced null stub) |
+| `lib/format.ts` | `fmtHUF`, `fmtCur`, `fmtDate`, `dayOfWeek` — ported from mockup, U+2212 minus sign |
+| `lib/fx.ts` | `getRate`, `toAnchor`, `fromAnchor` — DB-backed with React `cache()` |
+| `components/ui/badge.tsx` | Rewritten: `kind` (income/expense/savings/neutral/primary/warning) + `color` (dot) props |
+| `components/ui/button.tsx` | Extended: `icon` + `iconAfter` accept `LucideIcon` |
+| `components/ui/card.tsx` | Extended: `hover` prop applies `pb-card-hover transition-colors` |
+| `components/ui/input.tsx` | Extended: `icon` (left) + `suffix` (right) slots; `className` still targets `<input>` |
+| `components/ui/label.tsx` | Extended: `hint` prop for right-aligned secondary text |
+| `components/ui/empty.tsx` | New: empty state with icon, title, body, action slots |
+| `components/ui/segmented.tsx` | New: generic `Segmented<T extends string \| number>` |
+| `components/finance/AmountDisplay.tsx` | Client component: tabular-num, 4 currencies, 4 sizes, 4 tones |
+| `components/finance/CategoryBadge.tsx` | Async server component: fetches category by ID from Prisma |
+| `components/finance/KpiCard.tsx` | KPI tile: delta arrow, accent sparkline dots, AmountDisplay |
+| `docker-compose.override.yml` | Dev-only: binds db port 5432 to host |
+| `.env` | Gitignored: `DATABASE_URL` + `POSTGRES_PASSWORD` |
+
+### State at end of session
+
+- Database running in Docker (`pocketbook-db`, healthy)
+- `pnpm prisma migrate dev --name init` ran cleanly — migration committed
+- `pnpm prisma db seed` populates all tables
+- Login works end-to-end: `tida@home.lan` / `changeme-on-first-boot` → `/dashboard`
+- `pnpm dev` runs with no console errors
+- `lib/frankfurter.ts` deferred — not needed until Session 5
+- Commits: `d7343c9` → `9a5125e` (5 commits this session)
+
+---

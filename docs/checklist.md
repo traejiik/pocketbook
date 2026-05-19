@@ -22,25 +22,52 @@
 ### Known deferred items (fix in the noted session)
 
 | Item | Session |
-|---|---|
+| --- | --- |
 | `upcomingRenewalsCount` hardcoded to `6` in `AppShell` | Session 4 |
 | Login actually completes (needs seeded DB) | Session 2 |
 | `docker-compose build` end-to-end test | Session 2+ |
 
 ---
 
-## Session 2 — Data & Primitives (upcoming)
+## Session 2 — Data & Primitives ✅
+
+### Checklist
+
+- [x] `prisma/schema.prisma` written — 8 models, 4 enums
+- [x] `prisma migrate dev --name init` ran cleanly — migration SQL committed
+- [x] `prisma generate` ran (auto, part of migrate)
+- [x] `prisma/seed.ts` written and runs — user, 12 categories, AppSettings, 4 FX rates, 15 recurring rules
+- [x] `pnpm prisma db seed` succeeds
+- [x] `lib/prisma.ts` — real singleton PrismaClient (null stub replaced)
+- [x] `lib/format.ts` — `fmtHUF`, `fmtCur`, `fmtDate`, `dayOfWeek`, U+2212 minus sign
+- [x] `lib/fx.ts` — `getRate`, `toAnchor`, `fromAnchor`, React `cache()` memoisation
+- [x] shadcn primitives extended: Badge (`kind`/`color`), Button (`icon`/`iconAfter`), Card (`hover`), Input (`icon`/`suffix`), Label (`hint`)
+- [x] New primitives: `Empty`, `Segmented`
+- [x] Finance components: `AmountDisplay`, `CategoryBadge`, `KpiCard`
+- [x] Login works end-to-end (`tida@home.lan` / `changeme-on-first-boot` → `/dashboard`)
+- [x] `pnpm dev` — no console errors
+- [x] Commits: `d7343c9` → `9a5125e`
+
+### Known deferred items
+
+| Item | Session |
+| --- | --- |
+| `lib/frankfurter.ts` — FX rate fetcher | Session 5 |
+| `upcomingRenewalsCount` hardcoded to `6` in `AppShell` | Session 4 |
+| `CategoryBadge` N+1 optimisation via `React.cache()` | Session 4 |
+
+---
+
+## Session 3 — Transactions (upcoming)
 
 ### To-do
 
-- [ ] Write `prisma/schema.prisma` (already in `00-overview.md` — lift verbatim)
-- [ ] Run `prisma migrate dev --name init`
-- [ ] Write `prisma/seed.ts` — User, 12 Categories, AppSettings, ExchangeRates, RecurringRules
-- [ ] Replace `lib/prisma.ts` stub with real singleton client ← user already did this ✅
-- [ ] Port all primitives from `design-reference/mockups/source/primitives.jsx` to TypeScript
-- [ ] Write `lib/format.ts` — `fmtHUF`, `fmtCur`, `fmtDate`, `dayOfWeek`, U+2212 minus
-- [ ] Write `lib/fx.ts` — `toAnchor()`, `fromAnchor()`, exchange rate helpers
-- [ ] Write `lib/frankfurter.ts` — FX rate fetcher
-- [ ] Port finance components: `AmountDisplay`, `CategoryBadge`, `KpiCard`
+- [ ] Transactions page: grouped-by-date list, filter bar (type + category + search), pagination or virtual scroll
+- [ ] Add/Edit Transaction Sheet (right-side, 440px, shadcn `Sheet`)
+- [ ] Server actions: `createTransaction`, `updateTransaction`, `deleteTransaction` in `server-actions/transactions.ts`
+- [ ] Keyboard shortcuts: `N` opens Add sheet, `⌘↵` submits, `Esc` closes
+- [ ] Optimistic writes on Add — `useOptimistic` + `startTransition`, roll back on server error
+- [ ] `TransactionForm` component with react-hook-form + zod validation
+- [ ] `CategoryBadge` used in each transaction row
 
 ---
