@@ -1,7 +1,19 @@
-export default function CategoriesPage() {
+import { getCategoriesWithStats } from '@/lib/aggregations'
+import { CategoriesView } from './CategoriesView'
+
+export default async function CategoriesPage() {
+  const categories = await getCategoriesWithStats()
+
   return (
-    <div className="px-8 py-6">
-      <h1 className="text-[22px] font-semibold tracking-tight">Categories</h1>
-    </div>
-  );
+    <CategoriesView
+      categories={categories.map((c) => ({
+        id: c.id,
+        name: c.name,
+        color: c.color,
+        kind: c.kind as 'INCOME' | 'EXPENSE' | 'SAVINGS',
+        txCount: c.txCount,
+        txTotalHUF: c.txTotalHUF,
+      }))}
+    />
+  )
 }
