@@ -85,3 +85,40 @@ Running log of decisions, deviations, and important context for future sessions.
 - Commits: `d7343c9` → `9a5125e` (5 commits this session)
 
 ---
+
+## Session 3 — 2026-05-19
+
+### Stack deviations from the handoff (intentional, locked in)
+
+| Area | Handoff said | What we actually did | Why |
+|---|---|---|---|
+| `CategoryBadge` in rows | Use `<CategoryBadge id={tx.cat} />` | Inline badge rendered from serialised `tx.category` object | `CategoryBadge` is an async server component; client `TransactionsView` already has category data joined from the server query — no second DB call needed |
+| `useOptimistic` dispatch location | In the same component as form submit | Split: `TransactionsView` owns `addOptimistic`, `TransactionForm` calls `onFormSubmit` prop | `addOptimistic` must be called inside a `startTransition` with the server action; keeping both in `TransactionsView` ensures they're in the same transition scope |
+| ⌘↵ shortcut | Via shadcn `Sheet` native handling | `onKeyDown` on the `<form>` element | Simpler than a ref callback; React 18 callback refs don't support cleanup returns; form-level handler is scoped correctly to when the form is visible |
+| Delete UI | shadcn `AlertDialog` component | `Dialog` component used as alert dialog | `AlertDialog` not in the installed shadcn component set; `Dialog` with the same structure achieves identical behaviour |
+| `GBP` in currency select | Listed in schema enum | Added to form select (HUF, EUR, USD, GBP) | Spec had it in the enum; mockup only showed 3 but GBP is a valid tracked currency |
+
+### Key files added / changed
+
+| File | Purpose |
+|---|---|
+| `server-actions/transactions.ts` | `upsertTransaction` + `deleteTransaction` with zod validation and auth guard |
+| `contexts/sheet-context.tsx` | `TransactionSheetProvider` + `useTransactionSheet` — bridges `N` shortcut in AppShell with Sheet state in TransactionsView |
+| `hooks/use-global-keys.ts` | `useGlobalKeys(handlers)` — fires key handlers when focus is not inside an input/textarea/select |
+| `components/forms/TransactionForm.tsx` | Client form component: react-hook-form + zod, type segmented, currency select, category pills, recurring rule select, delete link |
+| `components/transactions/TransactionsView.tsx` | Client view: `useOptimistic`, filter bar, grouped-by-date table, passes `onFormSubmit` down to form |
+| `app/(app)/transactions/page.tsx` | Server component: fetches current-month transactions + categories + recurring rules + FX rates, serialises Decimal/Date, passes to `TransactionsView` |
+| `app/(app)/layout.tsx` | Added `TransactionSheetProvider` wrapping `AppShell` |
+| `components/shell/AppShell.tsx` | Now `'use client'`; wires `useGlobalKeys({ n: openNew, N: openNew })` |
+
+### State at end of session
+
+- `/transactions` renders current-month list grouped by date with working filters, search, and net total
+- Add transaction: button + `N` key → blank sheet → form submit → optimistic row → server revalidate
+- Edit transaction: row click → pre-filled sheet → save or delete with confirmation
+- `pnpm tsc --noEmit` — 0 errors
+- `pnpm build` — clean, all 13 routes, `/transactions` 49.8 kB
+- Month picker button shows label only — navigation deferred to Session 4+
+- Commit: `f7b7a95 feat: transactions screen + add/edit sheet + optimistic writes`
+
+---

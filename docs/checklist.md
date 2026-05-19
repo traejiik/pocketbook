@@ -58,16 +58,54 @@
 
 ---
 
-## Session 3 — Transactions (upcoming)
+## Session 3 — Transactions ✅
+
+### Checklist
+
+- [x] `/transactions` lists all current-month transactions grouped by date
+- [x] Search, type filter (All / Income / Expense / Savings), and category filter all narrow the table
+- [x] Net total in the filter bar updates as filters change
+- [x] "Add transaction" button opens a blank Sheet
+- [x] `N` anywhere outside a form input opens the same blank Sheet
+- [x] Clicking any row opens the Sheet pre-filled with that transaction's data
+- [x] `⌘↵` / `Ctrl+Enter` submits the form (handled via `onKeyDown` on the form element)
+- [x] `Esc` closes the Sheet (handled by base-ui Dialog/Sheet primitives natively)
+- [x] Submitted transactions appear in the table immediately (optimistic via `useOptimistic` + `startTransition`)
+- [x] On server error, optimistic row rolls back and a Sonner toast fires
+- [x] Type changes filter the available categories correctly (eligibleCategories computed from kind)
+- [x] Currency ≠ HUF shows live HUF equivalent under the amount field
+- [x] Delete from the "Delete this transaction…" link → AlertDialog confirmation → `deleteTransaction` server action
+- [x] Empty state renders (with Reset filters action) when no transactions match
+- [x] `pnpm tsc --noEmit` — 0 errors
+- [x] `pnpm build` — clean, `/transactions` 49.8 kB
+- [x] Commit: `f7b7a95 feat: transactions screen + add/edit sheet + optimistic writes`
+
+### Known deferred items
+
+| Item | Session |
+| --- | --- |
+| Month picker navigation (currently displays current month label only) | Session 4+ |
+| Export CSV button (wired `disabled` with tooltip "Coming soon") | Session 5 |
+| `CategoryBadge` async server component — client rows use inline badge | Session 4 |
+| `upcomingRenewalsCount` hardcoded to `6` in `AppShell` | Session 4 |
+
+---
+
+## Session 4 — Dashboard & Lists (upcoming)
 
 ### To-do
 
-- [ ] Transactions page: grouped-by-date list, filter bar (type + category + search), pagination or virtual scroll
-- [ ] Add/Edit Transaction Sheet (right-side, 440px, shadcn `Sheet`)
-- [ ] Server actions: `createTransaction`, `updateTransaction`, `deleteTransaction` in `server-actions/transactions.ts`
-- [ ] Keyboard shortcuts: `N` opens Add sheet, `⌘↵` submits, `Esc` closes
-- [ ] Optimistic writes on Add — `useOptimistic` + `startTransition`, roll back on server error
-- [ ] `TransactionForm` component with react-hook-form + zod validation
-- [ ] `CategoryBadge` used in each transaction row
+- [ ] Dashboard: KPI row (net income, total expense, savings rate, balance)
+- [ ] Expenses-by-category bar chart (Recharts)
+- [ ] Renewals widget + recent activity list on dashboard
+- [ ] `GaugeMeter` SVG component (savings-rate gauge)
+- [ ] `PillBar` for category breakdown
+- [ ] AI feature card (placeholder until Session 5)
+- [ ] Recurring screen: list of `RecurringRule` cards with installment progress
+- [ ] Renewals screen: `TimelineStrip` + upcoming/overdue grouping
+- [ ] Categories CRUD: add / edit / delete category with colour picker
+- [ ] Derive `upcomingRenewalsCount` from DB (nextDue within 30 days)
+- [ ] `React.cache()` deep dive — per-request memoisation, difference from `unstable_cache`
+- [ ] Database transactions concept — atomic installment increment on RecurringRule
 
 ---
