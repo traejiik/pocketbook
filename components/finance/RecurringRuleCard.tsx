@@ -1,23 +1,34 @@
 import { Calendar, Repeat2, MoreHorizontal, AlertTriangle } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { fmtHUF, fmtDate, fmtCur } from '@/lib/format'
+import { fmtHUF, fmtDate } from '@/lib/format'
 import { AmountDisplay } from './AmountDisplay'
-import type { Category, RecurringRule } from '@prisma/client'
 
-type RuleWithCategory = RecurringRule & { category: Category }
+export interface CardRule {
+  id: string
+  name: string
+  amount: number
+  currency: string
+  cycle: string
+  nextDue: string          // YYYY-MM-DD
+  kind: string
+  installmentPaid: number | null
+  installmentTotal: number | null
+  installmentEndsOn: string | null  // YYYY-MM-DD or null
+  category: { name: string; color: string }
+}
 
 interface RecurringRuleCardProps {
-  rule: RuleWithCategory
+  rule: CardRule
   hufEquivalent: number
   daysAway: number
-  onEdit?: (rule: RuleWithCategory) => void
+  onEdit?: (rule: CardRule) => void
 }
 
 export function RecurringRuleCard({ rule, hufEquivalent, daysAway, onEdit }: RecurringRuleCardProps) {
   const inst = rule.installmentTotal != null ? {
     paid:   rule.installmentPaid ?? 0,
     total:  rule.installmentTotal,
-    endsOn: rule.installmentEndsOn,
+    endsOn: rule.installmentEndsOn,  // string | null
   } : null
 
   return (
@@ -53,7 +64,7 @@ export function RecurringRuleCard({ rule, hufEquivalent, daysAway, onEdit }: Rec
 
       <div className="mt-3 flex items-baseline justify-between">
         <AmountDisplay
-          value={Number(rule.amount)}
+          value={rule.amount}
           currency={rule.currency as 'HUF' | 'USD' | 'EUR' | 'GBP'}
           tone={rule.kind === 'INCOME' ? 'income' : 'expense'}
           size="md"
@@ -66,7 +77,7 @@ export function RecurringRuleCard({ rule, hufEquivalent, daysAway, onEdit }: Rec
       <div className="mt-3 pt-3 border-t border-border flex items-center justify-between text-[11px]">
         <span className="text-muted-foreground inline-flex items-center gap-1.5">
           <Calendar className="w-3 h-3" />
-          Next · {fmtDate(rule.nextDue.toISOString().split('T')[0], { short: true })}
+          Next · {fmtDate(rule.nextDue, { short: true })}
         </span>
         <span className={cn('mono', daysAway <= 7 ? 'text-amber-400' : 'text-muted-foreground')}>
           in {daysAway}d
@@ -90,7 +101,7 @@ export function RecurringRuleCard({ rule, hufEquivalent, daysAway, onEdit }: Rec
           </div>
           {inst.endsOn && (
             <div className="text-[10.5px] text-amber-400/80 mt-1.5">
-              Ends {fmtDate(inst.endsOn.toISOString().split('T')[0])} · {inst.total - inst.paid} payments left
+              Ends {fmtDate(inst.endsOn)} · {inst.total - inst.paid} payments left
             </div>
           )}
         </div>

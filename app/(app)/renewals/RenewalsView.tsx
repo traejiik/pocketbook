@@ -5,12 +5,26 @@ import { Segmented } from '@/components/ui/segmented'
 import { TimelineStrip } from '@/components/finance/TimelineStrip'
 import { AmountDisplay } from '@/components/finance/AmountDisplay'
 import { fmtHUF } from '@/lib/format'
-import type { Category, RecurringRule } from '@prisma/client'
+import type { Category } from '@prisma/client'
 
-type RuleWithCategory = RecurringRule & { category: Category }
+type SerialisedRule = {
+  id: string
+  name: string
+  amount: number
+  currency: string
+  cycle: string
+  nextDue: string          // YYYY-MM-DD
+  kind: string
+  categoryId: string
+  installmentPaid: number | null
+  installmentTotal: number | null
+  installmentEndsOn: string | null
+  archived: boolean
+  category: Category
+}
 
 interface RenewalItem {
-  rule: RuleWithCategory
+  rule: SerialisedRule
   daysAway: number
   hufEquivalent: number
 }
@@ -19,8 +33,8 @@ interface Props {
   renewals: RenewalItem[]
 }
 
-function groupKey(rule: RuleWithCategory, grouping: 'week' | 'month') {
-  const d = rule.nextDue
+function groupKey(rule: SerialisedRule, grouping: 'week' | 'month') {
+  const d = new Date(rule.nextDue)
   if (grouping === 'month') {
     return d.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
   }
@@ -114,10 +128,10 @@ export function RenewalsView({ renewals }: Props) {
                   >
                     <div className="text-center">
                       <div className="text-[9px] uppercase mono text-muted-foreground leading-none">
-                        {rule.nextDue.toLocaleDateString('en-GB', { month: 'short' })}
+                        {new Date(rule.nextDue).toLocaleDateString('en-GB', { month: 'short' })}
                       </div>
                       <div className="text-[15px] font-semibold tabular leading-tight mt-0.5">
-                        {rule.nextDue.getDate()}
+                        {new Date(rule.nextDue).getDate()}
                       </div>
                     </div>
                     <div className="flex items-center gap-2.5 min-w-0">

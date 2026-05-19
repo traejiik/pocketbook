@@ -12,6 +12,7 @@ services:
       NEXT_PUBLIC_USER_DISPLAY_NAME: ${USER_DISPLAY_NAME}
       SEED_USER_EMAIL: ${SEED_USER_EMAIL}
       SEED_USER_PASSWORD: ${SEED_USER_PASSWORD}
+      FX_SYNC_SECRET: ${FX_SYNC_SECRET}
     depends_on:
       db:
         condition: service_healthy
@@ -20,6 +21,19 @@ services:
       - core_net
     ports:
       - "3000:3000"
+
+  cron:
+    image: alpine:3.20
+    container_name: pocketbook-cron
+    restart: unless-stopped
+    depends_on:
+      - web
+    environment:
+      FX_SYNC_SECRET: ${FX_SYNC_SECRET}
+    command: >
+      sh -c "echo '0 3 * * * wget -qO- --header=\"X-Sync-Secret: $${FX_SYNC_SECRET}\" --post-data= http://web:3000/api/fx/sync' > /etc/crontabs/root && crond -f -l 6"
+    networks:
+      - default
 
   db:
     image: postgres:16-alpine

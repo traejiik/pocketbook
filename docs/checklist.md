@@ -132,17 +132,44 @@
 
 ---
 
-## Session 5 — Insights, Settings & Polish (upcoming)
+## Session 5 — Insights, Settings & Polish ✅
 
-### Session 5 to-do
+### Checklist
 
-- [ ] AI Insights page: real Ollama SSE streaming, `?generate=1` param triggers generation on mount
-- [ ] Settings page: anchor currency, tracked currencies, FX auto-sync, password change, LLM picker
-- [ ] `lib/frankfurter.ts` + `app/api/fx/sync/route.ts` — cron-callable FX rate refresh
-- [ ] `lib/ollama.ts` + `app/api/insights/stream/route.ts` — SSE proxy to Ollama
-- [ ] `scripts/csv-import.ts` — one-time CSV importer (reads `/seed/transactions.csv` if present)
-- [ ] README — setup, seed, docker-compose, dev workflow
-- [ ] Final polish: skeletons on every async surface, any remaining hydration warnings
-- [ ] `docker-compose build` end-to-end test
+- [x] `lib/ollama.ts` — `streamGenerate` async generator, `pingOllama`, `listOllamaModels`
+- [x] `app/api/insights/stream/route.ts` — SSE `ReadableStream` route; saves `AiInsight` on completion
+- [x] `server-actions/insights.ts` — `buildInsightPrompt` (KPIs + categories + renewals + installments), `saveInsight`, `setInsightFeedback`
+- [x] `/insights` renders with `InsightCard`: `ready → loading → streaming → done` state machine
+- [x] Streaming uses real Ollama tokens via `EventSource` — no fake typewriter
+- [x] Skeleton paragraphs + 3-dot pulse shown while loading
+- [x] Blinking caret at tail of streaming text
+- [x] `done` state shows token count + elapsed seconds + Helpful / Not useful buttons
+- [x] Insight history list shows past `AiInsight` rows; clicking a row swaps the view card
+- [x] `lib/frankfurter.ts` — `fetchFrankfurterRate` + `syncAllAutoRates`
+- [x] `app/api/fx/sync/route.ts` — POST, guarded by `X-Sync-Secret`
+- [x] `server-actions/settings.ts` — anchor, FX, password, LLM model, auto-insights
+- [x] `/settings` — anchor currency picker with confirmation Dialog
+- [x] `/settings` — tracked currencies with Dynamic/Manual mode toggle + manual rate save
+- [x] `/settings` — add/remove tracked currency Dialogs
+- [x] `/settings` — password change with bcrypt verify + 4-bar strength meter
+- [x] `/settings` — Ollama endpoint with Connected/Unreachable badge
+- [x] `/settings` — LLM model picker populated from Ollama `/api/tags` (fallback to hardcoded 3)
+- [x] `/settings` — auto-insights toggle
+- [x] `/settings` — About section: version, DB size, last backup
+- [x] `docker-compose.yml` — `FX_SYNC_SECRET` env + Alpine `cron` sidecar at 03:00
+- [x] `.env.example` — `FX_SYNC_SECRET` added
+- [x] `scripts/csv-import.ts` — idempotent importer, `(date, description, amount)` dedup
+- [x] `prisma/seed.ts` — runs CSV importer if `seed/transactions.csv` exists
+- [x] `README.md` — quick start, Ollama prereq, CSV format, architecture pointer
+- [x] `pnpm tsc --noEmit` — 0 errors
+
+### Known limitations / future work
+
+| Item | Notes |
+|---|---|
+| Dashboard "Add transaction" button | Plain button — wiring to the global sheet requires a context refactor; low priority for v1 |
+| Month picker navigation | Current month label only on Transactions; navigation deferred |
+| Export CSV on Transactions | Button renders as disabled ("Coming soon") |
+| `docker-compose build` end-to-end test | Run locally after ensuring Ollama is reachable |
 
 ---

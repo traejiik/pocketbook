@@ -184,3 +184,47 @@ This occurred in `authorize()` inside `lib/auth.ts` — specifically at `prisma.
 **What this means for Session 4**: The app is working correctly for an established session. If a fresh login ever returns 500, restart the dev server and try again — the Prisma pool recovers on the next request. This is a development-only artefact; production uses a persistent connection pool.
 
 ---
+
+## Session 5 — 2026-05-19
+
+### Architecture decisions
+
+| Decision | Rationale |
+|---|---|
+| `InsightCard` owns the full EventSource lifecycle | Opening/closing `EventSource` inside a `useCallback` keeps streaming state co-located; no need for a context or a ref passed between components |
+| Insight token count tracked client-side | The SSE route emits `tokens` and `elapsed` on the final `done` event; no need to query the DB after save |
+| Settings split into `page.tsx` (server) + `SettingsView.tsx` (client) | Same pattern as Recurring/Renewals/Categories — server fetches Ollama ping + model list + DB settings; client manages all interactive state |
+| Ollama ping timeout: 3 seconds | Settings page loads on every visit; a 3s AbortSignal prevents the page hanging if Ollama is unreachable |
+| ESLint not configured — skipped lint step | No `.eslintrc` present in repo; `pnpm lint` tries interactive setup and exits non-zero. `pnpm tsc --noEmit` is clean — no type errors |
+| Cron sidecar uses Alpine `crond` | Lightest possible image (~5 MB); Alpine's `crond` supports crontab files natively. The `$$FX_SYNC_SECRET` double-dollar escapes the variable for Docker Compose YAML expansion |
+| CSV importer runs idempotently via `(date, description, amount)` dedup | Simple, no extra schema changes; handles re-runs and partial imports gracefully |
+
+### Key files added / changed
+
+| File | Purpose |
+|---|---|
+| `lib/ollama.ts` | `streamGenerate` async generator, `pingOllama`, `listOllamaModels` |
+| `lib/frankfurter.ts` | `fetchFrankfurterRate`, `syncAllAutoRates` |
+| `server-actions/insights.ts` | `buildInsightPrompt` (pulls KPIs + categories + renewals + installments), `saveInsight`, `setInsightFeedback`, `getInsightHistory` |
+| `server-actions/settings.ts` | `setAnchorCurrency`, `setExchangeRate`, `addTrackedCurrency`, `removeTrackedCurrency`, `setFxAutoSync`, `setAutoInsights`, `setOllamaModel`, `changePassword`, `getDatabaseSize` |
+| `app/api/insights/stream/route.ts` | SSE GET route — pipes Ollama tokens to browser via `ReadableStream`, saves `AiInsight` row on completion |
+| `app/api/fx/sync/route.ts` | POST route — guarded by `X-Sync-Secret` header; calls `syncAllAutoRates()` |
+| `components/insights/InsightCard.tsx` | State machine: `ready → loading → streaming → done / error`; `EventSource` opens on Generate click; history list; feedback buttons |
+| `app/(app)/insights/page.tsx` | Server component: fetches settings + insight history, passes to `InsightCard` |
+| `app/(app)/settings/page.tsx` | Server component: fetches settings, rates, Ollama connection status, model list, DB size |
+| `app/(app)/settings/SettingsView.tsx` | Client: anchor picker with confirmation Dialog, tracked currencies CRUD, password form with strength meter, LLM model picker, auto-insights toggle |
+| `scripts/csv-import.ts` | Idempotent one-shot CSV importer; `(date, description, amount)` dedup check |
+| `docker-compose.yml` | Added `FX_SYNC_SECRET` env to `web`; added `cron` Alpine sidecar |
+| `.env.example` | Added `FX_SYNC_SECRET` |
+| `README.md` | Created — quick start, Ollama prereq, CSV format, architecture pointer |
+
+### Session 5 end state
+
+- `/insights` renders with real SSE streaming from Ollama; history list shows past insights
+- `/settings` fully interactive: anchor currency, FX rates, password change, LLM picker
+- `lib/frankfurter.ts` + `/api/fx/sync` wired; docker-compose cron sidecar fires at 03:00
+- CSV importer at `scripts/csv-import.ts`; wired into `prisma db seed` if file exists
+- `pnpm tsc --noEmit` — 0 errors
+- Pocketbook v1 is feature-complete
+
+---
