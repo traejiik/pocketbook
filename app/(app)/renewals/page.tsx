@@ -1,7 +1,20 @@
-export default function RenewalsPage() {
-  return (
-    <div className="px-8 py-6">
-      <h1 className="text-[22px] font-semibold tracking-tight">Renewals</h1>
-    </div>
-  );
+import { getUpcomingRenewals } from '@/lib/aggregations'
+import { RenewalsView } from './RenewalsView'
+
+export default async function RenewalsPage() {
+  // Fetch 90 days up-front; client filters down to 30/60 depending on toggle
+  const renewals = await getUpcomingRenewals(90)
+
+  const serialised = renewals.map(({ rule, daysAway, hufEquivalent }) => ({
+    rule: {
+      ...rule,
+      amount: Number(rule.amount),
+      nextDue: rule.nextDue,
+      installmentEndsOn: rule.installmentEndsOn ?? null,
+    },
+    daysAway,
+    hufEquivalent,
+  }))
+
+  return <RenewalsView renewals={serialised as any} />
 }

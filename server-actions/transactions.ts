@@ -40,6 +40,28 @@ export async function upsertTransaction(input: TxInput) {
   if (id) {
     await prisma.transaction.update({ where: { id }, data });
   } else {
+    const ruleId = data.recurringRuleId;
+    if (ruleId) {
+      const rule = await prisma.recurringRule.findUnique({ where: { id: ruleId } });
+      if (rule?.installmentTotal != null) {
+        const nextPaid = (rule.installmentPaid ?? 0) + 1;
+        await prisma.$transaction([
+          prisma.transaction.create({ data }),
+          prisma.recurringRule.update({
+            where: { id: ruleId },
+            data: {
+              installmentPaid: nextPaid,
+              archived: nextPaid >= rule.installmentTotal,
+            },
+          }),
+        ]);
+        revalidatePath('/transactions');
+        revalidatePath('/dashboard');
+        revalidatePath('/renewals');
+        revalidatePath('/recurring');
+        return;
+      }
+    }
     await prisma.transaction.create({ data });
   }
 
