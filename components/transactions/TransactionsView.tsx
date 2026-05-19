@@ -177,13 +177,13 @@ export function TransactionsView({
       </div>
 
       {/* Filter bar */}
-      <Card className="p-3 flex flex-wrap items-center gap-2 rounded-xl">
+      <Card className="p-3 flex flex-row items-center gap-2 rounded-xl">
         <Input
           placeholder="Search transactions…"
           icon={<SearchIcon className="w-4 h-4" />}
           value={search}
           onChange={e => setSearch(e.target.value)}
-          className="flex-1 min-w-[180px] max-w-sm"
+          className="flex-1 min-w-0 max-w-[260px]"
         />
         <Segmented
           options={[
