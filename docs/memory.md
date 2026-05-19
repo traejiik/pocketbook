@@ -121,4 +121,19 @@ Running log of decisions, deviations, and important context for future sessions.
 - Month picker button shows label only — navigation deferred to Session 4+
 - Commit: `f7b7a95 feat: transactions screen + add/edit sheet + optimistic writes`
 
+### Post-session 3 — blank page / 500 investigation
+
+Reported: blank page in dev server after Session 3 commit.
+
+Root cause found during debugging:
+```
+[auth][error] CallbackRouteError
+[auth][cause]: PrismaClientInitializationError: Can't reach database server at `localhost:5432`
+```
+This occurred in `authorize()` inside `lib/auth.ts` — specifically at `prisma.user.findFirst()` — when the dev server was restarted cold during the debugging session and the Prisma connection pool had not yet re-established.
+
+**Key finding**: The user's browser was already returning `GET /dashboard 200` because it held a valid session cookie from a prior login. The 500 only surfaced during a fresh curl-based login on a cold server restart. DB container (`pocketbook-db`) was confirmed healthy and port 5432 bound throughout.
+
+**What this means for Session 4**: The app is working correctly for an established session. If a fresh login ever returns 500, restart the dev server and try again — the Prisma pool recovers on the next request. This is a development-only artefact; production uses a persistent connection pool.
+
 ---
