@@ -3,17 +3,44 @@ import { Input as InputPrimitive } from "@base-ui/react/input"
 
 import { cn } from "@/lib/utils"
 
-function Input({ className, type, ...props }: React.ComponentProps<"input">) {
+const inputBase = "h-9 w-full min-w-0 rounded-md border border-input bg-transparent px-3 text-[13.5px] transition-colors outline-none placeholder:text-muted-foreground/70 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/60 disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive dark:bg-input/30"
+
+interface InputProps extends React.ComponentProps<"input"> {
+  icon?: React.ReactNode
+  suffix?: React.ReactNode
+}
+
+function Input({ className, type, icon, suffix, ...props }: InputProps) {
+  if (!icon && !suffix) {
+    return (
+      <InputPrimitive
+        type={type}
+        data-slot="input"
+        className={cn(inputBase, className)}
+        {...props}
+      />
+    )
+  }
+
   return (
-    <InputPrimitive
-      type={type}
-      data-slot="input"
-      className={cn(
-        "h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-base transition-colors outline-none file:inline-flex file:h-6 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-input/50 disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 md:text-sm dark:bg-input/30 dark:disabled:bg-input/80 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40",
-        className
+    <div className="relative flex items-center">
+      {icon && (
+        <span className="absolute left-3 text-muted-foreground pointer-events-none">
+          {icon}
+        </span>
       )}
-      {...props}
-    />
+      <InputPrimitive
+        type={type}
+        data-slot="input"
+        className={cn(inputBase, icon && 'pl-9', suffix && 'pr-12', className)}
+        {...props}
+      />
+      {suffix && (
+        <span className="absolute right-3 text-xs text-muted-foreground mono pointer-events-none">
+          {suffix}
+        </span>
+      )}
+    </div>
   )
 }
 
