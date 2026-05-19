@@ -89,6 +89,11 @@
 | `CategoryBadge` async server component — client rows use inline badge | Session 4 |
 | `upcomingRenewalsCount` hardcoded to `6` in `AppShell` | Session 4 |
 
+### Post-session 3 notes
+
+- **Blank page / 500 on fresh login**: `PrismaClientInitializationError` fired in `authorize()` when dev server was restarted cold. DB container was healthy throughout — this is a Prisma pool cold-start artefact. Browser with existing session cookie was unaffected (200s). Workaround: retry login after the first failed attempt; the pool recovers. No code change needed.
+- **Verify in Session 4**: confirm `/transactions` renders correctly in a fresh incognito window after `pnpm dev` starts to rule out any remaining client-side blank page.
+
 ---
 
 ## Session 4 — Dashboard & Lists (upcoming)
