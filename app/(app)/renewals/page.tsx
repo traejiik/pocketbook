@@ -7,14 +7,23 @@ export default async function RenewalsPage() {
 
   const serialised = renewals.map(({ rule, daysAway, hufEquivalent }) => ({
     rule: {
-      ...rule,
+      id: rule.id,
+      name: rule.name,
       amount: Number(rule.amount),
-      nextDue: rule.nextDue,
-      installmentEndsOn: rule.installmentEndsOn ?? null,
+      currency: rule.currency,
+      cycle: rule.cycle,
+      nextDue: rule.nextDue.toISOString().split('T')[0],
+      kind: rule.kind,
+      categoryId: rule.categoryId,
+      installmentPaid: rule.installmentPaid,
+      installmentTotal: rule.installmentTotal,
+      installmentEndsOn: rule.installmentEndsOn ? rule.installmentEndsOn.toISOString().split('T')[0] : null,
+      archived: rule.archived,
+      category: rule.category,
     },
     daysAway,
     hufEquivalent,
   }))
 
-  return <RenewalsView renewals={serialised as any} />
+  return <RenewalsView renewals={serialised} />
 }

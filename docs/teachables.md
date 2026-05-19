@@ -32,7 +32,67 @@ When *not* to use it: single-table writes don't need a transaction. Unnecessary 
 
 ---
 
-## Session 1 — Foundation
+## Session 5 — Insights, Settings & Polish
+
+### 1. Server-Sent Events (SSE) vs WebSockets
+
+SSE is a one-way push channel: the server streams data to the browser over a plain HTTP response that never closes. WebSockets are a two-way channel — both sides can write at any time.
+
+For AI token streaming, the browser sends one request and the server pushes tokens back — one direction only. SSE fits that perfectly with no special infrastructure: it's just `Content-Type: text/event-stream` on a normal HTTP endpoint. The browser reads events with `new EventSource(url)`.
+
+When *not* to use SSE: if the browser also needs to push mid-stream (live collaborative editing, multiplayer game state), reach for WebSockets instead.
+
+**Interview note:** "Why SSE instead of WebSockets for streaming LLM output?" — always "use the simplest primitive that matches the direction of data flow." SSE is built on HTTP/1.1 and works through proxies and load balancers that WebSocket upgrades sometimes trip over.
+
+---
+
+### 2. `ReadableStream` + async generators for streaming
+
+An async generator is a function that `yield`s values over time and can `await` between yields — like a tap you turn on in stages. A `ReadableStream` is the browser/Node standard for "bytes that arrive incrementally."
+
+The bridge: inside `ReadableStream`'s `start(controller)`, you `for await` over the generator and call `controller.enqueue(bytes)` per chunk. The stream stays open until `controller.close()`. The browser's `EventSource` reads the `data: …\n\n` lines as SSE events.
+
+When *not* to use: small one-shot responses don't need a stream — a plain `new Response(body)` is simpler.
+
+**Interview note:** "How does streaming LLM output work end-to-end?" almost always involves this chain: async generator → `ReadableStream` → SSE → `EventSource` in the browser. Being able to sketch that chain is strong signal in a frontend or full-stack role.
+
+---
+
+### 3. bcrypt cost factor
+
+bcrypt is a password hashing function that deliberately slows itself down. The cost factor is an exponent: cost 12 = 2¹² = 4,096 rounds. Each +1 doubles the time.
+
+For your server hashing one login attempt, a few hundred milliseconds is imperceptible. For an attacker trying billions of combinations against a leaked database, doubling time per hash is catastrophic.
+
+Tune so hashing takes ~200–500ms on your deployment hardware. Cost 10 is fine for low-power devices; cost 12 for anything Internet-facing.
+
+When *not* to use: bcrypt is for passwords only. For API keys, tokens, or data at rest, use a keyed MAC (HMAC-SHA256) or AES — bcrypt's slowness is a liability for anything that's not a human-typed password.
+
+**Interview note:** "Why not store passwords as SHA-256?" — because SHA-256 is fast (billions per second on a GPU). bcrypt's intentional slowness is the security feature.
+
+---
+
+### 4. Cron sidecar pattern
+
+A sidecar is a small secondary container that runs alongside your main app and does exactly one job. Instead of putting a scheduler (`node-cron`, `setInterval`) inside the Next.js process, you spin up a minimal Alpine container that only runs `crond`.
+
+If the scheduler crashes, the app keeps running. If the app restarts, the cron container doesn't miss its schedule. Each container is replaceable independently.
+
+When *not* to use: for a single-developer local project, an in-process `node-cron` call is simpler and avoids the extra container. Choose the sidecar when the schedule must survive app restarts or when you want the schedule visible in `docker-compose.yml` rather than buried in app code.
+
+---
+
+### 5. Idempotent seed / import scripts
+
+"Idempotent" means running something twice produces the same result as running it once. For an import script: before inserting a row, check if it already exists — if yes, skip silently.
+
+Without idempotency, re-running an import doubles data and creates duplicates that are messy to clean up. With it, you can safely re-run on every deploy, after a crash, or in CI — the result is always the same clean state.
+
+The key is choosing the right uniqueness fingerprint. For transactions we use `(date, description, amount)` — a combination that is practically unique per row without requiring an extra `id` column in the CSV.
+
+When *not* to apply: if your records genuinely mutate over time (e.g. a status field that updates), pure skip-on-duplicate is wrong — you'd need an upsert strategy instead.
+
+---
 
 ### 1. Server Components vs Client Components
 

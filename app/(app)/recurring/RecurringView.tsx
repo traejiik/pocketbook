@@ -18,12 +18,27 @@ import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { upsertRecurringRule, archiveRecurringRule, type RecurringRuleInput } from '@/server-actions/recurring'
-import type { Category, RecurringRule } from '@prisma/client'
+import type { Category } from '@prisma/client'
+import type { CardRule } from '@/components/finance/RecurringRuleCard'
 
-type RuleWithCategory = RecurringRule & { category: Category }
+export type SerialisedRule = {
+  id: string
+  name: string
+  amount: number
+  currency: string
+  cycle: string
+  nextDue: string          // YYYY-MM-DD
+  kind: string
+  categoryId: string
+  installmentPaid: number | null
+  installmentTotal: number | null
+  installmentEndsOn: string | null  // YYYY-MM-DD or null
+  archived: boolean
+  category: Category
+}
 
 interface Props {
-  rules: RuleWithCategory[]
+  rules: SerialisedRule[]
   categories: Category[]
   monthlyTotal: number
   annualTotal: number
@@ -46,33 +61,22 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>
 
-function toIsoDate(d: Date) {
-  return d.toISOString().split('T')[0]
-}
-
-function hufVal(r: RuleWithCategory, rates: { usd: number; eur: number }) {
-  const amt = Number(r.amount)
-  if (r.currency === 'USD') return amt * rates.usd
-  if (r.currency === 'EUR') return amt * rates.eur
-  return amt
-}
-
 const TODAY = new Date()
 TODAY.setHours(0, 0, 0, 0)
 
-function daysUntil(d: Date) {
-  return Math.round((d.getTime() - TODAY.getTime()) / 86_400_000)
+function daysUntil(dateStr: string) {
+  return Math.round((new Date(dateStr).getTime() - TODAY.getTime()) / 86_400_000)
 }
 
 export function RecurringView({ rules, categories, monthlyTotal, annualTotal, incomeMonthly }: Props) {
   const [tab, setTab] = useState<'EXPENSE' | 'INCOME'>('EXPENSE')
   const [sheetOpen, setSheetOpen] = useState(false)
-  const [editing, setEditing] = useState<RuleWithCategory | null>(null)
+  const [editing, setEditing] = useState<SerialisedRule | null>(null)
   const [, startTransition] = useTransition()
 
   const list = rules
     .filter((r) => r.kind === tab)
-    .sort((a, b) => a.nextDue.getTime() - b.nextDue.getTime())
+    .sort((a, b) => a.nextDue.localeCompare(b.nextDue))
 
   const expenseRules = rules.filter((r) => r.kind === 'EXPENSE')
   const incomeRules  = rules.filter((r) => r.kind === 'INCOME')
@@ -93,25 +97,25 @@ export function RecurringView({ rules, categories, monthlyTotal, annualTotal, in
     setEditing(null)
     reset({
       currency: 'HUF', cycle: 'MONTHLY', kind: tab as 'INCOME' | 'EXPENSE',
-      hasInstallment: false, nextDue: toIsoDate(new Date()),
+      hasInstallment: false, nextDue: new Date().toISOString().split('T')[0],
     })
     setSheetOpen(true)
   }
 
-  function openEdit(rule: RuleWithCategory) {
+  function openEdit(rule: SerialisedRule) {
     setEditing(rule)
     reset({
       name: rule.name,
-      amount: Number(rule.amount),
+      amount: rule.amount,
       currency: rule.currency as 'HUF' | 'USD' | 'EUR' | 'GBP',
-      cycle: rule.cycle,
-      nextDue: toIsoDate(rule.nextDue),
+      cycle: rule.cycle as 'MONTHLY' | 'ANNUAL',
+      nextDue: rule.nextDue,
       kind: rule.kind as 'INCOME' | 'EXPENSE',
       categoryId: rule.categoryId,
       hasInstallment: rule.installmentTotal != null,
       installmentPaid: rule.installmentPaid ?? 0,
       installmentTotal: rule.installmentTotal ?? undefined,
-      installmentEndsOn: rule.installmentEndsOn ? toIsoDate(rule.installmentEndsOn) : undefined,
+      installmentEndsOn: rule.installmentEndsOn ?? undefined,
     })
     setSheetOpen(true)
   }
@@ -198,10 +202,10 @@ export function RecurringView({ rules, categories, monthlyTotal, annualTotal, in
         {list.map((r) => (
           <RecurringRuleCard
             key={r.id}
-            rule={r}
-            hufEquivalent={Number(r.amount)}
+            rule={r as CardRule}
+            hufEquivalent={r.amount}
             daysAway={daysUntil(r.nextDue)}
-            onEdit={openEdit}
+            onEdit={(c) => openEdit(c as SerialisedRule)}
           />
         ))}
       </div>
