@@ -38,3 +38,8 @@ Next.js 14 · React 18 · TypeScript 5 · Tailwind CSS 3.4 · shadcn/ui · Postg
 ## Teaching mode
 
 Tida is a 3rd-year CS student. Teach concepts before writing code — see `handoff/00-overview.md` for the full teaching template and concept schedule.
+When a session is done, open `docs/` at the root and append to teachable to file `teachables.md`. Create if file and folder are not there
+
+## Session completion
+
+Upon a session completion, open `docs/` at the root and add context memory to `memory.md`; and session checklist and to do notes to `checklist.md`. Create if files and folder are not there
