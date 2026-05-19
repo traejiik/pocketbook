@@ -4,16 +4,24 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
-function Label({ className, ...props }: React.ComponentProps<"label">) {
+interface LabelProps extends React.ComponentProps<"label"> {
+  hint?: React.ReactNode
+}
+
+function Label({ className, hint, children, htmlFor, ...props }: LabelProps) {
   return (
     <label
       data-slot="label"
+      htmlFor={htmlFor}
       className={cn(
-        "flex items-center gap-2 text-sm leading-none font-medium select-none group-data-[disabled=true]:pointer-events-none group-data-[disabled=true]:opacity-50 peer-disabled:cursor-not-allowed peer-disabled:opacity-50",
+        "flex items-baseline justify-between text-[12px] font-medium text-muted-foreground select-none group-data-[disabled=true]:pointer-events-none group-data-[disabled=true]:opacity-50 peer-disabled:cursor-not-allowed peer-disabled:opacity-50",
         className
       )}
       {...props}
-    />
+    >
+      <span>{children}</span>
+      {hint && <span className="text-[11px] text-muted-foreground/70">{hint}</span>}
+    </label>
   )
 }
 
