@@ -55,3 +55,57 @@ Key layer-caching rule: `COPY package.json` before `COPY .` so a source-code cha
 **Interview note:** Multi-stage builds and layer caching are common DevOps interview topics.
 
 ---
+
+## Session 2 — Data Layer + Primitives
+
+### 1. Prisma: schema-first ORM
+
+An ORM where you write one `.prisma` file and Prisma generates both the SQL migration *and* a type-safe TypeScript client from it automatically.
+
+Problem solved: without it you write SQL to create tables and TypeScript types to represent rows separately — they drift apart silently. Prisma makes them the same source of truth. Change the schema, run `prisma migrate dev`, and the TypeScript types update with it.
+
+Mental model: `schema.prisma` is a contract. The migration is Prisma turning that contract into real database tables. `@prisma/client` is Prisma turning that contract into TypeScript functions like `prisma.transaction.findMany()`.
+
+Don't reach for Prisma when you need raw-SQL performance tuning or complex CTEs — the abstraction layer gets in the way there.
+
+**Interview note:** "ORM vs raw SQL trade-offs" is standard in backend interviews. The answer: ORM for productivity and type-safety on CRUD; raw SQL for complex joins, window functions, or throughput-critical hot paths.
+
+---
+
+### 2. `Decimal` for money — never `float`
+
+`Decimal` maps to PostgreSQL's `NUMERIC` type, which stores exact decimal values as a string of digits rather than a binary fraction.
+
+Problem solved: IEEE 754 floats can't represent most decimal fractions exactly — `0.1 + 0.2 = 0.30000000000000004`. For money that drift compounds across thousands of transactions and produces incorrect totals.
+
+Mental model: a float stores "approximately 0.1". `NUMERIC` stores the digit `1` with a note saying "one decimal place." No approximation involved. In TypeScript, Prisma gives you a `Decimal` object — call `Number(d)` or `.toNumber()` to convert for display.
+
+Don't use `Decimal` for ratios, percentages, or computed physics values — it's slower and the precision overkill doesn't matter there.
+
+**Interview note:** "Why not float for money?" is near-universal in backend interviews. The one-line answer: IEEE 754 rounding. Always use `NUMERIC`/`DECIMAL` in SQL or a decimal library (`decimal.js`, Python's `Decimal`) in application code.
+
+---
+
+### 3. CUID vs UUID vs autoincrement
+
+Three strategies for generating unique row IDs with different trade-offs on size, sortability, and index performance.
+
+Problem solved: you need IDs that are unique, URL-safe, and don't leak record counts or cause database performance problems at scale.
+
+Mental model: autoincrement is like numbering books 1, 2, 3 — simple, but leaks how many records exist. UUID v4 is a random barcode — globally unique, but randomness means new records get inserted all over the B-tree index, causing page splits and slower inserts. CUID is a timestamp-prefixed barcode — still globally unique, but roughly time-ordered so new records go to the "right end" of the index. Fast inserts, no page splits.
+
+Don't use CUID if you need IDs generated across many machines without coordination — look at ULID or Snowflake IDs for distributed systems.
+
+**Interview note:** "What ID strategy would you pick and why?" — mention index locality. UUID v4 kills B-tree insert performance at scale. CUID/ULID are the modern defaults because they're time-ordered.
+
+---
+
+### 4. React `cache()` — brief intro (deep dive Session 4)
+
+`React.cache()` wraps any async function and memoises its result for the duration of one server render pass. The first call fetches from the DB; every subsequent call in the same request returns the cached result instantly.
+
+Used in `lib/fx.ts` so `getRate('HUF', 'USD')` only hits the database once per request even if dozens of components call it. This is server-only — it has no effect in client components.
+
+Full deep dive including when to use it, when not to, and the difference from `unstable_cache` comes in Session 4.
+
+---
