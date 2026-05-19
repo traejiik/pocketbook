@@ -1,11 +1,22 @@
+'use client';
+
+import { useMemo } from 'react';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
+import { useTransactionSheet } from '@/contexts/sheet-context';
+import { useGlobalKeys } from '@/hooks/use-global-keys';
 
 interface AppShellProps {
   children: React.ReactNode;
 }
 
 export function AppShell({ children }: AppShellProps) {
+  const { openNew } = useTransactionSheet();
+
+  // Stable handler map — recreated only when openNew reference changes
+  const keyHandlers = useMemo(() => ({ n: openNew, N: openNew }), [openNew]);
+  useGlobalKeys(keyHandlers);
+
   // TODO session 4: derive from DB — recurring expenses with nextDue within 30 days
   const upcomingRenewalsCount = 6;
 
