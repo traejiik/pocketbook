@@ -121,6 +121,53 @@ Running log of decisions, deviations, and important context for future sessions.
 - Month picker button shows label only — navigation deferred to Session 4+
 - Commit: `f7b7a95 feat: transactions screen + add/edit sheet + optimistic writes`
 
+---
+
+## Session 4 — 2026-05-19
+
+### Architecture decisions
+
+| Decision | Rationale |
+|---|---|
+| `DashboardChartSection` split into a client island | Dashboard page is a server component; the Segmented toggle requires `useState`, so only the chart section is `'use client'` — server data is passed as serialised props |
+| Renewals: fetch 90 days server-side, filter client-side | Dataset is small; avoids a server action round-trip on toggle; matches the handoff's "simpler alternative" |
+| `layout.tsx` fetches renewal count server-side | `AppShell` is a client component and can't call Prisma; the server layout passes the count as a prop — removes the `// TODO session 4` hardcode |
+| FX rates on recurring page: hardcoded fallback | `toAnchor` via `lib/fx.ts` requires DB; recurring page uses hardcoded 358.4/396.1 for summary strip totals — fine until Session 5 wires `frankfurter.ts` |
+| Installment auto-archive: `archived = nextPaid >= installmentTotal` | Single comparison; avoids a separate update call; safe because both happen in `prisma.$transaction` |
+
+### Key files added / changed
+
+| File | Purpose |
+|---|---|
+| `lib/aggregations.ts` | All DB aggregation helpers: KPIs, expenses-by-category, upcoming renewals, recent txns, monthly trend, categories with stats, last AI insight — all wrapped in `React.cache()` |
+| `components/finance/KpiBig.tsx` | 44px tabular KPI card, `233k` abbreviation, tone colour, delta chip |
+| `components/finance/PillBar.tsx` | Vertical pill: `solid` / `mid` (45% opacity) / `soft` (hatched) variants |
+| `components/finance/GaugeMeter.tsx` | Half-circle SVG gauge using `strokeDasharray` to clip the filled arc |
+| `components/finance/RecurringRuleCard.tsx` | Rule card with installment amber block + progress bar |
+| `components/finance/TimelineStrip.tsx` | Horizontal proportional timeline with hover tooltip |
+| `app/(app)/dashboard/page.tsx` | Full 3-row dashboard: KPI row, chart+renewals row, activity+gauge+AI row |
+| `app/(app)/dashboard/DashboardChartSection.tsx` | Client island: Segmented categories/trend toggle + PillBar chart |
+| `app/(app)/recurring/page.tsx` | Server: fetches rules + totals, passes to RecurringView |
+| `app/(app)/recurring/RecurringView.tsx` | Client: tab state, rule Sheet with installment toggle, archive action |
+| `app/(app)/renewals/page.tsx` | Server: fetches 90-day renewals, serialises, passes to RenewalsView |
+| `app/(app)/renewals/RenewalsView.tsx` | Client: horizon/grouping state, TimelineStrip, grouped list |
+| `app/(app)/categories/page.tsx` | Server: fetches categories with tx count + HUF totals |
+| `app/(app)/categories/CategoriesView.tsx` | Client: edit/create Dialog (palette + hex input), delete Dialog with reassignment |
+| `server-actions/recurring.ts` | `upsertRecurringRule` + `archiveRecurringRule` with Zod validation |
+| `server-actions/categories.ts` | `upsertCategory` + `deleteCategory` (atomic reassign via `prisma.$transaction`) |
+| `server-actions/transactions.ts` | Updated: `upsertTransaction` now atomically increments `installmentPaid` and auto-archives when complete |
+| `app/(app)/layout.tsx` | Now `async`; fetches `getUpcomingRenewals(30)` and passes count to `AppShell` |
+| `components/shell/AppShell.tsx` | Accepts `upcomingRenewalsCount` prop; removes hardcoded `6` |
+
+### Session 4 end state
+
+- Dashboard, Recurring, Renewals, Categories all render with real DB data
+- `pnpm tsc --noEmit` — 0 errors
+- `pnpm next build` — clean, 13 routes, 0 errors
+- Sidebar Renewals badge is live from DB
+- Installment increment is atomic via `prisma.$transaction`
+- Commit: `a3d435f feat: dashboard, recurring, renewals, categories`
+
 ### Post-session 3 — blank page / 500 investigation
 
 Reported: blank page in dev server after Session 3 commit.

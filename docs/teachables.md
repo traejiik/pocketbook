@@ -4,6 +4,34 @@ Concepts introduced session by session, with a short recap and the interview ang
 
 ---
 
+## Session 4 — Dashboard & Lists
+
+### 1. React `cache()` — per-request memoisation
+
+`React.cache()` wraps a function so that multiple calls with the same arguments *within a single server render* share one result. The first call executes; every subsequent call returns the stored value. The cache is thrown away after each request — it is not persistent storage.
+
+Mental model: a sticky note on the kitchen worktop. Anyone in the kitchen during that meal can read it for free, but it's binned when the table is cleared.
+
+When *not* to use it: don't cache mutations or anything that must return fresh data across different requests. It only saves within one render tree.
+
+**Interview note:** "What's the difference between React `cache()` and `unstable_cache`?" — `cache()` is per-request (a synchronous memo within one render), while `unstable_cache` is cross-request (persistent, closer to a CDN layer with a TTL). Interviewers testing App Router knowledge often ask this.
+
+---
+
+### 2. Database transactions — atomic writes
+
+When two tables must be updated together or not at all, wrap them in `prisma.$transaction([...])`. Prisma sends both SQL statements in a single atomic unit — if one fails, the other is rolled back automatically.
+
+In Pocketbook this applies when a transaction is linked to an installment recurring rule: creating the transaction row and incrementing `installmentPaid` on the rule must succeed together, otherwise the paid counter would go out of sync with the actual transaction history.
+
+Mental model: a bank transfer — you can't credit one account without debiting the other in the same commit, or money appears from nowhere.
+
+When *not* to use it: single-table writes don't need a transaction. Unnecessary transactions hold database locks longer and add latency.
+
+**Interview note:** "How do you prevent partial writes when two tables need to be updated together?" — the answer is a database transaction, and Prisma's `$transaction()` is the idiomatic way to do it. You can follow up by explaining rollback guarantees.
+
+---
+
 ## Session 1 — Foundation
 
 ### 1. Server Components vs Client Components

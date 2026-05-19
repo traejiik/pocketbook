@@ -96,21 +96,53 @@
 
 ---
 
-## Session 4 — Dashboard & Lists (upcoming)
+## Session 4 — Dashboard & Lists ✅
 
-### To-do
+### Session 4 checklist
 
-- [ ] Dashboard: KPI row (net income, total expense, savings rate, balance)
-- [ ] Expenses-by-category bar chart (Recharts)
-- [ ] Renewals widget + recent activity list on dashboard
-- [ ] `GaugeMeter` SVG component (savings-rate gauge)
-- [ ] `PillBar` for category breakdown
-- [ ] AI feature card (placeholder until Session 5)
-- [ ] Recurring screen: list of `RecurringRule` cards with installment progress
-- [ ] Renewals screen: `TimelineStrip` + upcoming/overdue grouping
-- [ ] Categories CRUD: add / edit / delete category with colour picker
-- [ ] Derive `upcomingRenewalsCount` from DB (nextDue within 30 days)
-- [ ] `React.cache()` deep dive — per-request memoisation, difference from `unstable_cache`
-- [ ] Database transactions concept — atomic installment increment on RecurringRule
+- [x] Dashboard renders all 8 cards in the correct layout with real DB data
+- [x] `KpiBig` values: 44px tabular, tone-coloured, `233k` abbreviation for ≥ 100k, delta chip
+- [x] `GaugeMeter` SVG: filled arc via `strokeDasharray`, hatched remainder, `{pct}%` centred
+- [x] `PillBar` chart in Categories view; Net trend view via Segmented toggle
+- [x] AI Insights dark gradient card — links to `/insights?generate=1` (generate) and `/insights` (open)
+- [x] Recurring screen lists all rules; installment progress bar + amber block rendered correctly
+- [x] New recurring rule sheet: name, amount, currency, cycle, kind, next due, category, installment plan toggle
+- [x] Archive recurring rule (soft-delete via `archived = true`)
+- [x] Renewals `TimelineStrip`: events positioned proportionally at `(daysAway / horizon) * 100%`
+- [x] Renewals horizon (30d / 60d / 90d) + grouping (by week / by month) toggles update list and totals
+- [x] Categories grouped by kind; colour swatch, hex code, tx count, HUF total per row
+- [x] Create / edit category: palette picker + free-text hex input + kind select
+- [x] Delete category: replacement-category prompt when transactions exist; `prisma.$transaction` for atomic reassignment
+- [x] Sidebar Renewals badge now live from `getUpcomingRenewals(30).length` via `layout.tsx`
+- [x] `upsertTransaction` atomically increments `installmentPaid` and auto-archives completed rules via `prisma.$transaction`
+- [x] `lib/aggregations.ts` — all helpers wrapped in `React.cache()` for per-request memoisation
+- [x] `npx tsc --noEmit` — 0 errors
+- [x] `npx next build` — clean, 13 routes, 0 errors
+- [x] Commit: `a3d435f feat: dashboard, recurring, renewals, categories`
+
+### Session 4 deferred items
+
+| Item | Session |
+| --- | --- |
+| Dashboard "Add transaction" button wires to the global sheet (currently a plain button) | Session 5 polish |
+| Month picker navigation on transactions screen | Session 5+ |
+| Export CSV button | Session 5 |
+| `lib/frankfurter.ts` FX rate fetcher | Session 5 |
+| FX rates on recurring cards use hardcoded fallback (358.4 / 396.1) instead of DB rates | Session 5 |
+
+---
+
+## Session 5 — Insights, Settings & Polish (upcoming)
+
+### Session 5 to-do
+
+- [ ] AI Insights page: real Ollama SSE streaming, `?generate=1` param triggers generation on mount
+- [ ] Settings page: anchor currency, tracked currencies, FX auto-sync, password change, LLM picker
+- [ ] `lib/frankfurter.ts` + `app/api/fx/sync/route.ts` — cron-callable FX rate refresh
+- [ ] `lib/ollama.ts` + `app/api/insights/stream/route.ts` — SSE proxy to Ollama
+- [ ] `scripts/csv-import.ts` — one-time CSV importer (reads `/seed/transactions.csv` if present)
+- [ ] README — setup, seed, docker-compose, dev workflow
+- [ ] Final polish: skeletons on every async surface, any remaining hydration warnings
+- [ ] `docker-compose build` end-to-end test
 
 ---
