@@ -1,3 +1,7 @@
-// Stub — replaced in session 2 when we add the real schema and migration.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const prisma = null as any;
+import { PrismaClient } from '@prisma/client';
+
+const globalForPrisma = global as unknown as { prisma?: PrismaClient };
+
+export const prisma = globalForPrisma.prisma ?? new PrismaClient();
+
+if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;

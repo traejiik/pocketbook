@@ -1,0 +1,118 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum CategoryKind {
+  INCOME
+  EXPENSE
+  SAVINGS
+}
+
+enum TransactionType {
+  INCOME
+  EXPENSE
+  SAVINGS
+}
+
+enum RecurringCycle {
+  MONTHLY
+  ANNUAL
+}
+
+enum FxMode {
+  AUTO
+  MANUAL
+}
+
+model User {
+  id           String      @id @default(cuid())
+  email        String      @unique
+  passwordHash String
+  createdAt    DateTime    @default(now())
+  insights     AiInsight[]
+}
+
+model Category {
+  id             String          @id @default(cuid())
+  name           String
+  color          String
+  kind           CategoryKind
+  transactions   Transaction[]
+  recurringRules RecurringRule[]
+
+  @@unique([name, kind])
+}
+
+model Transaction {
+  id              String          @id @default(cuid())
+  date            DateTime        @db.Date
+  description     String
+  amount          Decimal         @db.Decimal(14, 2)
+  currency        String          @db.Char(3)
+  type            TransactionType
+  categoryId      String
+  category        Category        @relation(fields: [categoryId], references: [id])
+  recurringRuleId String?
+  recurringRule   RecurringRule?  @relation(fields: [recurringRuleId], references: [id])
+  createdAt       DateTime        @default(now())
+
+  @@index([date])
+  @@index([categoryId])
+  @@index([type])
+}
+
+model RecurringRule {
+  id                String         @id @default(cuid())
+  name              String
+  amount            Decimal        @db.Decimal(14, 2)
+  currency          String         @db.Char(3)
+  cycle             RecurringCycle
+  nextDue           DateTime       @db.Date
+  kind              CategoryKind
+  categoryId        String
+  category          Category       @relation(fields: [categoryId], references: [id])
+  installmentTotal  Int?
+  installmentPaid   Int?
+  installmentEndsOn DateTime?      @db.Date
+  archived          Boolean        @default(false)
+  transactions      Transaction[]
+}
+
+model ExchangeRate {
+  id           String   @id @default(cuid())
+  fromCurrency String   @db.Char(3)
+  toCurrency   String   @db.Char(3)
+  rate         Decimal  @db.Decimal(14, 6)
+  mode         FxMode
+  provider     String?
+  updatedAt    DateTime @default(now()) @updatedAt
+
+  @@unique([fromCurrency, toCurrency])
+}
+
+model AppSettings {
+  id                  String  @id @default("singleton")
+  anchorCurrency      String  @default("HUF") @db.Char(3)
+  ollamaUrl           String  @default("http://ollama:11434")
+  ollamaModel         String  @default("llama3.1:8b")
+  fxAutoSync          Boolean @default(true)
+  autoInsightsMonthly Boolean @default(true)
+}
+
+model AiInsight {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id])
+  monthCovered String
+  modelUsed    String
+  content      String   @db.Text
+  generatedAt  DateTime @default(now())
+  feedback     String?
+
+  @@index([monthCovered])
+}

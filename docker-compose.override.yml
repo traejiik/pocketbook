@@ -1,0 +1,6 @@
+# Local development overrides — merged automatically by Docker Compose.
+# Not used in production (deploy with `docker compose -f docker-compose.yml up`).
+services:
+  db:
+    ports:
+      - "5432:5432"
