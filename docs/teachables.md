@@ -109,3 +109,47 @@ Used in `lib/fx.ts` so `getRate('HUF', 'USD')` only hits the database once per r
 Full deep dive including when to use it, when not to, and the difference from `unstable_cache` comes in Session 4.
 
 ---
+
+## Session 3 — Transactions + Add/Edit Sheet
+
+### 1. Server Actions vs REST endpoints
+
+A Server Action is an async function marked `'use server'` that Next.js compiles to run on the server but is *called* from a client component like a normal async function — no `fetch`, no URL, no manual JSON serialisation.
+
+Problem solved: previously you'd write an API route (`/api/transactions`), call it with `fetch`, handle loading/error state, and keep client-side types in sync manually. A Server Action collapses all of that into one typed function call.
+
+Mental model: Next.js auto-generates a secret POST endpoint for each action. When your button calls `upsertTransaction(data)`, the browser invisibly POSTs to that endpoint, the server runs the function, `revalidatePath` fires, and the page refreshes. You never touch the HTTP layer.
+
+Don't use Server Actions for: GET requests or streaming — use route handlers for those (which is why the Ollama streaming endpoint stays in `api/insights/stream/route.ts`).
+
+**Interview note:** "When would you choose a Server Action over a REST endpoint?" — Server Actions for mutations tied to a specific UI; REST routes when you need a public URL callable from outside (cron jobs, mobile clients, webhooks).
+
+---
+
+### 2. react-hook-form + zod — division of labour
+
+`react-hook-form` manages *form state* (which fields are dirty, current values, submission status). `zod` manages *data validation* (does this value have the right shape and constraints). They're separate concerns, connected by `zodResolver` from `@hookform/resolvers/zod`.
+
+Mental model: react-hook-form is the spreadsheet tracking every cell's current value; zod is the type-checker that runs when you try to save. You write the validation schema once in zod and react-hook-form calls it for you on submit.
+
+react-hook-form is intentionally *uncontrolled* under the hood — it uses refs rather than `useState` per field, so the component doesn't re-render on every keystroke. This is why it stays fast even with large forms.
+
+Don't reach for react-hook-form for single-field forms or things that are better as plain `useState` — the setup cost only pays off when you have validation, interdependent fields, or dirty-state tracking.
+
+**Interview note:** "Controlled vs uncontrolled forms" — react-hook-form is uncontrolled by default for performance. Common follow-up after "walk me through your form handling."
+
+---
+
+### 3. `useOptimistic` + `startTransition`
+
+`useOptimistic` lets you show a *fake* version of state immediately — before the server responds — then automatically reconcile with the real data when the server is done.
+
+`startTransition` tells React: "this update is non-urgent — don't block the user's clicks and typing while it processes." You *must* wrap the Server Action call in `startTransition` alongside `addOptimistic`, so React treats the fake update and the real async call as part of the same transition.
+
+Mental model: `useOptimistic` is the pencil row in a spreadsheet; `startTransition` is handing the real write to a background worker. When the worker finishes, the real ink replaces the pencil automatically. If the worker fails, the pencil disappears on the next render — that's the automatic rollback.
+
+Don't use it for operations where showing a wrong state would be confusing — e.g. financial aggregates that feed other decisions in the same view. For a transaction list, a briefly stale row is harmless.
+
+**Interview note:** "How do you implement optimistic UI without a state management library?" — `useOptimistic` + `startTransition` is the modern React 19 answer. Knowing this pattern signals you follow App Router conventions rather than defaulting to Redux or SWR for everything.
+
+---
