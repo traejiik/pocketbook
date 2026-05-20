@@ -144,7 +144,7 @@ export default async function DashboardPage() {
             </Link>
           </div>
           <div className="divide-y divide-border -mx-1">
-            {recentTx.map((t) => {
+            {recentTx.map((t: (typeof recentTx)[number]) => {
               const initials = t.category.name.split(' ').map((w: string) => w[0]).slice(0, 2).join('')
               const amtNum = Number(t.amount)
               return (
