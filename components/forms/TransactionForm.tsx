@@ -134,6 +134,8 @@ export function TransactionForm({
   const currency = watch('currency');
   const amtStr = watch('amount');
   const categoryId = watch('categoryId');
+  const dateVal = watch('date');
+  const descVal = watch('description');
 
   const eligibleCategories = categories.filter(c => c.kind === type);
 
@@ -255,6 +257,7 @@ export function TransactionForm({
                     placeholder="0"
                     className={cn('text-right', errors.amount && 'border-destructive')}
                     {...register('amount')}
+                    value={amtStr}
                     onChange={e => setValue('amount', e.target.value.replace(/[^0-9.,]/g, ''))}
                   />
                   <div className="relative">
@@ -287,6 +290,8 @@ export function TransactionForm({
                   type="date"
                   icon={<CalendarIcon className="w-4 h-4" />}
                   {...register('date')}
+                  value={dateVal}
+                  onChange={e => setValue('date', e.target.value)}
                 />
               </div>
 
@@ -297,6 +302,8 @@ export function TransactionForm({
                   placeholder="e.g. Spar weekly groceries"
                   className={errors.description ? 'border-destructive' : ''}
                   {...register('description')}
+                  value={descVal}
+                  onChange={e => setValue('description', e.target.value)}
                 />
                 {errors.description && (
                   <p className="text-[11px] text-destructive">{errors.description.message}</p>
