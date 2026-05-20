@@ -1,6 +1,6 @@
 # Pocketbook
 
-A self-hosted personal finance web app for a single user. Replaces a manual spreadsheet — tracks income, expenses, savings, recurring rules, renewals, and categories, with an AI-powered monthly summary generated locally via Ollama.
+A self-hosted personal finance tracker for a single user. Replaces a manual spreadsheet — tracks income, expenses, savings, recurring rules, renewals, and categories, with an AI-powered monthly summary generated locally via Ollama. No cloud, no subscription, no third-party data.
 
 ---
 
@@ -32,7 +32,7 @@ A self-hosted personal finance web app for a single user. Replaces a manual spre
 
 ```bash
 # 1. Clone and copy env
-git clone https://github.com/your-username/pocketbook.git
+git clone https://github.com/traejiik/pocketbook.git
 cd pocketbook
 cp .env.example .env
 
@@ -93,15 +93,18 @@ For ad-hoc imports after first boot: `pnpm tsx scripts/csv-import.ts`
 
 ## Architecture
 
-See [`design-reference/`](design-reference/) for the full design system, mockups, and component spec.
+```text
+app/                  Next.js App Router — pages and layouts
+components/           UI primitives and finance-specific components
+server-actions/       All mutations (Server Actions, no REST)
+lib/                  fx.ts, auth helpers, Prisma client
+prisma/               Schema, migrations, seed
+seed/                 CSV bootstrap data (optional)
+scripts/              Ad-hoc import and maintenance scripts
+other/                Design reference, mockups, handoff notes
+```
 
-See [`CLAUDE.md`](CLAUDE.md) and [`handoff/`](handoff/) for the session-by-session build notes used during development.
-
----
-
-## Screenshots
-
-*(Add after first run)*
+Data flow: server components fetch from Prisma directly → pass props → Server Actions mutate → revalidatePath refreshes. No client-side data fetching for initial renders.
 
 ---
 
