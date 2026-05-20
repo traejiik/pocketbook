@@ -1,6 +1,11 @@
+import dynamic from 'next/dynamic';
 import { Sparkles, Calendar } from 'lucide-react';
 import { prisma } from '@/lib/prisma';
-import { InsightCard } from '@/components/insights/InsightCard';
+
+const InsightCard = dynamic(
+  () => import('@/components/insights/InsightCard').then(m => m.InsightCard),
+  { ssr: false }
+);
 import { Button } from '@/components/ui/button';
 
 export default async function AiInsightsPage() {
