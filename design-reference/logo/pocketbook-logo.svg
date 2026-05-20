@@ -1,7 +1,0 @@
-<?xml version="1.0"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" fill="none">
-  <title>Pocketbook</title>
-  <path d="M5 20a11 11 0 0 1 22 0" stroke="#2A6FDB" stroke-width="4" stroke-linecap="round"></path>
-  <path d="M5 20a11 11 0 0 1 11-11" stroke="#2A6FDB" stroke-width="4" stroke-linecap="round" stroke-opacity="0.35"></path>
-  <circle cx="16" cy="22" r="2.2" fill="#2A6FDB"></circle>
-</svg>
