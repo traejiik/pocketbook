@@ -1,8 +1,8 @@
 name: Build and push Docker image
 
 on:
-  push:
-    branches: [main]
+  release:
+    types: [published]
 
 jobs:
   build-and-push:
@@ -33,8 +33,9 @@ jobs:
         with:
           images: ghcr.io/traejiik/pocketbook-web
           tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=sha,prefix=sha-
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest
 
       - name: Build and push
         uses: docker/build-push-action@v6
