@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { getUpcomingRenewals } from '@/lib/aggregations'
 import { RenewalsView } from './RenewalsView'
 

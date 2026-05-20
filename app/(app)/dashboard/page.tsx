@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import Link from 'next/link'
 import { ChevronRight, Plus, Sparkles, ArrowRight } from 'lucide-react'
 import {

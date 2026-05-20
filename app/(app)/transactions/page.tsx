@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { startOfMonth, endOfMonth } from 'date-fns';
 import { prisma } from '@/lib/prisma';
 import { TransactionsView, type SerializedTx } from '@/components/transactions/TransactionsView';
