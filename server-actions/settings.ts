@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
+import { syncAllAutoRates } from '@/lib/frankfurter';
 
 export async function setAnchorCurrency(code: string) {
   await prisma.appSettings.update({
@@ -83,6 +84,20 @@ export async function changePassword(input: { current: string; next: string }) {
   const hash = await bcrypt.hash(input.next, 12);
   await prisma.user.update({ where: { id: user.id }, data: { passwordHash: hash } });
   return { success: true };
+}
+
+export async function forceFxSync(): Promise<{ synced: number }> {
+  const synced = await syncAllAutoRates();
+  revalidatePath('/settings');
+  return { synced };
+}
+
+export async function clearAllData(): Promise<void> {
+  await prisma.aiInsight.deleteMany();
+  await prisma.transaction.deleteMany();
+  await prisma.recurringRule.deleteMany();
+  await prisma.category.deleteMany();
+  revalidatePath('/', 'layout');
 }
 
 export async function getDatabaseSize(): Promise<string> {
