@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { ArrowDown, ArrowUp, ArrowUpRight } from 'lucide-react'
 
 type Tone = 'income' | 'expense' | 'savings' | 'neutral'
@@ -8,6 +9,7 @@ interface KpiBigProps {
   tone?: Tone
   deltaPct: string
   footnote: string
+  href?: string
 }
 
 const toneVar: Record<Tone, string> = {
@@ -17,7 +19,7 @@ const toneVar: Record<Tone, string> = {
   neutral: 'hsl(var(--foreground))',
 }
 
-export function KpiBig({ label, value, tone = 'income', deltaPct, footnote }: KpiBigProps) {
+export function KpiBig({ label, value, tone = 'income', deltaPct, footnote, href }: KpiBigProps) {
   const abs = Math.abs(Math.round(value))
   const isNeg = value < 0
   const valueStr =
@@ -32,9 +34,18 @@ export function KpiBig({ label, value, tone = 'income', deltaPct, footnote }: Kp
     <div className="rounded-2xl p-5 bg-card border border-border flex flex-col gap-4 min-h-[170px]">
       <div className="flex items-start justify-between">
         <div className="text-[14px] font-medium text-foreground">{label}</div>
-        <div className="w-8 h-8 rounded-full border border-border flex items-center justify-center text-foreground/80">
-          <ArrowUpRight className="w-3.5 h-3.5" />
-        </div>
+        {href ? (
+          <Link
+            href={href}
+            className="w-8 h-8 rounded-full border border-border flex items-center justify-center text-foreground/80 hover:bg-accent transition"
+          >
+            <ArrowUpRight className="w-3.5 h-3.5" />
+          </Link>
+        ) : (
+          <div className="w-8 h-8 rounded-full border border-border flex items-center justify-center text-foreground/80">
+            <ArrowUpRight className="w-3.5 h-3.5" />
+          </div>
+        )}
       </div>
       <div className="mt-auto">
         <div className="tabular font-semibold tracking-tight leading-none" style={{ color: toneVar[tone] }}>
