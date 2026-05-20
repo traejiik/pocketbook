@@ -1,58 +1,59 @@
 services:
-  web:
-    build: .
-    image: pocketbook
-    container_name: pocketbook-web
-    restart: unless-stopped
-    environment:
-      DATABASE_URL: postgresql://pocketbook:${POSTGRES_PASSWORD}@db:5432/pocketbook
-      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
-      NEXTAUTH_URL: ${NEXTAUTH_URL}
-      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
-      NEXT_PUBLIC_USER_DISPLAY_NAME: ${USER_DISPLAY_NAME}
-      SEED_USER_EMAIL: ${SEED_USER_EMAIL}
-      SEED_USER_PASSWORD: ${SEED_USER_PASSWORD}
-      FX_SYNC_SECRET: ${FX_SYNC_SECRET}
-    depends_on:
-      db:
-        condition: service_healthy
-    networks:
-      - default
-      - core_net
-    ports:
-      - "3000:3000"
-
-  cron:
-    image: alpine:3.20
-    container_name: pocketbook-cron
-    restart: unless-stopped
-    depends_on:
-      - web
-    environment:
-      FX_SYNC_SECRET: ${FX_SYNC_SECRET}
-    command: >
-      sh -c "echo '0 3 * * * wget -qO- --header=\"X-Sync-Secret: $${FX_SYNC_SECRET}\" --post-data= http://web:3000/api/fx/sync' > /etc/crontabs/root && crond -f -l 6"
-    networks:
-      - default
-
-  db:
+  pocketbook-db:
     image: postgres:16-alpine
     container_name: pocketbook-db
     restart: unless-stopped
     environment:
-      POSTGRES_USER: pocketbook
+      POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: pocketbook
+      POSTGRES_DB: ${POSTGRES_DB}
     volumes:
-      - pocketbook-data:/var/lib/postgresql/data
+      - ${DOCKER_DIR}/pocketbook/postgres:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U pocketbook"]
-      interval: 5s
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
       retries: 5
+    # Uncomment for local dev to allow direct psql access from the host:
+    # ports:
+    #   - "5432:5432"
+    networks:
+      - core_net
+
+  pocketbook-web:
+    image: ghcr.io/traejiik/pocketbook-web:latest
+    container_name: pocketbook-web
+    restart: unless-stopped
+    depends_on:
+      pocketbook-db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@pocketbook-db:5432/${POSTGRES_DB}
+      NEXTAUTH_URL: ${NEXTAUTH_URL}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL}
+      FX_SYNC_SECRET: ${FX_SYNC_SECRET}
+      NEXT_PUBLIC_USER_DISPLAY_NAME: ${USER_DISPLAY_NAME}
+      SEED_USER_EMAIL: ${SEED_USER_EMAIL}
+      SEED_USER_PASSWORD: ${SEED_USER_PASSWORD}
+      NODE_ENV: production
+    networks:
+      - core_net
+
+  fx-sync:
+    image: alpine:3.20
+    container_name: pocketbook-fx-sync
+    restart: unless-stopped
+    depends_on:
+      - pocketbook-web
+    environment:
+      FX_SYNC_SECRET: ${FX_SYNC_SECRET}
+    command: >
+      sh -c "echo '0 3 * * * wget -qO- --header=\"X-Sync-Secret: $$FX_SYNC_SECRET\"
+      --post-data=\"\" http://pocketbook-web:3000/api/fx/sync || true' | crontab - && crond -f -l 8"
+    networks:
+      - core_net
 
 networks:
   core_net:
     external: true
-
-volumes:
-  pocketbook-data:
