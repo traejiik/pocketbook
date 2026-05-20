@@ -1,10 +1,10 @@
 # Pocketbook — Claude Code instructions
 
-Read `handoff/00-overview.md` at the start of every session. Open the relevant session file before writing any code.
+Read `other/handoff/00-overview.md` at the start of every session. Open the relevant session file before writing any code.
 
 ## Design reference
 
-All visual decisions come from `design-reference/`. Never deviate from the mockups in `design-reference/mockups/source/screens/*.jsx`. Port them faithfully — class names, layout, component composition.
+All visual decisions come from `other/design-reference/`. Never deviate from the mockups in `other/design-reference/mockups/source/screens/*.jsx`. Port them faithfully — class names, layout, component composition, unless asked to change something otherwise
 
 ## Implementation rules (non-negotiable)
 
@@ -37,9 +37,9 @@ Next.js 14 · React 18 · TypeScript 5 · Tailwind CSS 3.4 · shadcn/ui · Postg
 
 ## Teaching mode
 
-Tida is a 3rd-year CS student. Teach concepts before writing code — see `handoff/00-overview.md` for the full teaching template and concept schedule.
-When a session is done, open `docs/` at the root and append to teachable to file `teachables.md`. Create if file and folder are not there
+Tida is a 3rd-year CS student. Teach concepts before writing code — see `other/handoff/00-overview.md` for the full teaching template and concept schedule.
+When a session is done, open `other/docs/` at the root and append to teachable to file `teachables.md`. Create if file and folder are not there
 
 ## Session completion
 
-Upon a session completion, open `docs/` at the root and add context memory to `memory.md`; and session checklist and to do notes to `checklist.md`. Create if files and folder are not there
+Upon a session completion, open `other/docs/` at the root and add context memory to `memory.md`; and session checklist and to do notes to `checklist.md`. Create if files and folder are not there
