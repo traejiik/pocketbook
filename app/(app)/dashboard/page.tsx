@@ -1,7 +1,8 @@
 export const dynamic = 'force-dynamic'
 
 import Link from 'next/link'
-import { ChevronRight, Plus, Sparkles, ArrowRight } from 'lucide-react'
+import { ChevronRight, Plus, Sparkles, Settings } from 'lucide-react'
+import { DashboardActions } from './DashboardActions'
 import {
   getCurrentMonthKpis,
   getExpensesByCategory,
@@ -42,22 +43,15 @@ export default async function DashboardPage() {
           <h1 className="text-[30px] font-semibold tracking-tight leading-none">Dashboard</h1>
           <div className="text-[13px] text-muted-foreground mt-2.5">Your finances at a glance.</div>
         </div>
-        <div className="flex items-center gap-2.5">
-          <button className="inline-flex items-center gap-2 h-11 px-5 rounded-full bg-primary text-primary-foreground font-medium text-[13.5px] shadow-pb-2 hover:opacity-90 transition">
-            <Plus className="w-4 h-4" /> Add transaction
-          </button>
-          <Link href="/transactions" className="inline-flex items-center h-11 px-5 rounded-full border border-border bg-card text-foreground font-medium text-[13.5px] hover:bg-accent transition">
-            Import data
-          </Link>
-        </div>
+        <DashboardActions />
       </div>
 
       {/* Row 1 — KPI cards */}
       <div className="grid grid-cols-4 gap-4">
-        <KpiBig label="Income"   value={kpis.income}  tone="income"   deltaPct="+4.2%" footnote="Increased from last month" />
-        <KpiBig label="Expenses" value={kpis.expense} tone="expense"  deltaPct="−2.8%" footnote="Decreased from last month" />
-        <KpiBig label="Net"      value={kpis.net}     tone="income"   deltaPct="+9.1%" footnote="Increased from last month" />
-        <KpiBig label="Savings"  value={kpis.savings} tone="savings"  deltaPct="On auto" footnote="Emergency Fund · weekly" />
+        <KpiBig label="Income"   value={kpis.income}  tone="income"   deltaPct="+4.2%" footnote="Increased from last month" href="/transactions?type=INCOME" />
+        <KpiBig label="Expenses" value={kpis.expense} tone="expense"  deltaPct="−2.8%" footnote="Decreased from last month" href="/transactions?type=EXPENSE" />
+        <KpiBig label="Net"      value={kpis.net}     tone="income"   deltaPct="+9.1%" footnote="Increased from last month" href="/transactions" />
+        <KpiBig label="Savings"  value={kpis.savings} tone="savings"  deltaPct="On auto" footnote="Emergency Fund · weekly" href="/transactions?type=SAVINGS" />
       </div>
 
       {/* Row 2 + 3 in the same 12-col grid */}
@@ -307,11 +301,11 @@ export default async function DashboardPage() {
                     <Sparkles className="w-4 h-4" />
                   </Link>
                   <Link
-                    href="/insights"
-                    title="Open insights"
+                    href="/settings"
+                    title="Settings"
                     className="w-9 h-9 rounded-full bg-destructive text-white flex items-center justify-center hover:scale-105 transition"
                   >
-                    <ArrowRight className="w-4 h-4" />
+                    <Settings className="w-4 h-4" />
                   </Link>
                 </div>
               </div>
