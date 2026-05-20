@@ -23,7 +23,7 @@ export default async function TransactionsPage() {
   ]);
 
   // Serialise Prisma Decimal + Date to plain values for client components
-  const transactions: SerializedTx[] = rawTxs.map(tx => ({
+  const transactions: SerializedTx[] = rawTxs.map((tx: (typeof rawTxs)[number]) => ({
     id: tx.id,
     date: tx.date.toISOString().slice(0, 10),
     description: tx.description,
@@ -40,14 +40,14 @@ export default async function TransactionsPage() {
     recurringRuleId: tx.recurringRuleId,
   }));
 
-  const serialisedCategories: SerializedCategory[] = categories.map(c => ({
+  const serialisedCategories: SerializedCategory[] = categories.map((c: (typeof categories)[number]) => ({
     id: c.id,
     name: c.name,
     color: c.color,
     kind: c.kind,
   }));
 
-  const serialisedRules: SerializedRecurringRule[] = recurringRules.map(r => ({
+  const serialisedRules: SerializedRecurringRule[] = recurringRules.map((r: (typeof recurringRules)[number]) => ({
     id: r.id,
     name: r.name,
     cycle: r.cycle,

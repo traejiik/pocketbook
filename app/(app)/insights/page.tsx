@@ -17,7 +17,7 @@ export default async function AiInsightsPage() {
   const monthLabel = now.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
 
   // Serialise dates for client
-  const serialisedHistory = history.map(h => ({
+  const serialisedHistory = history.map((h: (typeof history)[number]) => ({
     ...h,
     generatedAt: h.generatedAt.toISOString(),
   }));
