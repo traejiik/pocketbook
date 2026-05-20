@@ -36,6 +36,7 @@ services:
       NEXT_PUBLIC_USER_DISPLAY_NAME: ${PB_USER_DISPLAY_NAME}
       SEED_USER_EMAIL: ${PB_SEED_USER_EMAIL}
       SEED_USER_PASSWORD: ${PB_SEED_USER_PASSWORD}
+      AUTH_TRUST_HOST: ${AUTH_TRUST_HOST}
       NODE_ENV: production
     networks:
       - core_net
