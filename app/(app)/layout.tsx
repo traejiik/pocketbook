@@ -34,6 +34,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           categories={serialisedCategories}
           recurringRules={serialisedRules}
           fxRates={fxRates}
+          displayName={process.env.PB_USER_DISPLAY_NAME ?? 'User'}
         >
           {children}
         </AppShell>
