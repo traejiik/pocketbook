@@ -16,9 +16,10 @@ interface AppShellProps {
   categories: SerializedCategory[];
   recurringRules: SerializedRecurringRule[];
   fxRates: { USD: number; EUR: number; GBP: number };
+  displayName?: string;
 }
 
-export function AppShell({ children, upcomingRenewalsCount = 0, categories, recurringRules, fxRates }: AppShellProps) {
+export function AppShell({ children, upcomingRenewalsCount = 0, categories, recurringRules, fxRates, displayName }: AppShellProps) {
   const { openNew, close } = useTransactionSheet();
   const pathname = usePathname();
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -46,7 +47,7 @@ export function AppShell({ children, upcomingRenewalsCount = 0, categories, recu
     <div className="w-full h-screen bg-background text-foreground flex overflow-hidden p-3 gap-3">
       <Sidebar upcomingRenewalsCount={upcomingRenewalsCount} onQuickAdd={openNew} />
       <div className="flex-1 flex flex-col gap-3 overflow-hidden">
-        <Header upcomingRenewalsCount={upcomingRenewalsCount} />
+        <Header upcomingRenewalsCount={upcomingRenewalsCount} displayName={displayName} />
         <main className="flex-1 overflow-auto relative">{children}</main>
       </div>
       {showGlobalSheet && (

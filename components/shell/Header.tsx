@@ -1,16 +1,25 @@
 'use client';
 
+import Link from 'next/link';
 import { format } from 'date-fns';
-import { Search, Bell, Sun, Moon } from 'lucide-react';
+import { Search, Bell, Sun, Moon, LogOut } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { signOut, useSession } from 'next-auth/react';
 import { Input } from '@/components/ui/input';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 interface HeaderProps {
   upcomingRenewalsCount?: number;
+  displayName?: string;
 }
 
-export function Header({ upcomingRenewalsCount = 0 }: HeaderProps) {
+export function Header({ upcomingRenewalsCount = 0, displayName = 'User' }: HeaderProps) {
   const { theme, setTheme } = useTheme();
   const { data: session } = useSession();
 
@@ -43,8 +52,9 @@ export function Header({ upcomingRenewalsCount = 0 }: HeaderProps) {
       </div>
 
       <div className="ml-auto flex items-center gap-1.5">
-        {/* Notification bell */}
-        <button
+        {/* Notification bell → renewals */}
+        <Link
+          href="/renewals"
           title="Renewals due soon"
           className="w-9 h-9 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent relative"
         >
@@ -52,7 +62,7 @@ export function Header({ upcomingRenewalsCount = 0 }: HeaderProps) {
           {upcomingRenewalsCount > 0 && (
             <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-expense" />
           )}
-        </button>
+        </Link>
 
         {/* Theme toggle */}
         <button
@@ -65,22 +75,32 @@ export function Header({ upcomingRenewalsCount = 0 }: HeaderProps) {
 
         <div className="w-px h-6 bg-border mx-1.5" />
 
-        {/* User chip */}
-        <button
-          onClick={() => signOut({ callbackUrl: '/login' })}
-          className="flex items-center gap-2.5 pr-1 hover:opacity-90 transition"
-          title="Sign out"
-        >
-          <div className="w-9 h-9 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-[12px] font-semibold text-primary">
-            {initial || 'U'}
-          </div>
-          <div className="leading-tight text-left">
-            <div className="text-[12.5px] font-medium">
-              {process.env.NEXT_PUBLIC_USER_DISPLAY_NAME ?? 'User'}
+        {/* User chip with dropdown */}
+        <DropdownMenu>
+          <DropdownMenuTrigger className="flex items-center gap-2.5 pr-1 hover:opacity-90 transition outline-none">
+            <div className="w-9 h-9 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-[12px] font-semibold text-primary">
+              {initial || 'U'}
             </div>
-            <div className="text-[10.5px] text-muted-foreground font-mono">{email}</div>
-          </div>
-        </button>
+            <div className="leading-tight text-left">
+              <div className="text-[12.5px] font-medium">{displayName}</div>
+              <div className="text-[10.5px] text-muted-foreground font-mono">{email}</div>
+            </div>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48 bg-card border border-border shadow-lg">
+            <div className="px-2 py-1.5">
+              <div className="text-[12.5px] font-medium">{displayName}</div>
+              <div className="text-[11px] text-muted-foreground font-mono truncate">{email}</div>
+            </div>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              className="text-[13px] gap-2 cursor-pointer"
+              onClick={() => signOut({ callbackUrl: '/login' })}
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              Sign out
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </header>
   );
