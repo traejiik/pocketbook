@@ -22,8 +22,9 @@ async function connectWithRetry(attempts = 3, delayMs = 500): Promise<void> {
   }
 }
 
-// Eagerly connect in production so the pool is warm on first request
-if (process.env.NODE_ENV === 'production') {
+// Eagerly connect in production at runtime so the pool is warm on first request.
+// NEXT_PHASE is set during `next build` — skip connecting then since there is no DB.
+if (process.env.NODE_ENV === 'production' && process.env.NEXT_PHASE !== 'phase-production-build') {
   connectWithRetry().catch((err) =>
     console.error('[db] Failed to connect after retries:', err)
   )
