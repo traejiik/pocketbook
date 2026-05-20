@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { DollarSign, Lock, Sparkles, Check, AlertTriangle, RefreshCw, Plus, Trash2, Edit, Repeat } from 'lucide-react';
+import { DollarSign, Lock, Sparkles, Check, AlertTriangle, RefreshCw, Plus, Trash2, Edit, Repeat, Database } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,6 +21,8 @@ import {
   setAutoInsights,
   setOllamaModel,
   changePassword,
+  forceFxSync,
+  clearAllData,
 } from '@/server-actions/settings';
 
 type Rate = {
@@ -93,6 +95,7 @@ export function SettingsView({
   const [autoInsights, setAutoInsightsState] = useState(initialAutoInsights);
   const [addCurrencyOpen, setAddCurrencyOpen] = useState(false);
   const [newCurrencyCode, setNewCurrencyCode] = useState('');
+  const [clearDbOpen, setClearDbOpen] = useState(false);
 
   // Password form
   const [currentPw, setCurrentPw] = useState('');
@@ -321,7 +324,22 @@ export function SettingsView({
                 <Switch checked={autoSync} onCheckedChange={handleAutoSyncToggle} />
                 Auto-sync dynamic rates daily at 03:00
               </div>
-              <div className="text-[11px] text-muted-foreground mono">frankfurter.app · ECB feed</div>
+              <div className="flex items-center gap-3">
+                <div className="text-[11px] text-muted-foreground mono">frankfurter.app · ECB feed</div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={isPending}
+                  onClick={() => {
+                    startTransition(async () => {
+                      const { synced } = await forceFxSync();
+                      toast.success(`Synced ${synced} rate${synced !== 1 ? 's' : ''}`);
+                    });
+                  }}
+                >
+                  <RefreshCw className="w-3.5 h-3.5 mr-1.5" />Sync now
+                </Button>
+              </div>
             </div>
           </Card>
 
@@ -449,6 +467,27 @@ export function SettingsView({
             </div>
           </Card>
         </section>
+
+        {/* ── Danger zone ───────────────────────────────────────────── */}
+        <section>
+          <div className="flex items-center gap-2 mb-3">
+            <Database className="w-4 h-4 text-muted-foreground" />
+            <h2 className="text-[14px] font-semibold tracking-tight">Data</h2>
+          </div>
+          <Card className="p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-[13px] font-medium">Clear all data</div>
+                <div className="text-[11.5px] text-muted-foreground mt-0.5">
+                  Deletes every transaction, recurring rule, category, and AI insight. Account and settings are kept.
+                </div>
+              </div>
+              <Button variant="destructive" size="sm" onClick={() => setClearDbOpen(true)}>
+                <Trash2 className="w-3.5 h-3.5 mr-1.5" />Clear database
+              </Button>
+            </div>
+          </Card>
+        </section>
       </div>
 
       {/* Anchor change confirmation dialog */}
@@ -464,6 +503,35 @@ export function SettingsView({
           <DialogFooter>
             <Button variant="ghost" onClick={() => setPendingAnchor(null)}>Cancel</Button>
             <Button onClick={confirmAnchorChange} disabled={isPending}>Confirm</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Clear database confirmation dialog */}
+      <Dialog open={clearDbOpen} onOpenChange={setClearDbOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Clear all data?</DialogTitle>
+          </DialogHeader>
+          <p className="text-[13px] text-muted-foreground">
+            This permanently deletes every transaction, recurring rule, category, and AI insight.
+            Your account credentials and app settings are not affected. This cannot be undone.
+          </p>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setClearDbOpen(false)}>Cancel</Button>
+            <Button
+              variant="destructive"
+              disabled={isPending}
+              onClick={() => {
+                startTransition(async () => {
+                  await clearAllData();
+                  setClearDbOpen(false);
+                  toast.success('All data cleared');
+                });
+              }}
+            >
+              <Trash2 className="w-3.5 h-3.5 mr-1.5" />Yes, clear everything
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
