@@ -6,7 +6,7 @@ export default async function CategoriesPage() {
 
   return (
     <CategoriesView
-      categories={categories.map((c) => ({
+      categories={categories.map((c: (typeof categories)[number]) => ({
         id: c.id,
         name: c.name,
         color: c.color,

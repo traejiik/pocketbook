@@ -16,7 +16,7 @@ function toDateStr(d: Date) {
 export default async function RecurringPage() {
   const [rules, categories] = await Promise.all([getRecurringRules(), getCategories()])
 
-  const serialisedRules: SerialisedRule[] = rules.map((r) => ({
+  const serialisedRules: SerialisedRule[] = rules.map((r: (typeof rules)[number]) => ({
     id: r.id,
     name: r.name,
     amount: Number(r.amount),
