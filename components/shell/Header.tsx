@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { format } from 'date-fns';
 import { Search, Bell, Sun, Moon, LogOut } from 'lucide-react';
 import { useTheme } from 'next-themes';
+import { useState, useEffect } from 'react';
 import { signOut, useSession } from 'next-auth/react';
 import { Input } from '@/components/ui/input';
 import {
@@ -22,6 +23,8 @@ interface HeaderProps {
 export function Header({ upcomingRenewalsCount = 0, displayName = 'User' }: HeaderProps) {
   const { theme, setTheme } = useTheme();
   const { data: session } = useSession();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   const dateLabel = format(new Date(), 'EEEE · dd MMM yyyy').toUpperCase();
   const email = session?.user?.email ?? '';
@@ -64,13 +67,15 @@ export function Header({ upcomingRenewalsCount = 0, displayName = 'User' }: Head
           )}
         </Link>
 
-        {/* Theme toggle */}
+        {/* Theme toggle — mounted guard prevents Sun/Moon SVG hydration mismatch */}
         <button
           onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
           title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
           className="w-9 h-9 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent"
         >
-          {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+          {mounted
+            ? theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />
+            : <span className="w-4 h-4" />}
         </button>
 
         <div className="w-px h-6 bg-border mx-1.5" />
