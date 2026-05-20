@@ -19,7 +19,7 @@ export function AppShell({ children, upcomingRenewalsCount = 0 }: AppShellProps)
 
   return (
     <div className="w-full h-screen bg-background text-foreground flex overflow-hidden p-3 gap-3">
-      <Sidebar upcomingRenewalsCount={upcomingRenewalsCount} />
+      <Sidebar upcomingRenewalsCount={upcomingRenewalsCount} onQuickAdd={openNew} />
       <div className="flex-1 flex flex-col gap-3 overflow-hidden">
         <Header upcomingRenewalsCount={upcomingRenewalsCount} />
         <main className="flex-1 overflow-auto relative">{children}</main>
