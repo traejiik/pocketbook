@@ -2,6 +2,8 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useTheme } from 'next-themes';
 import {
   LayoutDashboard,
   List,
@@ -13,7 +15,6 @@ import {
   Plus,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { LogoMark } from './LogoMark';
 
 const NAV = [
   { id: 'dashboard',    label: 'Dashboard',   icon: LayoutDashboard },
@@ -32,6 +33,9 @@ interface SidebarProps {
 
 export function Sidebar({ upcomingRenewalsCount = 1, onQuickAdd }: SidebarProps) {
   const pathname = usePathname();
+  const { theme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   return (
     <aside className="w-[220px] flex-shrink-0 bg-card border border-border rounded-2xl flex flex-col overflow-hidden relative">
@@ -65,14 +69,17 @@ export function Sidebar({ upcomingRenewalsCount = 1, onQuickAdd }: SidebarProps)
       </svg>
 
       {/* Logo / branding */}
-      <div className="relative px-4 pt-4 pb-3 flex items-center gap-2.5">
-        <div className="w-9 h-9 rounded-xl bg-primary/15 border border-primary/30 flex items-center justify-center text-primary shadow-pb-1">
-          <LogoMark size={16} />
-        </div>
-        <div>
-          <div className="text-[14px] font-semibold tracking-tight leading-none">Pocketbook</div>
-          <div className="text-[10.5px] text-muted-foreground font-mono mt-1">homelab · v0.1.0</div>
-        </div>
+      <div className="relative px-3 pt-5 pb-3 flex items-center">
+        {mounted ? (
+          <img
+            src={theme === 'dark' ? '/wordmark-dark.svg' : '/wordmark-light.svg'}
+            alt="Pocketbook"
+            className="h-9 w-auto"
+            style={{ minWidth: '90%' }}
+          />
+        ) : (
+          <div className="h-9" />
+        )}
       </div>
 
       {/* Section label */}
