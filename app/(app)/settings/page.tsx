@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { prisma } from '@/lib/prisma';
 import { pingOllama, listOllamaModels } from '@/lib/ollama';
 import { SettingsView } from './SettingsView';

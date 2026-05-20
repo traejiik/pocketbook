@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { getCategoriesWithStats } from '@/lib/aggregations'
 import { CategoriesView } from './CategoriesView'
 

@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { getRecurringRules, getCategories } from '@/lib/aggregations'
 import { RecurringView, type SerialisedRule } from './RecurringView'
 
