@@ -15,6 +15,7 @@ export async function* streamGenerate(opts: {
       stream: true,
       options: { temperature: opts.temperature ?? 0.4 },
     }),
+    signal: AbortSignal.timeout(600_000), // 10 min — small models can be slow on first run
   });
   if (!res.ok || !res.body) throw new Error(`Ollama: ${res.status}`);
 
