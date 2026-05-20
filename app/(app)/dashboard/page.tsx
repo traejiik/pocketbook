@@ -285,14 +285,12 @@ export default async function DashboardPage() {
               ))}
             </svg>
             <div className="relative flex-1 flex flex-col">
-              <div className="text-[13.5px] font-medium text-white/85">AI Insights</div>
-              <div className="text-[10.5px] mono text-white/55 mt-1">llama3.1:8b</div>
-              <div className="mt-auto">
-                <div className="text-[24px] font-semibold tabular tracking-tight leading-none">~12s</div>
-                <div className="text-[10.5px] text-white/60 mt-1">
-                  {lastInsightDate ? `Last · ${lastInsightDate}` : 'No insights yet'}
+              <div className="flex items-start justify-between">
+                <div>
+                  <div className="text-[13.5px] font-medium text-white/85">AI Insights</div>
+                  <div className="text-[10.5px] mono text-white/55 mt-0.5">llama3.1:8b</div>
                 </div>
-                <div className="flex gap-2 mt-3">
+                <div className="flex gap-2">
                   <Link
                     href="/insights?generate=1"
                     title="Generate insights"
@@ -307,6 +305,12 @@ export default async function DashboardPage() {
                   >
                     <Settings className="w-4 h-4" />
                   </Link>
+                </div>
+              </div>
+              <div className="mt-auto">
+                <div className="text-[24px] font-semibold tabular tracking-tight leading-none">~12s</div>
+                <div className="text-[10.5px] text-white/60 mt-1">
+                  {lastInsightDate ? `Last · ${lastInsightDate}` : 'No insights yet'}
                 </div>
               </div>
             </div>
