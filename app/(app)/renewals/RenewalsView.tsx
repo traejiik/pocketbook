@@ -5,7 +5,7 @@ import { Segmented } from '@/components/ui/segmented'
 import { TimelineStrip } from '@/components/finance/TimelineStrip'
 import { AmountDisplay } from '@/components/finance/AmountDisplay'
 import { fmtHUF } from '@/lib/format'
-import type { Category } from '@prisma/client'
+type Category = { id: string; name: string; color: string; kind: string }
 
 type SerialisedRule = {
   id: string

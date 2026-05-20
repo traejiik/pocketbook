@@ -18,8 +18,9 @@ import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { upsertRecurringRule, archiveRecurringRule, type RecurringRuleInput } from '@/server-actions/recurring'
-import type { Category } from '@prisma/client'
 import type { CardRule } from '@/components/finance/RecurringRuleCard'
+
+type Category = { id: string; name: string; color: string; kind: string }
 
 export type SerialisedRule = {
   id: string
