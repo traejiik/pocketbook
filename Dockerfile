@@ -15,7 +15,7 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN pnpm prisma generate
-RUN npx --yes esbuild prisma/seed.ts --bundle --platform=node --target=node20 --outfile=prisma/seed.js --external:@prisma/client
+RUN npm install -g esbuild && esbuild prisma/seed.ts --bundle --platform=node --target=node20 --outfile=prisma/seed.js --external:@prisma/client
 RUN pnpm build
 
 # --- runner stage (final) ---
