@@ -37,7 +37,7 @@ export default async function SettingsPage() {
   return (
     <SettingsView
       anchorCurrency={settings?.anchorCurrency ?? 'HUF'}
-      exchangeRates={rates.map(r => ({
+      exchangeRates={rates.map((r: (typeof rates)[number]) => ({
         id: r.id,
         from: r.fromCurrency,
         to: r.toCurrency,
