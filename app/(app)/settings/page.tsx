@@ -5,6 +5,7 @@ import { pingOllama, listOllamaModels } from '@/lib/ollama';
 import { SettingsView } from './SettingsView';
 import { getDatabaseSize } from '@/server-actions/settings';
 import { readFileSync } from 'fs';
+import { join } from 'path';
 
 export default async function SettingsPage() {
   const [settings, rates, dbSize] = await Promise.all([
@@ -56,7 +57,7 @@ export default async function SettingsPage() {
       autoInsightsMonthly={settings?.autoInsightsMonthly ?? true}
       dbSize={dbSize}
       lastBackup={lastBackup}
-      version="v0.1.1"
+      version={`v${JSON.parse(readFileSync(join(process.cwd(), 'package.json'), 'utf-8')).version}`}
     />
   );
 }

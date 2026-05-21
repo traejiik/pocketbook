@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Plus, Filter } from 'lucide-react'
+import { Plus, ArrowUpDown, Check } from 'lucide-react'
 import { Segmented } from '@/components/ui/segmented'
 import { KpiCard } from '@/components/finance/KpiCard'
 import { RecurringRuleCard } from '@/components/finance/RecurringRuleCard'
@@ -17,6 +17,7 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { upsertRecurringRule, archiveRecurringRule, type RecurringRuleInput } from '@/server-actions/recurring'
 import type { CardRule } from '@/components/finance/RecurringRuleCard'
 
@@ -70,14 +71,23 @@ function daysUntil(dateStr: string) {
 }
 
 export function RecurringView({ rules, categories, monthlyTotal, annualTotal, incomeMonthly }: Props) {
+  type SortKey = 'nextDue' | 'amountDesc' | 'amountAsc' | 'name'
   const [tab, setTab] = useState<'EXPENSE' | 'INCOME'>('EXPENSE')
+  const [sortKey, setSortKey] = useState<SortKey>('nextDue')
   const [sheetOpen, setSheetOpen] = useState(false)
   const [editing, setEditing] = useState<SerialisedRule | null>(null)
   const [, startTransition] = useTransition()
 
   const list = rules
     .filter((r) => r.kind === tab)
-    .sort((a, b) => a.nextDue.localeCompare(b.nextDue))
+    .sort((a, b) => {
+      switch (sortKey) {
+        case 'amountDesc': return b.amount - a.amount
+        case 'amountAsc':  return a.amount - b.amount
+        case 'name':       return a.name.localeCompare(b.name)
+        default:           return a.nextDue.localeCompare(b.nextDue)
+      }
+    })
 
   const expenseRules = rules.filter((r) => r.kind === 'EXPENSE')
   const incomeRules  = rules.filter((r) => r.kind === 'INCOME')
@@ -93,6 +103,10 @@ export function RecurringView({ rules, categories, monthlyTotal, annualTotal, in
   })
 
   const hasInstallment = watch('hasInstallment')
+  const currency      = watch('currency')
+  const cycle         = watch('cycle')
+  const kind          = watch('kind')
+  const categoryId    = watch('categoryId')
 
   function openNew() {
     setEditing(null)
@@ -193,10 +207,34 @@ export function RecurringView({ rules, categories, monthlyTotal, annualTotal, in
           value={tab}
           onChange={setTab}
         />
-        <div className="flex items-center gap-2 text-[11.5px] text-muted-foreground">
-          <Filter className="w-3.5 h-3.5" />
-          <span>Sort by next due</span>
-        </div>
+        <Popover>
+          <PopoverTrigger className="inline-flex items-center gap-2 h-8 px-3 rounded-full border border-border text-[12px] text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
+            <ArrowUpDown className="w-3.5 h-3.5" />
+            Sort
+          </PopoverTrigger>
+          <PopoverContent align="end" className="w-52 p-1.5">
+            <div className="text-[10.5px] uppercase tracking-[0.08em] text-muted-foreground px-2 py-1.5">
+              Sort by
+            </div>
+            {([
+              { value: 'nextDue',    label: 'Next due' },
+              { value: 'amountDesc', label: 'Amount — high to low' },
+              { value: 'amountAsc',  label: 'Amount — low to high' },
+              { value: 'name',       label: 'Name A–Z' },
+            ] as { value: SortKey; label: string }[]).map(opt => (
+              <button
+                key={opt.value}
+                onClick={() => setSortKey(opt.value)}
+                className="w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-md text-[12.5px] hover:bg-accent transition-colors"
+              >
+                <span className={sortKey === opt.value ? 'text-foreground' : 'text-muted-foreground'}>
+                  {opt.label}
+                </span>
+                {sortKey === opt.value && <Check className="w-3.5 h-3.5 text-primary shrink-0" />}
+              </button>
+            ))}
+          </PopoverContent>
+        </Popover>
       </div>
 
       <div className="grid grid-cols-3 gap-3">
@@ -232,7 +270,7 @@ export function RecurringView({ rules, categories, monthlyTotal, annualTotal, in
               </div>
               <div className="space-y-1.5">
                 <Label>Currency</Label>
-                <Select defaultValue="HUF" onValueChange={(v) => v && setValue('currency', v as 'HUF' | 'USD' | 'EUR' | 'GBP')}>
+                <Select value={currency} onValueChange={(v) => v && setValue('currency', v as 'HUF' | 'USD' | 'EUR' | 'GBP')}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {['HUF', 'USD', 'EUR', 'GBP'].map((c) => (
@@ -246,7 +284,7 @@ export function RecurringView({ rules, categories, monthlyTotal, annualTotal, in
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>Cycle</Label>
-                <Select defaultValue="MONTHLY" onValueChange={(v) => v && setValue('cycle', v as 'MONTHLY' | 'ANNUAL')}>
+                <Select value={cycle} onValueChange={(v) => v && setValue('cycle', v as 'MONTHLY' | 'ANNUAL')}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="MONTHLY">Monthly</SelectItem>
@@ -256,7 +294,7 @@ export function RecurringView({ rules, categories, monthlyTotal, annualTotal, in
               </div>
               <div className="space-y-1.5">
                 <Label>Kind</Label>
-                <Select defaultValue="EXPENSE" onValueChange={(v) => v && setValue('kind', v as 'INCOME' | 'EXPENSE')}>
+                <Select value={kind} onValueChange={(v) => v && setValue('kind', v as 'INCOME' | 'EXPENSE')}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="EXPENSE">Expense</SelectItem>
@@ -273,7 +311,7 @@ export function RecurringView({ rules, categories, monthlyTotal, annualTotal, in
 
             <div className="space-y-1.5">
               <Label>Category</Label>
-              <Select onValueChange={(v: string | null) => { if (v) setValue('categoryId', v) }}>
+              <Select value={categoryId} onValueChange={(v: string | null) => { if (v) setValue('categoryId', v) }}>
                 <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
                 <SelectContent>
                   {categories.map((c) => (

@@ -1,5 +1,6 @@
 export const dynamic = 'force-dynamic'
 
+import { Suspense } from 'react';
 import { startOfMonth, endOfMonth } from 'date-fns';
 import { prisma } from '@/lib/prisma';
 import { TransactionsView, type SerializedTx } from '@/components/transactions/TransactionsView';
@@ -67,12 +68,14 @@ export default async function TransactionsPage() {
   const monthLabel = now.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
 
   return (
-    <TransactionsView
-      transactions={transactions}
-      categories={serialisedCategories}
-      recurringRules={serialisedRules}
-      fxRates={rateMap}
-      monthLabel={monthLabel}
-    />
+    <Suspense>
+      <TransactionsView
+        transactions={transactions}
+        categories={serialisedCategories}
+        recurringRules={serialisedRules}
+        fxRates={rateMap}
+        monthLabel={monthLabel}
+      />
+    </Suspense>
   );
 }

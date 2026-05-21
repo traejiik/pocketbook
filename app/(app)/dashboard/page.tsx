@@ -10,7 +10,10 @@ import {
   getRecentTransactions,
   getMonthlyTrend,
   getLastAiInsight,
+  getAiInsightCount,
 } from '@/lib/aggregations'
+import { prisma } from '@/lib/prisma'
+import { pingOllama } from '@/lib/ollama'
 import { fmtHUF, fmtCur, fmtDate } from '@/lib/format'
 import { KpiBig } from '@/components/finance/KpiBig'
 import { GaugeMeter } from '@/components/finance/GaugeMeter'
@@ -18,14 +21,19 @@ import { DashboardChartSection } from './DashboardChartSection'
 import { Badge } from '@/components/ui/badge'
 
 export default async function DashboardPage() {
-  const [kpis, byCategory, upcoming, recentTx, trend6mo, lastInsight] = await Promise.all([
+  const [kpis, byCategory, upcoming, recentTx, trend6mo, lastInsight, insightCount, settings] = await Promise.all([
     getCurrentMonthKpis(),
     getExpensesByCategory(),
     getUpcomingRenewals(30),
     getRecentTransactions(4),
     getMonthlyTrend(6),
     getLastAiInsight(),
+    getAiInsightCount(),
+    prisma.appSettings.findUnique({ where: { id: 'singleton' } }),
   ])
+
+  const ollamaUrl = settings?.ollamaUrl ?? 'http://ollama:11434'
+  const ollamaReachable = await pingOllama(ollamaUrl)
 
   const now = new Date()
   const monthLabel = now.toLocaleDateString('en-GB', { month: 'short' })
@@ -288,16 +296,25 @@ export default async function DashboardPage() {
               <div className="flex items-start justify-between">
                 <div>
                   <div className="text-[13.5px] font-medium text-white/85">AI Insights</div>
-                  <div className="text-[10.5px] mono text-white/55 mt-0.5">llama3.1:8b</div>
+                  <div className="text-[10.5px] mono text-white/55 mt-0.5">{settings?.ollamaModel ?? 'No model picked'}</div>
                 </div>
                 <div className="flex gap-2">
-                  <Link
-                    href="/insights?generate=1"
-                    title="Generate insights"
-                    className="w-9 h-9 rounded-full bg-white text-[#0a1a33] flex items-center justify-center hover:scale-105 transition"
-                  >
-                    <Sparkles className="w-4 h-4" />
-                  </Link>
+                  {ollamaReachable ? (
+                    <Link
+                      href="/insights?generate=1"
+                      title="Generate insights"
+                      className="w-9 h-9 rounded-full bg-white text-[#0a1a33] flex items-center justify-center hover:scale-105 transition"
+                    >
+                      <Sparkles className="w-4 h-4" />
+                    </Link>
+                  ) : (
+                    <span
+                      title="Ollama endpoint unreachable"
+                      className="w-9 h-9 rounded-full bg-white/15 text-white/30 flex items-center justify-center cursor-not-allowed"
+                    >
+                      <Sparkles className="w-4 h-4" />
+                    </span>
+                  )}
                   <Link
                     href="/settings"
                     title="Settings"
@@ -308,7 +325,9 @@ export default async function DashboardPage() {
                 </div>
               </div>
               <div className="mt-auto">
-                <div className="text-[24px] font-semibold tabular tracking-tight leading-none">~12s</div>
+                <div className="text-[24px] font-semibold tabular tracking-tight leading-none">
+                  {!ollamaReachable ? 'Unreachable' : insightCount > 0 ? insightCount : '~12s'}
+                </div>
                 <div className="text-[10.5px] text-white/60 mt-1">
                   {lastInsightDate ? `Last · ${lastInsightDate}` : 'No insights yet'}
                 </div>
