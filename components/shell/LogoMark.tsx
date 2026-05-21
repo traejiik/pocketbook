@@ -16,7 +16,7 @@ export function LogoMark({ size = 32, className }: LogoMarkProps) {
       width={px}
       height={px}
       fill="none"
-      className={cn('flex-shrink-0', className)}
+      className={cn('shrink-0', className)}
       aria-hidden
     >
       <path

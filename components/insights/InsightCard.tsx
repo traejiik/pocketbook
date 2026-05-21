@@ -103,7 +103,7 @@ export function InsightCard({ ollamaUrl, ollamaModel, history, autoGenerate }: P
       <Card className="p-3 flex items-center justify-between text-[12px]">
         <div className="flex items-center gap-2.5">
           <span className={cn(
-            'w-2 h-2 rounded-full flex-shrink-0',
+            'w-2 h-2 rounded-full shrink-0',
             state === 'loading' && 'bg-amber-400 animate-pulse',
             state === 'streaming' && 'bg-primary animate-pulse',
             state === 'done' && 'bg-income',
@@ -252,11 +252,11 @@ export function InsightCard({ ollamaUrl, ollamaModel, history, autoGenerate }: P
                 className="w-full text-left px-5 py-3 hover:bg-accent/40 transition-colors flex items-center gap-4"
                 onClick={() => setActiveHistory(activeHistory?.id === item.id ? null : item)}
               >
-                <div className="text-[13px] font-medium w-[140px] flex-shrink-0">{item.monthCovered}</div>
+                <div className="text-[13px] font-medium w-[140px] shrink-0">{item.monthCovered}</div>
                 <div className="text-[12px] text-muted-foreground flex-1 truncate">
                   {item.content.slice(0, 100)}…
                 </div>
-                <div className="text-[11px] text-muted-foreground/70 mono flex-shrink-0">
+                <div className="text-[11px] text-muted-foreground/70 mono shrink-0">
                   {fmtDate(item.generatedAt)}
                 </div>
                 <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
