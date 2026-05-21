@@ -31,7 +31,7 @@ export function Header({ upcomingRenewalsCount = 0, displayName = 'User' }: Head
   const initial = email.charAt(0).toUpperCase();
 
   return (
-    <header className="flex-shrink-0 bg-card border border-border rounded-2xl px-4 h-[68px] flex items-center gap-4">
+    <header className="shrink-0 bg-card border border-border rounded-2xl px-4 h-[68px] flex items-center gap-4">
       {/* Date eyebrow */}
       <div className="pl-1 pr-2">
         <div className="text-[10.5px] font-mono uppercase tracking-wider text-muted-foreground leading-none">
@@ -70,7 +70,7 @@ export function Header({ upcomingRenewalsCount = 0, displayName = 'User' }: Head
         {/* Theme toggle — mounted guard prevents Sun/Moon SVG hydration mismatch */}
         <button
           onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-          title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+          title={mounted ? `Switch to ${theme === 'dark' ? 'light' : 'dark'} mode` : 'Toggle theme'}
           className="w-9 h-9 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent"
         >
           {mounted
@@ -82,7 +82,7 @@ export function Header({ upcomingRenewalsCount = 0, displayName = 'User' }: Head
 
         {/* User chip with dropdown */}
         <DropdownMenu>
-          <DropdownMenuTrigger className="flex items-center gap-2.5 pr-1 hover:opacity-90 transition outline-none">
+          <DropdownMenuTrigger className="flex items-center gap-2.5 pr-1 hover:opacity-90 transition outline-hidden">
             <div className="w-9 h-9 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-[12px] font-semibold text-primary">
               {initial || 'U'}
             </div>
