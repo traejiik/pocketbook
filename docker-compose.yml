@@ -28,7 +28,9 @@ services:
       pocketbook-db:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql://${PB_POSTGRES_USER}:${PB_POSTGRES_PASSWORD}@pocketbook-db:5432/${PB_POSTGRES_DB}
+      PB_POSTGRES_USER: ${PB_POSTGRES_USER}
+      PB_POSTGRES_PASSWORD: ${PB_POSTGRES_PASSWORD}
+      PB_POSTGRES_DB: ${PB_POSTGRES_DB}
       NEXTAUTH_URL: ${PB_NEXTAUTH_URL}
       NEXTAUTH_SECRET: ${PB_NEXTAUTH_SECRET}
       OLLAMA_BASE_URL: ${PB_OLLAMA_BASE_URL}
