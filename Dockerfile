@@ -1,4 +1,4 @@
-FROM node:20-alpine AS base
+FROM node:24-alpine AS base
 RUN npm install -g pnpm
 
 # --- deps stage ---
@@ -15,11 +15,11 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN pnpm prisma generate
-RUN npm install -g esbuild && esbuild prisma/seed.ts --bundle --platform=node --target=node20 --outfile=prisma/seed.js --external:@prisma/client
+RUN npm install -g esbuild && esbuild prisma/seed.ts --bundle --platform=node --target=node24 --outfile=prisma/seed.js --external:@prisma/client
 RUN pnpm build
 
 # --- runner stage (final) ---
-FROM node:20-alpine AS runner
+FROM node:24-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
