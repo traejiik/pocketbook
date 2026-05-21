@@ -46,3 +46,5 @@ next-env.d.ts
 /design-reference
 /docs
 /other
+/graphify-out
+.graphifyignore
