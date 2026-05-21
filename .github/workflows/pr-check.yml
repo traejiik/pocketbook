@@ -1,0 +1,69 @@
+name: PR checks
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: pocketbook
+          POSTGRES_PASSWORD: pocketbook
+          POSTGRES_DB: pocketbook
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Type check
+        run: pnpm tsc --noEmit
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Validate Prisma schema
+        run: pnpm prisma validate
+
+      - name: Run migrations (dry run)
+        env:
+          PB_DATABASE_URL: postgresql://pocketbook:pocketbook@localhost:5432/pocketbook
+        run: pnpm prisma migrate deploy
+
+      - name: Build
+        env:
+          PB_DATABASE_URL: postgresql://pocketbook:pocketbook@localhost:5432/pocketbook
+          PB_NEXTAUTH_URL: http://localhost:3000
+          PB_NEXTAUTH_SECRET: ci-secret-not-for-production
+          AUTH_TRUST_HOST: "true"
+          PB_OLLAMA_BASE_URL: http://localhost:11434
+          PB_FX_SYNC_SECRET: ci-fx-secret
+          PB_USER_DISPLAY_NAME: CI
+          PB_SEED_USER_EMAIL: ci@example.com
+          PB_SEED_USER_PASSWORD: ci-password
+        run: pnpm build
