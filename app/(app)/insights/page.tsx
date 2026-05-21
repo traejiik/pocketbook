@@ -1,14 +1,9 @@
 export const dynamic = 'force-dynamic'
 
-import nextDynamic from 'next/dynamic';
 import { Sparkles, Calendar } from 'lucide-react';
 import { prisma } from '@/lib/prisma';
 import { Button } from '@/components/ui/button';
-
-const InsightCard = nextDynamic(
-  () => import('@/components/insights/InsightCard').then(m => m.InsightCard),
-  { ssr: false }
-);
+import { InsightCardClient } from '@/components/insights/InsightCardClient';
 
 export default async function AiInsightsPage() {
   const [settings, history] = await Promise.all([
@@ -49,7 +44,7 @@ export default async function AiInsightsPage() {
         </div>
       </div>
 
-      <InsightCard
+      <InsightCardClient
         ollamaUrl={ollamaUrl}
         ollamaModel={ollamaModel}
         history={serialisedHistory}

@@ -263,7 +263,7 @@ export function TransactionForm({
                   <div className="relative">
                     <select
                       {...register('currency')}
-                      className="appearance-none h-9 w-full pl-3 pr-7 bg-transparent border border-input rounded-md text-[13px] focus:outline-none focus:ring-2 focus:ring-ring/60"
+                      className="appearance-none h-9 w-full pl-3 pr-7 bg-transparent border border-input rounded-md text-[13px] focus:outline-hidden focus:ring-2 focus:ring-ring/60"
                     >
                       <option>HUF</option>
                       <option>EUR</option>
@@ -329,7 +329,7 @@ export function TransactionForm({
                       )}
                     >
                       <span
-                        className="w-2 h-2 rounded-full flex-shrink-0"
+                        className="w-2 h-2 rounded-full shrink-0"
                         style={{ background: c.color }}
                       />
                       {c.name}
@@ -347,7 +347,7 @@ export function TransactionForm({
                 <div className="relative">
                   <select
                     {...register('recurringRuleId')}
-                    className="appearance-none h-9 w-full pl-3 pr-7 bg-transparent border border-input rounded-md text-[13px] focus:outline-none focus:ring-2 focus:ring-ring/60"
+                    className="appearance-none h-9 w-full pl-3 pr-7 bg-transparent border border-input rounded-md text-[13px] focus:outline-hidden focus:ring-2 focus:ring-ring/60"
                   >
                     <option value="">— None —</option>
                     {eligibleRules.map(r => (
@@ -375,7 +375,7 @@ export function TransactionForm({
             </div>
 
             {/* Sticky footer */}
-            <div className="px-5 py-4 border-t border-border flex items-center justify-between bg-secondary/15 flex-shrink-0">
+            <div className="px-5 py-4 border-t border-border flex items-center justify-between bg-secondary/15 shrink-0">
               <div className="text-[11.5px] text-muted-foreground">
                 {editingTx
                   ? <span className="inline-flex items-center gap-1.5"><CheckIcon className="w-3.5 h-3.5 text-income" />Autosaved drafts</span>

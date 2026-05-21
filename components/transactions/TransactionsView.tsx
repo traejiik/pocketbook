@@ -199,7 +199,7 @@ export function TransactionsView({
           <select
             value={catFilter}
             onChange={e => setCatFilter(e.target.value)}
-            className="appearance-none h-8 pl-3 pr-7 bg-secondary border border-border rounded-md text-[12px] text-foreground focus:outline-none focus:ring-2 focus:ring-ring/60"
+            className="appearance-none h-8 pl-3 pr-7 bg-secondary border border-border rounded-md text-[12px] text-foreground focus:outline-hidden focus:ring-2 focus:ring-ring/60"
           >
             {catOptions.map(c => (
               <option key={c.id} value={c.id}>{c.name}</option>
@@ -270,7 +270,7 @@ export function TransactionsView({
                     <div className="text-[13px] flex items-center gap-2 min-w-0">
                       <span className="truncate">{tx.description}</span>
                       {tx.recurringRuleId && (
-                        <RepeatIcon className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+                        <RepeatIcon className="w-3 h-3 text-muted-foreground shrink-0" />
                       )}
                     </div>
                     <div>
@@ -279,7 +279,7 @@ export function TransactionsView({
                         style={{ color: tx.category.color }}
                       >
                         <span
-                          className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                          className="w-1.5 h-1.5 rounded-full shrink-0"
                           style={{ background: tx.category.color }}
                         />
                         {tx.category.name}
