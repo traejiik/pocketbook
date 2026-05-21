@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { LogoMark } from '@/components/shell/LogoMark';
 
-export function LoginForm({ displayName, version }: { displayName: string; version: string }) {
+export function LoginForm({ displayName, version, instanceName, host }: { displayName: string; version: string; instanceName: string; host: string }) {
   const [password, setPassword] = useState('');
   const [show, setShow] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -143,7 +143,7 @@ export function LoginForm({ displayName, version }: { displayName: string; versi
           <div className="mt-5 pt-4 border-t border-border flex items-center justify-between text-[11px] text-muted-foreground">
             <span className="inline-flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-income animate-pulse" />
-              homelab · pocketbook.local
+              {instanceName && <>{instanceName} · </>}{host}
             </span>
             <span className="font-mono">{version}</span>
           </div>
