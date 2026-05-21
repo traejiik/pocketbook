@@ -258,7 +258,7 @@ export function SettingsView({
               {rates.map((r, idx) => (
                 <div key={r.id} className="px-1 py-3.5 grid grid-cols-[auto_1fr_auto_auto_auto] items-center gap-3">
                   {/* Code chip */}
-                  <div className="w-12 h-12 rounded-lg border border-border bg-secondary/40 flex flex-col items-center justify-center flex-shrink-0">
+                  <div className="w-12 h-12 rounded-lg border border-border bg-secondary/40 flex flex-col items-center justify-center shrink-0">
                     <div className="text-[14px] font-bold mono leading-none">{r.from}</div>
                     <div className="text-[11px] text-muted-foreground leading-none mt-1">→{r.to}</div>
                   </div>
@@ -344,7 +344,7 @@ export function SettingsView({
           </Card>
 
           <div className="mt-3 p-3 rounded-md bg-amber-500/8 border border-amber-500/25 text-[12px] text-foreground/85 flex items-start gap-2.5">
-            <AlertTriangle className="w-3.5 h-3.5 mt-0.5 text-amber-500 flex-shrink-0" />
+            <AlertTriangle className="w-3.5 h-3.5 mt-0.5 text-amber-500 shrink-0" />
             <div>Switching anchor or changing manual rates retroactively converts every non-anchor transaction — past totals will shift accordingly.</div>
           </div>
         </section>
@@ -426,7 +426,7 @@ export function SettingsView({
                     )}
                   >
                     <span className={cn(
-                      'w-3.5 h-3.5 rounded-full border flex items-center justify-center flex-shrink-0',
+                      'w-3.5 h-3.5 rounded-full border flex items-center justify-center shrink-0',
                       model === m.name ? 'border-primary' : 'border-border',
                     )}>
                       {model === m.name && <span className="w-1.5 h-1.5 rounded-full bg-primary" />}

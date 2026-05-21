@@ -136,7 +136,7 @@ export function RenewalsView({ renewals }: Props) {
                     </div>
                     <div className="flex items-center gap-2.5 min-w-0">
                       <span
-                        className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                        className="w-1.5 h-1.5 rounded-full shrink-0"
                         style={{ background: rule.category.color }}
                       />
                       <div className="min-w-0">
