@@ -152,3 +152,7 @@ export const getCategoriesWithStats = cache(async () => {
 export const getLastAiInsight = cache(async () => {
   return prisma.aiInsight.findFirst({ orderBy: { generatedAt: 'desc' } });
 });
+
+export const getAiInsightCount = cache(async () => {
+  return prisma.aiInsight.count();
+});

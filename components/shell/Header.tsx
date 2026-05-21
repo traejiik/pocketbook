@@ -1,10 +1,11 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import { Search, Bell, Sun, Moon, LogOut } from 'lucide-react';
 import { useTheme } from 'next-themes';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, type KeyboardEvent } from 'react';
 import { signOut, useSession } from 'next-auth/react';
 import { Input } from '@/components/ui/input';
 import {
@@ -24,7 +25,34 @@ export function Header({ upcomingRenewalsCount = 0, displayName = 'User' }: Head
   const { theme, setTheme } = useTheme();
   const { data: session } = useSession();
   const [mounted, setMounted] = useState(false);
+  const [searchValue, setSearchValue] = useState('');
+  const searchRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
+
   useEffect(() => setMounted(true), []);
+
+  useEffect(() => {
+    const handler = (e: globalThis.KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        searchRef.current?.focus();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
+
+  function handleSearchKey(e: KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'Enter' && searchValue.trim()) {
+      router.push(`/transactions?q=${encodeURIComponent(searchValue.trim())}`);
+      setSearchValue('');
+      searchRef.current?.blur();
+    }
+    if (e.key === 'Escape') {
+      setSearchValue('');
+      searchRef.current?.blur();
+    }
+  }
 
   const dateLabel = format(new Date(), 'EEEE · dd MMM yyyy').toUpperCase();
   const email = session?.user?.email ?? '';
@@ -45,9 +73,12 @@ export function Header({ upcomingRenewalsCount = 0, displayName = 'User' }: Head
       <div className="flex-1 max-w-[420px] relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
         <Input
+          ref={searchRef}
           placeholder="Search transactions, subs, categories…"
           className="pl-9 pr-12 text-sm"
-          readOnly
+          value={searchValue}
+          onChange={e => setSearchValue(e.target.value)}
+          onKeyDown={handleSearchKey}
         />
         <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-mono text-muted-foreground">
           ⌘K

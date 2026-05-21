@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useOptimistic, startTransition, useMemo, useCallback } from 'react';
+import { useState, useOptimistic, startTransition, useMemo, useCallback, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { SearchIcon, ChevronRightIcon, RepeatIcon, DownloadIcon, PlusIcon, ChevronDownIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -55,8 +56,14 @@ export function TransactionsView({
   monthLabel,
 }: TransactionsViewProps) {
   const { openNew, openEdit } = useTransactionSheet();
-  const [search, setSearch] = useState('');
+  const searchParams = useSearchParams();
+  const [search, setSearch] = useState(() => searchParams.get('q') ?? '');
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
+
+  useEffect(() => {
+    const q = searchParams.get('q') ?? '';
+    setSearch(q);
+  }, [searchParams]);
   const [catFilter, setCatFilter] = useState('all');
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 

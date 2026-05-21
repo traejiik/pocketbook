@@ -44,7 +44,7 @@ async function main() {
     create: {
       id: 'singleton',
       anchorCurrency: 'HUF',
-      ollamaUrl: 'http://ollama:11434',
+      ollamaUrl: process.env.OLLAMA_BASE_URL ?? 'http://ollama:11434',
       ollamaModel: 'llama3.1:8b',
       fxAutoSync: true,
       autoInsightsMonthly: true,

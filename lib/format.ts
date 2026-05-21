@@ -15,12 +15,12 @@ export function fmtCur(n: number, cur: 'HUF' | 'USD' | 'EUR' | 'GBP'): string {
 }
 
 export function fmtDate(iso: string | Date, opts?: { short?: boolean }): string {
-  const d = typeof iso === 'string' ? new Date(iso + 'T00:00') : iso;
+  const d = typeof iso === 'string' ? new Date(iso.includes('T') ? iso : iso + 'T00:00') : iso;
   if (opts?.short) return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
   return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
 export function dayOfWeek(iso: string | Date): string {
-  const d = typeof iso === 'string' ? new Date(iso + 'T00:00') : iso;
+  const d = typeof iso === 'string' ? new Date(iso.includes('T') ? iso : iso + 'T00:00') : iso;
   return d.toLocaleDateString('en-GB', { weekday: 'short' });
 }

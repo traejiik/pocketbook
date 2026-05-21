@@ -90,6 +90,20 @@ export function SettingsView({
   const [anchor, setAnchor] = useState(initialAnchor);
   const [pendingAnchor, setPendingAnchor] = useState<string | null>(null);
   const [rates, setRates] = useState(initialRates);
+
+  // For each unordered pair {A,B} keep only the record with the higher rate
+  // so we never show both EUR→HUF and HUF→EUR, and the base is always the stronger currency.
+  const displayRates = rates.reduce<typeof rates>((acc, r) => {
+    const key = [r.from, r.to].sort().join('-');
+    const existing = acc.findIndex(x => [x.from, x.to].sort().join('-') === key);
+    if (existing === -1) return [...acc, r];
+    if (r.rate > acc[existing].rate) {
+      const next = [...acc];
+      next[existing] = r;
+      return next;
+    }
+    return acc;
+  }, []);
   const [autoSync, setAutoSync] = useState(initialAutoSync);
   const [model, setModel] = useState(initialModel);
   const [autoInsights, setAutoInsightsState] = useState(initialAutoInsights);
@@ -158,7 +172,10 @@ export function SettingsView({
   const handleRemoveCurrency = (from: string, to: string) => {
     startTransition(async () => {
       await removeTrackedCurrency(from, to);
-      setRates(prev => prev.filter(r => !(r.from === from && r.to === to)));
+      // Remove both directions from local state
+      setRates(prev => prev.filter(r =>
+        !((r.from === from && r.to === to) || (r.from === to && r.to === from))
+      ));
       toast.success(`${from} removed`);
     });
   };
@@ -255,7 +272,9 @@ export function SettingsView({
             </div>
 
             <div className="mt-4 -mx-1 divide-y divide-border">
-              {rates.map((r, idx) => (
+              {displayRates.map((r) => {
+                const idx = rates.indexOf(r);
+                return (
                 <div key={r.id} className="px-1 py-3.5 grid grid-cols-[auto_1fr_auto_auto_auto] items-center gap-3">
                   {/* Code chip */}
                   <div className="w-12 h-12 rounded-lg border border-border bg-secondary/40 flex flex-col items-center justify-center shrink-0">
@@ -316,7 +335,8 @@ export function SettingsView({
                     <Trash2 className="w-3.5 h-3.5" />
                   </Button>
                 </div>
-              ))}
+                );
+              })}
             </div>
 
             <div className="mt-4 pt-4 border-t border-border flex items-center justify-between">
