@@ -1,5 +1,5 @@
 FROM node:24-alpine AS base
-RUN npm install -g pnpm
+RUN npm install -g pnpm@10.33.0
 
 # --- deps stage ---
 FROM base AS deps
