@@ -42,9 +42,9 @@ yarn-error.log*
 next-env.d.ts
 
 # self files
-/handoff
-/design-reference
-/docs
+/design-system/
+/PRODUCT.md
+/DESIGN.md
 /other
 /graphify-out
 .graphifyignore
