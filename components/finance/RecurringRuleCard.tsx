@@ -39,7 +39,7 @@ export function RecurringRuleCard({ rule, hufEquivalent, daysAway, onEdit }: Rec
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2.5 min-w-0">
           <div
-            className="w-8 h-8 rounded-md border border-border flex items-center justify-center flex-shrink-0"
+            className="w-8 h-8 rounded-md border border-border flex items-center justify-center shrink-0"
             style={{ background: `${rule.category.color}18`, color: rule.category.color }}
           >
             {rule.cycle === 'ANNUAL'

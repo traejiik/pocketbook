@@ -82,7 +82,7 @@ export default async function DashboardPage() {
           <div className="divide-y divide-border -mx-1">
             {upcoming.slice(0, 6).map(({ rule, daysAway, hufEquivalent }) => (
               <div key={rule.id} className="flex items-center gap-3 px-1 py-2.5">
-                <div className="w-9 h-9 rounded-md border border-border bg-secondary/40 flex flex-col items-center justify-center flex-shrink-0">
+                <div className="w-9 h-9 rounded-md border border-border bg-secondary/40 flex flex-col items-center justify-center shrink-0">
                   <div className="text-[8.5px] text-muted-foreground uppercase mono leading-none">
                     {rule.nextDue.toLocaleDateString('en-GB', { month: 'short' })}
                   </div>
@@ -100,14 +100,14 @@ export default async function DashboardPage() {
                     {rule.installmentTotal && (
                       <>
                         <span className="text-border">·</span>
-                        <Badge variant="outline" className="!py-0 text-[10px] text-amber-500 border-amber-500/40">
+                        <Badge variant="outline" className="py-0! text-[10px] text-amber-500 border-amber-500/40">
                           {rule.installmentPaid ?? 0}/{rule.installmentTotal}
                         </Badge>
                       </>
                     )}
                   </div>
                 </div>
-                <div className="text-right tabular text-[13px] flex-shrink-0">
+                <div className="text-right tabular text-[13px] shrink-0">
                   {fmtCur(Number(rule.amount), rule.currency as 'HUF' | 'USD' | 'EUR' | 'GBP')}
                   {rule.currency !== 'HUF' && (
                     <div className="text-[10px] text-muted-foreground">≈ {fmtHUF(hufEquivalent)}</div>
@@ -146,7 +146,7 @@ export default async function DashboardPage() {
               return (
                 <div key={t.id} className="flex items-center gap-3 px-1 py-2.5">
                   <div
-                    className="w-9 h-9 rounded-full border border-border flex items-center justify-center flex-shrink-0"
+                    className="w-9 h-9 rounded-full border border-border flex items-center justify-center shrink-0"
                     style={{ background: `${t.category.color}20`, color: t.category.color }}
                   >
                     <span className="text-[11px] font-bold mono">{initials}</span>
@@ -175,7 +175,7 @@ export default async function DashboardPage() {
                     </div>
                     <Badge
                       variant="outline"
-                      className={`!py-0 !text-[10px] mt-0.5 ${
+                      className={`py-0! text-[10px]! mt-0.5 ${
                         t.type === 'INCOME'
                           ? 'text-income border-income/40'
                           : t.type === 'SAVINGS'
