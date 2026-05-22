@@ -17,6 +17,7 @@ export const getCurrentMonthKpis = cache(async () => {
   let income = 0, expense = 0, savings = 0;
   for (const t of txs) {
     const amt = await toAnchor(Math.abs(Number(t.amount)), t.currency as 'HUF' | 'USD' | 'EUR' | 'GBP');
+    if (amt === null) continue;
     if (t.type === 'INCOME')  income  += amt;
     if (t.type === 'EXPENSE') expense += amt;
     if (t.type === 'SAVINGS') savings += amt;
@@ -26,6 +27,28 @@ export const getCurrentMonthKpis = cache(async () => {
   const incomeUsedPct = income > 0 ? Math.round(((expense + savings) / income) * 100) : 0;
 
   return { income, expense, savings, net, incomeUsedPct };
+});
+
+export const getLastMonthKpis = cache(async () => {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const end   = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  const txs = await prisma.transaction.findMany({
+    where: { date: { gte: start, lt: end } },
+  });
+
+  let income = 0, expense = 0, savings = 0;
+  for (const t of txs) {
+    const amt = await toAnchor(Math.abs(Number(t.amount)), t.currency as 'HUF' | 'USD' | 'EUR' | 'GBP');
+    if (amt === null) continue;
+    if (t.type === 'INCOME')  income  += amt;
+    if (t.type === 'EXPENSE') expense += amt;
+    if (t.type === 'SAVINGS') savings += amt;
+  }
+
+  const net = income - expense - savings;
+  return { income, expense, savings, net };
 });
 
 export const getExpensesByCategory = cache(async () => {
@@ -41,6 +64,7 @@ export const getExpensesByCategory = cache(async () => {
   const map = new Map<string, { name: string; color: string; value: number }>();
   for (const t of txs) {
     const amt = await toAnchor(Math.abs(Number(t.amount)), t.currency as 'HUF' | 'USD' | 'EUR' | 'GBP');
+    if (amt === null) continue;
     const existing = map.get(t.categoryId);
     if (existing) existing.value += amt;
     else map.set(t.categoryId, { name: t.category.name, color: t.category.color, value: amt });
@@ -74,7 +98,7 @@ export const getUpcomingRenewals = cache(async (daysAhead: number) => {
         rule.currency as 'HUF' | 'USD' | 'EUR' | 'GBP',
       );
       const daysAway = Math.round((rule.nextDue.getTime() - today.getTime()) / 86_400_000);
-      return { rule, daysAway, hufEquivalent };
+      return { rule, daysAway, hufEquivalent };  // hufEquivalent is number | null
     }),
   );
 
@@ -105,6 +129,7 @@ export const getMonthlyTrend = cache(async (months: number) => {
     let net = 0;
     for (const t of txs) {
       const amt = await toAnchor(Math.abs(Number(t.amount)), t.currency as 'HUF' | 'USD' | 'EUR' | 'GBP');
+      if (amt === null) continue;
       if (t.type === 'INCOME')  net += amt;
       if (t.type === 'EXPENSE') net -= amt;
       if (t.type === 'SAVINGS') net -= amt;
