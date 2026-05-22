@@ -1,10 +1,11 @@
-# Pocketbook — Codex instructions
+# Pocketbook — Agent instructions
 
 Read `other/handoff/00-overview.md` at the start of every session. Open the relevant session file before writing any code.
 
 ## Design reference
 
-All visual decisions come from `other/design-reference/`. Never deviate from the mockups in `other/design-reference/mockups/source/screens/*.jsx`. Port them faithfully — class names, layout, component composition, unless asked to change something otherwise
+All visual decisions come from `other/design-reference/`. Never deviate from the mockups in `other/design-reference/mockups/source/screens/*.jsx`.
+Port them faithfully — class names, layout, component composition, unless asked to change something otherwise
 
 ## Implementation rules (non-negotiable)
 
@@ -31,9 +32,22 @@ All visual decisions come from `other/design-reference/`. Never deviate from the
 - Fake typewriter on insights — streaming must be real Ollama tokens
 - Custom auth (OAuth, magic link) — credentials only
 
-## Stack (locked)
+## Stack and dependency policy
 
-Next.js 14 · React 18 · TypeScript 5 · Tailwind CSS 3.4 · shadcn/ui · Postgres 16 · Prisma 5 · Auth.js v5 · react-hook-form + zod · Recharts · Geist fonts · Sonner · date-fns · next-themes · Ollama · Frankfurter
+Current implementation: Next.js 16.2.6 · React 19.2.6 · TypeScript 5 · Tailwind CSS 4.3 · shadcn v4 registry style · Base UI-backed local primitives · Postgres 16 · Prisma 5.22 · Auth.js v5 · react-hook-form + zod · Recharts 2 · Geist fonts · Sonner · date-fns · next-themes · Ollama · Frankfurter · Node 24 · pnpm 10.33.0 in Docker.
+
+The stack is not locked to old major versions. Major upgrades are allowed when they are intentional, tested, and documented. Pin exact versions only where operational coupling matters: Next.js with `eslint-config-next`, Docker Node image major, Docker pnpm version, Prisma runner CLI, PostgreSQL image major, and CI action majors. Let ordinary app libraries float by semver range plus `pnpm-lock.yaml`, but treat Prisma, Auth.js beta changes, React, Tailwind, and charting major upgrades as explicit upgrade projects.
+
+## Documentation drift prevention
+
+When changing any documented behaviour, architecture, dependency, environment variable, workflow, design-system rule, or source-of-truth decision, update every current doc that references the changed section in the same session.
+
+Required process:
+- Search narrowly with `rg` for the changed term, version, env var, route, component, or rule across `*.md`, `.env.example`, and relevant config files.
+- Update canonical docs first: `README.md`, `AGENTS.md`, `DEPLOY.md`, `other/handoff/00-overview.md`, relevant `other/handoff/*` session files, `other/design-reference/*`, and `design-system/*` when those files describe the changed area.
+- Update `other/docs/memory.md`, `other/docs/checklist.md`, and `other/docs/teachables.md` at session completion when the change affects future context.
+- Treat historical changelog/planning notes as historical records unless they are written as current instructions. If a historical note is now misleading, add a dated clarification instead of silently rewriting the past.
+- Before finishing, run a final `rg` check for stale names, versions, env vars, and "source of truth" claims related to the change.
 
 ## Teaching mode
 

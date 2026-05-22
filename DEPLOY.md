@@ -1,15 +1,15 @@
 # Pocketbook — Homelab Deployment Runbook
 
-Stack: Next.js 14 · Postgres 16 · Docker Compose · nginx-proxy-manager
+Stack: Next.js 16 · React 19 · Tailwind CSS 4 · Node 24 · Postgres 16 · Docker Compose · nginx-proxy-manager
 
 ---
 
 ## Pre-deploy checklist
 
 - [ ] `core_net` exists: `docker network ls | grep core_net`
-- [ ] AI stack running (Ollama reachable on `core_net` at `$OLLAMA_BASE_URL`)
+- [ ] AI stack running (Ollama reachable on `core_net` at `$PB_OLLAMA_BASE_URL`)
 - [ ] `.env` created from `.env.example` with **all** values filled in (no `changeme`, no `localhost`)
-- [ ] `${DOCKER_DIR}/pocketbook/postgres` directory exists on the host and is writable
+- [ ] `${PB_DOCKER_DIR}/pocketbook/postgres` directory exists on the host and is writable
 - [ ] GitHub Actions pushed a successful build to GHCR (check the Actions tab on the repo)
 
 ---
@@ -39,7 +39,7 @@ docker compose exec pocketbook-web npx prisma migrate deploy
 ## Seed the database (first deploy only)
 
 ```bash
-# Runs prisma/seed.ts — creates the single user row from SEED_USER_EMAIL / SEED_USER_PASSWORD.
+# Runs prisma/seed.ts — creates the single user row from PB_SEED_USER_EMAIL / PB_SEED_USER_PASSWORD.
 # Idempotent — safe to re-run (upserts, does not duplicate).
 docker compose exec pocketbook-web npx prisma db seed
 ```
@@ -73,10 +73,8 @@ NPM resolves `pocketbook-web` by container name over `core_net` — no IP addres
 
 ```bash
 # Trigger manually to confirm it can reach frankfurter.app
-docker compose exec pocketbook-web wget -qO- \
-  --header="X-Sync-Secret: $FX_SYNC_SECRET" \
-  --post-data="" \
-  http://localhost:3000/api/fx/sync
+docker compose exec pocketbook-web sh -lc \
+  'wget -qO- --header="X-Sync-Secret: $FX_SYNC_SECRET" --post-data="" http://localhost:3000/api/fx/sync'
 # Expected response: {"synced": N}
 ```
 
@@ -115,8 +113,8 @@ docker compose down -v                    # ⚠ DESTRUCTIVE — also removes the
 
 | Symptom | Check |
 |---|---|
-| Login fails immediately | `NEXTAUTH_SECRET` mismatch or `NEXTAUTH_URL` not matching the actual URL |
+| Login fails immediately | `PB_NEXTAUTH_SECRET` mismatch or `PB_NEXTAUTH_URL` not matching the actual URL |
 | `PrismaClientInitializationError` on first request | DB not yet healthy — check `docker compose ps` and wait for `pocketbook-db` to show `healthy` |
-| AI insights load forever | Ollama unreachable — verify `OLLAMA_BASE_URL` and that Ollama is on `core_net` |
-| FX sync returns 401 | `FX_SYNC_SECRET` in `.env` doesn't match the value baked into `fx-sync` container |
+| AI insights load forever | Ollama unreachable — verify `PB_OLLAMA_BASE_URL` in `.env` and that Ollama is on `core_net` |
+| FX sync returns 401 | `PB_FX_SYNC_SECRET` in `.env` doesn't match the value baked into `fx-sync` container |
 | NPM can't reach the app | `pocketbook-web` not joined to `core_net` — verify with `docker inspect pocketbook-web` |
