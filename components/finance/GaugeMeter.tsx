@@ -19,7 +19,7 @@ export function GaugeMeter({ percent }: GaugeMeterProps) {
         </pattern>
         <linearGradient id="gauge-fill" x1="0%" y1="0%" x2="100%" y2="0%">
           <stop offset="0%" stopColor="hsl(var(--income))" />
-          <stop offset="100%" stopColor="hsl(152 55% 30%)" />
+          <stop offset="100%" stopColor="hsl(var(--income))" stopOpacity="0.45" />
         </linearGradient>
       </defs>
       {/* Remaining hatched arc — drawn first, full arc */}

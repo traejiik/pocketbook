@@ -41,6 +41,8 @@
   --color-expense: hsl(var(--expense));
   --color-savings: hsl(var(--savings));
   --color-neutral2: hsl(var(--neutral));
+  --color-warning: hsl(var(--warning));
+  --color-warning-foreground: hsl(var(--warning-foreground));
 
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -80,8 +82,10 @@
 
   --income: 152 55% 38%;
   --expense: 14 80% 50%;
-  --savings: 220 90% 56%;
+  --savings: 265 55% 50%;
   --neutral: 240 4% 42%;
+  --warning: 38 90% 47%;
+  --warning-foreground: 0 0% 100%;
 
   --radius: 0.625rem;
   --shadow-1: 0 1px 0 rgba(15, 18, 23, 0.04), 0 1px 2px rgba(15, 18, 23, 0.06);
@@ -115,8 +119,10 @@
 
   --income: 152 60% 52%;
   --expense: 14 85% 64%;
-  --savings: 220 95% 66%;
+  --savings: 265 65% 68%;
   --neutral: 232 6% 60%;
+  --warning: 38 90% 60%;
+  --warning-foreground: 24 9% 10%;
 
   --shadow-1: 0 1px 0 rgba(0, 0, 0, 0.5), 0 1px 2px rgba(0, 0, 0, 0.45);
   --shadow-2: 0 6px 16px rgba(0, 0, 0, 0.45);

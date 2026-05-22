@@ -67,7 +67,7 @@ interface TransactionFormProps {
   setDeleteConfirmOpen: (open: boolean) => void;
 }
 
-const today = new Date().toISOString().slice(0, 10);
+function getToday() { return new Date().toISOString().slice(0, 10); }
 
 const TYPE_OPTIONS = [
   { value: 'EXPENSE' as const, label: 'Expense', tone: 'expense' },
@@ -95,7 +95,7 @@ export function TransactionForm({
   } = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      date: today,
+      date: getToday(),
       description: '',
       amount: '',
       currency: 'HUF',
@@ -119,7 +119,7 @@ export function TransactionForm({
       });
     } else if (open && !editingTx) {
       reset({
-        date: today,
+        date: getToday(),
         description: '',
         amount: '',
         currency: 'HUF',

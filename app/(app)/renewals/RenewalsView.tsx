@@ -2,6 +2,8 @@
 
 import { useState, useMemo } from 'react'
 import { Segmented } from '@/components/ui/segmented'
+import { Empty } from '@/components/ui/empty'
+import { CalendarIcon } from 'lucide-react'
 import { TimelineStrip } from '@/components/finance/TimelineStrip'
 import { AmountDisplay } from '@/components/finance/AmountDisplay'
 import { fmtHUF } from '@/lib/format'
@@ -77,15 +79,15 @@ export function RenewalsView({ renewals }: Props) {
   }))
 
   return (
-    <div className="px-8 py-6 space-y-5 max-w-[1240px] mx-auto">
-      <div className="flex items-end justify-between">
+    <div className="px-4 sm:px-8 py-4 sm:py-6 space-y-4 sm:space-y-5 max-w-[1240px] mx-auto">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-[22px] font-semibold tracking-tight">Upcoming renewals</h1>
           <div className="text-[12.5px] text-muted-foreground mt-1">
             {filtered.length} renewals · {fmtHUF(total)} due in next {horizon} days
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Segmented
             options={[
               { label: '30d', value: 30 as const },
@@ -124,7 +126,7 @@ export function RenewalsView({ renewals }: Props) {
                 {list.map(({ rule, daysAway, hufEquivalent }) => (
                   <div
                     key={rule.id}
-                    className="grid grid-cols-[60px_1fr_140px_140px] items-center px-4 py-3 hover:bg-accent/40 transition-colors"
+                    className="grid grid-cols-[52px_1fr_auto] sm:grid-cols-[60px_1fr_140px_140px] items-center px-4 py-3 hover:bg-accent/40 transition-colors"
                   >
                     <div className="text-center">
                       <div className="text-[9px] uppercase mono text-muted-foreground leading-none">
@@ -149,6 +151,7 @@ export function RenewalsView({ renewals }: Props) {
                         </div>
                       </div>
                     </div>
+                    {/* Amount — always; mobile folds daysAway below */}
                     <div className="text-right">
                       <AmountDisplay
                         value={Number(rule.amount)}
@@ -156,15 +159,19 @@ export function RenewalsView({ renewals }: Props) {
                         tone="expense"
                         size="sm"
                       />
+                      <div className={`sm:hidden text-[10px] mt-0.5 ${daysAway < 0 ? 'text-destructive font-medium' : 'text-muted-foreground/70'}`}>
+                        {daysAway < 0 ? `${Math.abs(daysAway)}d overdue` : daysAway === 0 ? 'today' : `in ${daysAway}d`}
+                      </div>
                     </div>
-                    <div className="text-right">
+                    {/* HUF + daysAway — desktop only */}
+                    <div className="hidden sm:block text-right">
                       {rule.currency !== 'HUF' && hufEquivalent !== null && (
                         <div className="text-[11.5px] text-muted-foreground tabular">
                           ≈ {fmtHUF(hufEquivalent)}
                         </div>
                       )}
-                      <div className="text-[10.5px] text-muted-foreground/70">
-                        {daysAway === 0 ? 'today' : `in ${daysAway}d`}
+                      <div className={`text-[10.5px] ${daysAway < 0 ? 'text-destructive font-medium' : 'text-muted-foreground/70'}`}>
+                        {daysAway < 0 ? `${Math.abs(daysAway)}d overdue` : daysAway === 0 ? 'today' : `in ${daysAway}d`}
                       </div>
                     </div>
                   </div>
@@ -174,9 +181,11 @@ export function RenewalsView({ renewals }: Props) {
           )
         })}
         {filtered.length === 0 && (
-          <div className="text-center text-[13px] text-muted-foreground py-12">
-            No renewals in the next {horizon} days
-          </div>
+          <Empty
+            icon={CalendarIcon}
+            title="No upcoming renewals"
+            body={`Nothing due in the next ${horizon} days.`}
+          />
         )}
       </div>
     </div>

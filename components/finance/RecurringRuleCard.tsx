@@ -55,7 +55,8 @@ export function RecurringRuleCard({ rule, hufEquivalent, daysAway, onEdit }: Rec
           </div>
         </div>
         <button
-          className="text-muted-foreground/60 hover:text-foreground opacity-0 group-hover:opacity-100"
+          aria-label={`Edit ${rule.name}`}
+          className="text-muted-foreground/60 hover:text-foreground opacity-0 group-hover:opacity-100 focus:opacity-100 focus:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded"
           onClick={(e) => { e.stopPropagation(); onEdit?.(rule); }}
         >
           <MoreHorizontal className="w-4 h-4" />
@@ -79,28 +80,32 @@ export function RecurringRuleCard({ rule, hufEquivalent, daysAway, onEdit }: Rec
           <Calendar className="w-3 h-3" />
           Next · {fmtDate(rule.nextDue, { short: true })}
         </span>
-        <span className={cn('mono', daysAway <= 7 ? 'text-amber-400' : 'text-muted-foreground')}>
-          in {daysAway}d
+        <span className={cn('mono',
+          daysAway < 0 ? 'text-destructive' :
+          daysAway <= 7 ? 'text-warning' :
+          'text-muted-foreground',
+        )}>
+          {daysAway < 0 ? `${Math.abs(daysAway)}d overdue` : daysAway === 0 ? 'today' : `in ${daysAway}d`}
         </span>
       </div>
 
       {inst && (
-        <div className="mt-3 p-2.5 rounded-md bg-amber-500/8 border border-amber-500/20">
+        <div className="mt-3 p-2.5 rounded-md bg-warning/8 border border-warning/20">
           <div className="flex items-center justify-between text-[11px] mb-1.5">
-            <span className="text-amber-400 font-medium inline-flex items-center gap-1.5">
+            <span className="text-warning font-medium inline-flex items-center gap-1.5">
               <AlertTriangle className="w-3 h-3" />
               Installment plan
             </span>
-            <span className="mono text-amber-400">{inst.paid}/{inst.total}</span>
+            <span className="mono text-warning">{inst.paid}/{inst.total}</span>
           </div>
-          <div className="h-1.5 bg-amber-500/15 rounded-full overflow-hidden">
+          <div className="h-1.5 bg-warning/15 rounded-full overflow-hidden">
             <div
-              className="h-full bg-amber-400 rounded-full"
-              style={{ width: `${(inst.paid / inst.total) * 100}%` }}
+              className="h-full bg-warning rounded-full"
+              style={{ width: inst.total > 0 ? `${(inst.paid / inst.total) * 100}%` : '0%' }}
             />
           </div>
           {inst.endsOn && (
-            <div className="text-[10.5px] text-amber-400/80 mt-1.5">
+            <div className="text-[10.5px] text-warning/80 mt-1.5">
               Ends {fmtDate(inst.endsOn)} · {inst.total - inst.paid} payments left
             </div>
           )}

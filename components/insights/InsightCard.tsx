@@ -104,7 +104,7 @@ export function InsightCard({ ollamaUrl, ollamaModel, history, autoGenerate }: P
         <div className="flex items-center gap-2.5">
           <span className={cn(
             'w-2 h-2 rounded-full shrink-0',
-            state === 'loading' && 'bg-amber-400 animate-pulse',
+            state === 'loading' && 'bg-warning animate-pulse',
             state === 'streaming' && 'bg-primary animate-pulse',
             state === 'done' && 'bg-income',
             state === 'ready' && 'bg-muted-foreground/40',

@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { toast } from 'sonner';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
+import { MobileNav } from './MobileNav';
 import { useTransactionSheet } from '@/contexts/sheet-context';
 import { useGlobalKeys } from '@/hooks/use-global-keys';
 import { TransactionForm, type SerializedCategory, type SerializedRecurringRule } from '@/components/forms/TransactionForm';
@@ -44,12 +45,13 @@ export function AppShell({ children, upcomingRenewalsCount = 0, categories, recu
   const showGlobalSheet = !pathname.startsWith('/transactions');
 
   return (
-    <div className="w-full h-screen bg-background text-foreground flex overflow-hidden p-3 gap-3">
+    <div className="w-full h-dvh bg-background text-foreground flex flex-col sm:flex-row overflow-hidden sm:p-3 sm:gap-3">
       <Sidebar upcomingRenewalsCount={upcomingRenewalsCount} onQuickAdd={openNew} />
-      <div className="flex-1 flex flex-col gap-3 overflow-hidden">
+      <div className="flex-1 flex flex-col sm:gap-3 overflow-hidden min-h-0">
         <Header upcomingRenewalsCount={upcomingRenewalsCount} displayName={displayName} />
-        <main className="flex-1 overflow-auto relative">{children}</main>
+        <main className="flex-1 overflow-auto relative pb-16 sm:pb-0">{children}</main>
       </div>
+      <MobileNav upcomingRenewalsCount={upcomingRenewalsCount} onQuickAdd={openNew} />
       {showGlobalSheet && (
         <TransactionForm
           categories={categories}

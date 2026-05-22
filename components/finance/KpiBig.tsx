@@ -19,6 +19,13 @@ const toneVar: Record<Tone, string> = {
   neutral: 'hsl(var(--foreground))',
 }
 
+const toneSurface: Record<Tone, string> = {
+  income:  'linear-gradient(135deg, hsl(var(--income) / 0.08) 0%, transparent 55%), hsl(var(--card))',
+  expense: 'linear-gradient(135deg, hsl(var(--expense) / 0.08) 0%, transparent 55%), hsl(var(--card))',
+  savings: 'linear-gradient(135deg, hsl(var(--savings) / 0.08) 0%, transparent 55%), hsl(var(--card))',
+  neutral: 'hsl(var(--card))',
+}
+
 export function KpiBig({ label, value, tone = 'income', deltaPct, footnote, href }: KpiBigProps) {
   const abs = Math.abs(Math.round(value))
   const isNeg = value < 0
@@ -31,7 +38,10 @@ export function KpiBig({ label, value, tone = 'income', deltaPct, footnote, href
   const isStatic  = !deltaPct.match(/[\d%]/)
 
   return (
-    <div className="rounded-2xl p-5 bg-card border border-border flex flex-col gap-4 min-h-[170px]">
+    <div
+      className="rounded-2xl p-5 border border-border flex flex-col gap-4 min-h-[170px]"
+      style={{ background: toneSurface[tone] }}
+    >
       <div className="flex items-start justify-between">
         <div className="text-[14px] font-medium text-foreground">{label}</div>
         {href ? (

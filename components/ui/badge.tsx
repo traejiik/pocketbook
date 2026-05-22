@@ -10,7 +10,7 @@ const kindClasses: Record<BadgeKind, string> = {
   savings: 'bg-savings/12 text-savings border-savings/25',
   neutral: 'bg-secondary text-muted-foreground border-border',
   primary: 'bg-primary/12 text-primary border-primary/25',
-  warning: 'bg-amber-500/12 text-amber-400 border-amber-500/25',
+  warning: 'bg-warning/12 text-warning border-warning/25',
 }
 
 const variantClasses: Record<BadgeVariant, string> = {

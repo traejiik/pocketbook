@@ -210,7 +210,7 @@ export function SettingsView({
   };
 
   const strength = passwordStrength(newPw);
-  const barColours = ['bg-border', 'bg-destructive', 'bg-amber-400', 'bg-income', 'bg-income'];
+  const barColours = ['bg-border', 'bg-destructive', 'bg-warning', 'bg-income', 'bg-income'];
 
   return (
     <>
@@ -363,8 +363,8 @@ export function SettingsView({
             </div>
           </Card>
 
-          <div className="mt-3 p-3 rounded-md bg-amber-500/8 border border-amber-500/25 text-[12px] text-foreground/85 flex items-start gap-2.5">
-            <AlertTriangle className="w-3.5 h-3.5 mt-0.5 text-amber-500 shrink-0" />
+          <div className="mt-3 p-3 rounded-md bg-warning/8 border border-warning/25 text-[12px] text-foreground/85 flex items-start gap-2.5">
+            <AlertTriangle className="w-3.5 h-3.5 mt-0.5 text-warning shrink-0" />
             <div>Switching anchor or changing manual rates retroactively converts every non-anchor transaction — past totals will shift accordingly.</div>
           </div>
         </section>
