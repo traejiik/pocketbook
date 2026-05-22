@@ -4,11 +4,11 @@ services:
     container_name: pocketbook-db
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${PB_POSTGRES_USER}
-      POSTGRES_PASSWORD: ${PB_POSTGRES_PASSWORD}
-      POSTGRES_DB: ${PB_POSTGRES_DB}
+      POSTGRES_USER: pocketbook
+      POSTGRES_PASSWORD: ${PB_POSTGRES_PASSWORD:-pocketbook}
+      POSTGRES_DB: pocketbook
     volumes:
-      - ${PB_DOCKER_DIR}/pocketbook/postgres:/var/lib/postgresql/data
+      - ${PB_DOCKER_DIR:-/opt/docker}/pocketbook/postgres:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 10s
@@ -28,21 +28,21 @@ services:
       pocketbook-db:
         condition: service_healthy
     environment:
-      PB_POSTGRES_USER: ${PB_POSTGRES_USER}
-      PB_POSTGRES_PASSWORD: ${PB_POSTGRES_PASSWORD}
-      PB_POSTGRES_DB: ${PB_POSTGRES_DB}
+      PB_POSTGRES_USER: pocketbook
+      PB_POSTGRES_PASSWORD: ${PB_POSTGRES_PASSWORD:-pocketbook}
+      PB_POSTGRES_DB: pocketbook
       NEXTAUTH_URL: ${PB_NEXTAUTH_URL}
       NEXTAUTH_SECRET: ${PB_NEXTAUTH_SECRET}
-      OLLAMA_BASE_URL: ${PB_OLLAMA_BASE_URL}
+      OLLAMA_BASE_URL: ${PB_OLLAMA_BASE_URL:-http://ollama:11434}
       FX_SYNC_SECRET: ${PB_FX_SYNC_SECRET}
-      PB_USER_DISPLAY_NAME: ${PB_USER_DISPLAY_NAME}
+      PB_USER_DISPLAY_NAME: ${PB_USER_DISPLAY_NAME:-Pocketbook}
       PB_INSTANCE_NAME: ${PB_INSTANCE_NAME:-}
       SEED_USER_EMAIL: ${PB_SEED_USER_EMAIL}
       SEED_USER_PASSWORD: ${PB_SEED_USER_PASSWORD}
-      AUTH_TRUST_HOST: ${AUTH_TRUST_HOST}
+      AUTH_TRUST_HOST: "true"
       NODE_ENV: production
     volumes:
-      - ${PB_DOCKER_DIR}/pocketbook/data:/data
+      - ${PB_DOCKER_DIR:-/opt/docker}/pocketbook/data:/data
     networks:
       - core_net
 

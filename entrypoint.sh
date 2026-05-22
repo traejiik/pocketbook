@@ -1,9 +1,9 @@
 #!/bin/sh
 set -e
 
-if [ -z "$PB_POSTGRES_USER" ] || [ -z "$PB_POSTGRES_PASSWORD" ] || [ -z "$PB_POSTGRES_DB" ]; then
-  echo "ERROR: PB_POSTGRES_USER, PB_POSTGRES_PASSWORD, and PB_POSTGRES_DB must all be"
-  echo "set in Portainer stack environment variables. See DEPLOY.md for setup instructions."
+if [ -z "$NEXTAUTH_SECRET" ] || [ -z "$NEXTAUTH_URL" ]; then
+  echo "ERROR: NEXTAUTH_SECRET and NEXTAUTH_URL must be set in Portainer stack environment variables."
+  echo "See DEPLOY.md for setup instructions."
   exit 1
 fi
 

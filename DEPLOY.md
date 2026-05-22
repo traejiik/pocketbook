@@ -6,26 +6,29 @@ Stack: Next.js 16 · React 19 · Tailwind CSS 4 · Node 24 · Postgres 16 · Doc
 
 ## Portainer stack deployment
 
-The `docker-compose.yml` uses `${VAR}` placeholders that Portainer substitutes from its **Stack environment variables** panel. These must be configured in Portainer — there is no `.env` file on the server.
+The `docker-compose.yml` uses `${VAR}` placeholders that Portainer substitutes from its **Stack environment variables** panel. Database credentials and most infrastructure values have built-in defaults — you only need to configure the six variables below.
 
-Required variables (Portainer → your stack → Environment variables):
+**Required** (Portainer → your stack → Environment variables):
 
 | Variable | Example |
-|---|---|
-| `PB_POSTGRES_USER` | `pocketbook` |
-| `PB_POSTGRES_PASSWORD` | *(strong random password)* |
-| `PB_POSTGRES_DB` | `pocketbook` |
-| `PB_DOCKER_DIR` | `/opt/docker` |
+| --- | --- |
 | `PB_NEXTAUTH_URL` | `https://pocketbook.yourdomain.com` |
 | `PB_NEXTAUTH_SECRET` | *(output of `openssl rand -base64 32`)* |
 | `PB_SEED_USER_EMAIL` | `you@yourdomain.com` |
 | `PB_SEED_USER_PASSWORD` | *(strong password)* |
-| `PB_USER_DISPLAY_NAME` | `Tida` |
-| `PB_OLLAMA_BASE_URL` | `http://ollama:11434` |
 | `PB_FX_SYNC_SECRET` | *(output of `openssl rand -hex 32`)* |
-| `AUTH_TRUST_HOST` | `true` |
 
-> **Portainer redeploy gotcha**: Some Portainer versions reset stack environment variables when you pull an updated compose file from GitHub. Re-enter or verify all variables after every GitOps redeploy.
+**Optional overrides** (sensible defaults apply if omitted):
+
+| Variable | Default |
+| --- | --- |
+| `PB_POSTGRES_PASSWORD` | `pocketbook` |
+| `PB_USER_DISPLAY_NAME` | `Pocketbook` |
+| `PB_OLLAMA_BASE_URL` | `http://ollama:11434` |
+| `PB_DOCKER_DIR` | `/opt/docker` |
+| `PB_INSTANCE_NAME` | *(empty — no label shown)* |
+
+> **Portainer redeploy gotcha**: Some Portainer versions reset stack environment variables when you pull an updated compose file from GitHub. Re-enter or verify the required variables after every GitOps redeploy.
 
 ---
 
@@ -137,7 +140,7 @@ docker compose down -v                    # ⚠ DESTRUCTIVE — also removes the
 ## Troubleshooting
 
 | Symptom | Check |
-|---|---|
+| --- | --- |
 | Login fails immediately | `PB_NEXTAUTH_SECRET` mismatch or `PB_NEXTAUTH_URL` not matching the actual URL |
 | `PrismaClientInitializationError` on first request | DB not yet healthy — check `docker compose ps` and wait for `pocketbook-db` to show `healthy` |
 | AI insights load forever | Ollama unreachable — verify `PB_OLLAMA_BASE_URL` in `.env` and that Ollama is on `core_net` |
