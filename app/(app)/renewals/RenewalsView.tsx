@@ -26,7 +26,7 @@ type SerialisedRule = {
 interface RenewalItem {
   rule: SerialisedRule
   daysAway: number
-  hufEquivalent: number
+  hufEquivalent: number | null
 }
 
 interface Props {
@@ -55,7 +55,7 @@ export function RenewalsView({ renewals }: Props) {
     [renewals, horizon],
   )
 
-  const total = filtered.reduce((s, r) => s + r.hufEquivalent, 0)
+  const total = filtered.reduce((s, r) => s + (r.hufEquivalent ?? 0), 0)
 
   const groups = useMemo(() => {
     const map = new Map<string, RenewalItem[]>()
@@ -73,7 +73,7 @@ export function RenewalsView({ renewals }: Props) {
     name: r.rule.name,
     daysAway: r.daysAway,
     categoryColor: r.rule.category.color,
-    hufEquivalent: r.hufEquivalent,
+    hufEquivalent: r.hufEquivalent ?? 0,
   }))
 
   return (
@@ -110,7 +110,7 @@ export function RenewalsView({ renewals }: Props) {
 
       <div className="space-y-5">
         {[...groups.entries()].map(([key, list]) => {
-          const subTotal = list.reduce((s, r) => s + r.hufEquivalent, 0)
+          const subTotal = list.reduce((s, r) => s + (r.hufEquivalent ?? 0), 0)
           return (
             <div key={key}>
               <div className="flex items-center justify-between mb-2.5">
@@ -158,7 +158,7 @@ export function RenewalsView({ renewals }: Props) {
                       />
                     </div>
                     <div className="text-right">
-                      {rule.currency !== 'HUF' && (
+                      {rule.currency !== 'HUF' && hufEquivalent !== null && (
                         <div className="text-[11.5px] text-muted-foreground tabular">
                           ≈ {fmtHUF(hufEquivalent)}
                         </div>
