@@ -18,6 +18,7 @@ import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { toast } from 'sonner'
 import { upsertRecurringRule, archiveRecurringRule, type RecurringRuleInput } from '@/server-actions/recurring'
 import type { CardRule } from '@/components/finance/RecurringRuleCard'
 
@@ -54,7 +55,7 @@ const formSchema = z.object({
   cycle: z.enum(['MONTHLY', 'ANNUAL']),
   nextDue: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   kind: z.enum(['INCOME', 'EXPENSE']),
-  categoryId: z.string().min(1),
+  categoryId: z.string().min(1, 'Please select a category'),
   hasInstallment: z.boolean(),
   installmentPaid: z.coerce.number().int().min(0).optional(),
   installmentTotal: z.coerce.number().int().min(1).optional(),
@@ -144,7 +145,14 @@ export function RecurringView({ rules, categories, monthlyTotal, annualTotal, in
       installmentEndsOn: values.hasInstallment && values.installmentEndsOn ? values.installmentEndsOn : null,
     }
     startTransition(async () => {
-      await upsertRecurringRule(input)
+      const result = await upsertRecurringRule(input)
+      if ('error' in result) {
+        toast.error(result.error)
+        return
+      }
+      if (result.backfilled && result.backfilledDate) {
+        toast.success(`Added missed payment for ${result.backfilledDate} as a transaction.`)
+      }
       setSheetOpen(false)
     })
   }
@@ -312,13 +320,22 @@ export function RecurringView({ rules, categories, monthlyTotal, annualTotal, in
             <div className="space-y-1.5">
               <Label>Category</Label>
               <Select value={categoryId} onValueChange={(v: string | null) => { if (v) setValue('categoryId', v) }}>
-                <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select category">
+                    {categoryId
+                      ? (categories.find(c => c.id === categoryId)?.name ?? undefined)
+                      : undefined}
+                  </SelectValue>
+                </SelectTrigger>
                 <SelectContent>
                   {categories.map((c) => (
                     <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              {errors.categoryId && (
+                <p className="text-[11px] text-destructive">{errors.categoryId.message}</p>
+              )}
             </div>
 
             <div className="flex items-center gap-3 pt-1">
