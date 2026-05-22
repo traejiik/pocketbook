@@ -62,9 +62,9 @@ export default async function DashboardPage() {
     : null
 
   return (
-    <div className="px-6 py-5 space-y-5 max-w-[1280px] mx-auto">
+    <div className="px-4 sm:px-6 py-4 sm:py-5 space-y-4 sm:space-y-5 max-w-[1280px] mx-auto">
       {/* Page header */}
-      <div className="flex items-end justify-between gap-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between sm:gap-6">
         <div>
           <h1 className="text-[30px] font-semibold tracking-tight leading-none">Dashboard</h1>
           <div className="text-[13px] text-muted-foreground mt-2.5">Your finances at a glance.</div>
@@ -73,7 +73,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* Row 1 — KPI cards */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
         <KpiBig label="Income"   value={kpis.income}  tone="income"  deltaPct={incomeDelta?.label  ?? '—'} footnote={deltaFootnote(incomeDelta)}  href="/transactions?type=INCOME" />
         <KpiBig label="Expenses" value={kpis.expense} tone="expense" deltaPct={expenseDelta?.label ?? '—'} footnote={deltaFootnote(expenseDelta)} href="/transactions?type=EXPENSE" />
         <KpiBig label="Net"      value={kpis.net}     tone="income"  deltaPct={netDelta?.label     ?? '—'} footnote={deltaFootnote(netDelta)}     href="/transactions" />
@@ -81,7 +81,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* Row 2 + 3 in the same 12-col grid */}
-      <div className="grid grid-cols-12 gap-4">
+      <div className="grid grid-cols-12 gap-3 sm:gap-4">
         {/* Expenses by category with Segmented toggle (client island) */}
         <DashboardChartSection
           byCategory={byCategory}
@@ -90,7 +90,7 @@ export default async function DashboardPage() {
         />
 
         {/* Upcoming renewals */}
-        <div className="col-span-5 bg-card border border-border rounded-2xl p-5">
+        <div className="col-span-12 sm:col-span-5 bg-card border border-border rounded-2xl p-5">
           <div className="flex items-center justify-between mb-3">
             <div>
               <div className="text-[15px] font-semibold tracking-tight">Upcoming renewals</div>
@@ -126,7 +126,7 @@ export default async function DashboardPage() {
                     {rule.installmentTotal && (
                       <>
                         <span className="text-border">·</span>
-                        <Badge variant="outline" className="py-0! text-[10px] text-amber-500 border-amber-500/40">
+                        <Badge kind="warning" className="py-0! text-[10px]!">
                           {rule.installmentPaid ?? 0}/{rule.installmentTotal}
                         </Badge>
                       </>
@@ -150,7 +150,7 @@ export default async function DashboardPage() {
         </div>
 
         {/* Recent activity */}
-        <div className="col-span-5 bg-card border border-border rounded-2xl p-5">
+        <div className="col-span-12 sm:col-span-5 bg-card border border-border rounded-2xl p-5">
           <div className="flex items-center justify-between mb-2">
             <div>
               <div className="text-[15px] font-semibold tracking-tight">Recent activity</div>
@@ -166,6 +166,11 @@ export default async function DashboardPage() {
             </Link>
           </div>
           <div className="divide-y divide-border -mx-1">
+            {recentTx.length === 0 && (
+              <div className="px-1 py-6 text-center text-[12px] text-muted-foreground">
+                No transactions this month
+              </div>
+            )}
             {recentTx.map((t: (typeof recentTx)[number]) => {
               const initials = t.category.name.split(' ').map((w: string) => w[0]).slice(0, 2).join('')
               const amtNum = Number(t.amount)
@@ -193,21 +198,15 @@ export default async function DashboardPage() {
                           ? 'hsl(var(--income))'
                           : t.type === 'SAVINGS'
                           ? 'hsl(var(--savings))'
-                          : 'hsl(var(--foreground))',
+                          : 'hsl(var(--expense))',
                       }}
                     >
                       {t.type === 'INCOME' ? '+' : t.type === 'SAVINGS' ? '↓' : '−'}
                       {fmtCur(Math.abs(amtNum), t.currency as 'HUF' | 'USD' | 'EUR' | 'GBP').replace('−', '')}
                     </div>
                     <Badge
-                      variant="outline"
-                      className={`py-0! text-[10px]! mt-0.5 ${
-                        t.type === 'INCOME'
-                          ? 'text-income border-income/40'
-                          : t.type === 'SAVINGS'
-                          ? 'text-savings border-savings/40'
-                          : 'text-expense border-expense/40'
-                      }`}
+                      kind={t.type === 'INCOME' ? 'income' : t.type === 'SAVINGS' ? 'savings' : 'expense'}
+                      className="py-0! text-[10px]! mt-0.5"
                     >
                       {t.type === 'INCOME' ? 'Income' : t.type === 'SAVINGS' ? 'Saved' : 'Spent'}
                     </Badge>
@@ -219,7 +218,7 @@ export default async function DashboardPage() {
         </div>
 
         {/* Income used — Gauge */}
-        <div className="col-span-4 bg-card border border-border rounded-2xl p-5 flex flex-col">
+        <div className="col-span-12 sm:col-span-4 bg-card border border-border rounded-2xl p-5 flex flex-col">
           <div className="flex items-start justify-between">
             <div>
               <div className="text-[15px] font-semibold tracking-tight">Income used</div>
@@ -253,7 +252,7 @@ export default async function DashboardPage() {
         </div>
 
         {/* Right stack: Reminder + AI Insights */}
-        <div className="col-span-3 flex flex-col gap-4">
+        <div className="col-span-12 sm:col-span-3 flex flex-col gap-4">
           {nextRenewal ? (
             <div className="bg-card border border-border rounded-2xl p-5 flex flex-col">
               <div className="text-[12.5px] text-muted-foreground">Reminder</div>

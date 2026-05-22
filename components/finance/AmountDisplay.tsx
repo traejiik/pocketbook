@@ -44,7 +44,7 @@ export function AmountDisplay({
   if (currency === 'HUF') numStr = Math.round(abs).toLocaleString('hu-HU').replace(/,/g, ' ')
   else numStr = abs.toFixed(2)
 
-  const symbol = currency === 'HUF' ? 'Ft' : currency === 'USD' ? '$' : currency === 'EUR' ? '€' : currency
+  const symbol = currency === 'HUF' ? 'Ft' : currency === 'USD' ? '$' : currency === 'EUR' ? '€' : '£'
   const prefix = currency !== 'HUF'
 
   return (

@@ -162,7 +162,7 @@ export function TransactionsView({
   }
 
   return (
-    <div className="px-8 py-6 space-y-5 max-w-[1240px] mx-auto">
+    <div className="px-4 sm:px-8 py-4 sm:py-6 space-y-4 sm:space-y-5 max-w-[1240px] mx-auto">
       {/* Page header */}
       <div className="flex items-end justify-between">
         <div>
@@ -172,62 +172,64 @@ export function TransactionsView({
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" disabled title="Coming soon">
+          <Button variant="outline" size="sm" disabled title="Coming soon" className="hidden sm:inline-flex">
             <DownloadIcon className="w-3.5 h-3.5" />
             Export CSV
           </Button>
           <Button size="sm" onClick={openNew}>
             <PlusIcon className="w-3.5 h-3.5" />
-            Add transaction
+            <span className="hidden sm:inline">Add transaction</span>
           </Button>
         </div>
       </div>
 
       {/* Filter bar */}
-      <Card className="p-3 flex flex-row items-center gap-2 rounded-xl">
+      <Card className="p-3 flex flex-col sm:flex-row sm:items-center gap-2 rounded-xl">
         <Input
           placeholder="Search transactions…"
           icon={<SearchIcon className="w-4 h-4" />}
           value={search}
           onChange={e => setSearch(e.target.value)}
-          className="flex-1 min-w-0 max-w-[260px]"
+          className="w-full sm:flex-1 sm:max-w-[260px]"
         />
-        <Segmented
-          options={[
-            { label: 'All', value: 'all' as TypeFilter },
-            { label: 'Income', value: 'INCOME' as TypeFilter },
-            { label: 'Expense', value: 'EXPENSE' as TypeFilter },
-            { label: 'Savings', value: 'SAVINGS' as TypeFilter },
-          ]}
-          value={typeFilter}
-          onChange={setTypeFilter}
-        />
-        <div className="relative">
-          <select
-            value={catFilter}
-            onChange={e => setCatFilter(e.target.value)}
-            className="appearance-none h-8 pl-3 pr-7 bg-secondary border border-border rounded-md text-[12px] text-foreground focus:outline-hidden focus:ring-2 focus:ring-ring/60"
-          >
-            {catOptions.map(c => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
-          <ChevronDownIcon className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
-        </div>
-        <Button variant="ghost" size="sm">
-          {monthLabel}
-        </Button>
-        <div className="ml-auto text-[11.5px] text-muted-foreground mono whitespace-nowrap">
-          Net:{' '}
-          <span className={cn('font-medium', net >= 0 ? 'text-income' : 'text-expense')}>
-            {fmtHUF(net, { signed: true })}
-          </span>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Segmented
+            options={[
+              { label: 'All', value: 'all' as TypeFilter },
+              { label: 'Income', value: 'INCOME' as TypeFilter },
+              { label: 'Expense', value: 'EXPENSE' as TypeFilter },
+              { label: 'Savings', value: 'SAVINGS' as TypeFilter },
+            ]}
+            value={typeFilter}
+            onChange={setTypeFilter}
+          />
+          <div className="relative">
+            <select
+              value={catFilter}
+              onChange={e => setCatFilter(e.target.value)}
+              className="appearance-none h-8 pl-3 pr-7 bg-secondary border border-border rounded-md text-[12px] text-foreground focus:outline-hidden focus:ring-2 focus:ring-ring/60"
+            >
+              {catOptions.map(c => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+            <ChevronDownIcon className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
+          </div>
+          <Button variant="ghost" size="sm" className="hidden sm:inline-flex">
+            {monthLabel}
+          </Button>
+          <div className="hidden sm:flex ml-auto text-[11.5px] text-muted-foreground mono whitespace-nowrap">
+            Net:{' '}
+            <span className={cn('font-medium ml-1', net >= 0 ? 'text-income' : 'text-expense')}>
+              {fmtHUF(net, { signed: true })}
+            </span>
+          </div>
         </div>
       </Card>
 
       {/* Table */}
       <Card className="overflow-hidden p-0 rounded-xl">
-        <div className="grid grid-cols-[100px_1fr_180px_120px_140px_40px] px-5 py-2.5 text-[10.5px] uppercase tracking-[0.08em] text-muted-foreground font-medium border-b border-border bg-secondary/30">
+        <div className="hidden sm:grid grid-cols-[100px_1fr_180px_120px_140px_40px] px-5 py-2.5 text-[10.5px] uppercase tracking-[0.08em] text-muted-foreground font-medium border-b border-border bg-secondary/30">
           <div>Date</div>
           <div>Description</div>
           <div>Category</div>
@@ -250,7 +252,7 @@ export function TransactionsView({
         ) : (
           Array.from(groups.entries()).map(([date, list]) => (
             <div key={date}>
-              <div className="px-5 py-2 text-[11px] uppercase tracking-[0.08em] text-muted-foreground bg-secondary/15 border-b border-border flex items-center justify-between">
+              <div className="px-4 sm:px-5 py-2 text-[11px] uppercase tracking-[0.08em] text-muted-foreground bg-secondary/15 border-b border-border flex items-center justify-between">
                 <span>{fmtDate(date)} · {dayOfWeek(date)}</span>
                 <span className="mono">{list.length} {list.length === 1 ? 'item' : 'items'}</span>
               </div>
@@ -267,20 +269,35 @@ export function TransactionsView({
                     onClick={() => handleRowClick(tx)}
                     disabled={isOptimistic}
                     className={cn(
-                      'w-full grid grid-cols-[100px_1fr_180px_120px_140px_40px] items-center px-5 py-3 border-b border-border last:border-b-0 hover:bg-accent/50 text-left transition-colors',
+                      'w-full grid items-center px-4 sm:px-5 py-3 border-b border-border last:border-b-0 hover:bg-accent/50 text-left transition-colors',
+                      'grid-cols-[1fr_auto_auto] sm:grid-cols-[100px_1fr_180px_120px_140px_40px]',
                       isOptimistic && 'opacity-60 pointer-events-none',
                     )}
                   >
-                    <div className="mono text-[12px] text-muted-foreground">
+                    {/* Date — desktop only */}
+                    <div className="hidden sm:block mono text-[12px] text-muted-foreground">
                       {fmtDate(tx.date, { short: true })}
                     </div>
-                    <div className="text-[13px] flex items-center gap-2 min-w-0">
-                      <span className="truncate">{tx.description}</span>
-                      {tx.recurringRuleId && (
-                        <RepeatIcon className="w-3 h-3 text-muted-foreground shrink-0" />
-                      )}
+                    {/* Description — always; mobile shows date+category as subtext */}
+                    <div className="min-w-0 flex flex-col sm:flex-row sm:items-center gap-0.5 sm:gap-2 text-[13px]">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span
+                          className="sm:hidden w-2 h-2 rounded-full shrink-0"
+                          style={{ background: tx.category.color }}
+                        />
+                        <span className="truncate">{tx.description}</span>
+                        {tx.recurringRuleId && (
+                          <RepeatIcon className="w-3 h-3 text-muted-foreground shrink-0" />
+                        )}
+                      </div>
+                      <div className="sm:hidden text-[11px] text-muted-foreground flex items-center gap-1 pl-3.5">
+                        <span className="mono">{fmtDate(tx.date, { short: true })}</span>
+                        <span className="text-border">·</span>
+                        <span className="truncate">{tx.category.name}</span>
+                      </div>
                     </div>
-                    <div>
+                    {/* Category pill — desktop only */}
+                    <div className="hidden sm:flex">
                       <span
                         className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium border border-border/60"
                         style={{ color: tx.category.color }}
@@ -292,6 +309,7 @@ export function TransactionsView({
                         {tx.category.name}
                       </span>
                     </div>
+                    {/* Amount — always; mobile shows HUF below */}
                     <div className="text-right">
                       <AmountDisplay
                         value={Math.abs(tx.amount)}
@@ -299,10 +317,15 @@ export function TransactionsView({
                         tone={tone}
                         size="sm"
                       />
+                      <div className="sm:hidden text-[10.5px] text-muted-foreground tabular mt-0.5">
+                        {Math.round(Math.abs(huf)).toLocaleString('hu-HU').replace(/,/g, ' ')} Ft
+                      </div>
                     </div>
-                    <div className="text-right tabular text-[12px] text-muted-foreground">
+                    {/* HUF — desktop only */}
+                    <div className="hidden sm:block text-right tabular text-[12px] text-muted-foreground">
                       {Math.round(Math.abs(huf)).toLocaleString('hu-HU').replace(/,/g, ' ')} Ft
                     </div>
+                    {/* Chevron — always */}
                     <div className="text-muted-foreground/60 flex justify-center">
                       <ChevronRightIcon className="w-3.5 h-3.5" />
                     </div>

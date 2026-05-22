@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Plus, ArrowUpDown, Check } from 'lucide-react'
+import { Plus, ArrowUpDown, Check, RepeatIcon } from 'lucide-react'
 import { Segmented } from '@/components/ui/segmented'
 import { KpiCard } from '@/components/finance/KpiCard'
 import { RecurringRuleCard } from '@/components/finance/RecurringRuleCard'
@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
+import { Empty } from '@/components/ui/empty'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { toast } from 'sonner'
@@ -77,7 +78,7 @@ export function RecurringView({ rules, categories, monthlyTotal, annualTotal, in
   const [sortKey, setSortKey] = useState<SortKey>('nextDue')
   const [sheetOpen, setSheetOpen] = useState(false)
   const [editing, setEditing] = useState<SerialisedRule | null>(null)
-  const [, startTransition] = useTransition()
+  const [isPending, startTransition] = useTransition()
 
   const list = rules
     .filter((r) => r.kind === tab)
@@ -166,7 +167,7 @@ export function RecurringView({ rules, categories, monthlyTotal, annualTotal, in
   }
 
   return (
-    <div className="px-8 py-6 space-y-5 max-w-[1240px] mx-auto">
+    <div className="px-4 sm:px-8 py-4 sm:py-6 space-y-4 sm:space-y-5 max-w-[1240px] mx-auto">
       <div className="flex items-end justify-between">
         <div>
           <h1 className="text-[22px] font-semibold tracking-tight">Recurring rules</h1>
@@ -183,7 +184,7 @@ export function RecurringView({ rules, categories, monthlyTotal, annualTotal, in
       </div>
 
       {/* Summary strip */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
         <div className="bg-card border border-border rounded-xl p-4">
           <div className="text-[11px] uppercase tracking-[0.08em] text-muted-foreground">Monthly outflow</div>
           <div className="mt-1.5"><AmountDisplay value={monthlyTotal} tone="expense" size="lg" /></div>
@@ -245,17 +246,26 @@ export function RecurringView({ rules, categories, monthlyTotal, annualTotal, in
         </Popover>
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
-        {list.map((r) => (
-          <RecurringRuleCard
-            key={r.id}
-            rule={r as CardRule}
-            hufEquivalent={r.amount}
-            daysAway={daysUntil(r.nextDue)}
-            onEdit={(c) => openEdit(c as SerialisedRule)}
-          />
-        ))}
-      </div>
+      {list.length === 0 ? (
+        <Empty
+          icon={RepeatIcon}
+          title={`No ${tab === 'EXPENSE' ? 'expense' : 'income'} rules`}
+          body="Add a recurring rule to track subscriptions, installments, and regular income."
+          action={<Button size="sm" onClick={openNew}>New rule</Button>}
+        />
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {list.map((r) => (
+            <RecurringRuleCard
+              key={r.id}
+              rule={r as CardRule}
+              hufEquivalent={r.amount}
+              daysAway={daysUntil(r.nextDue)}
+              onEdit={(c) => openEdit(c as SerialisedRule)}
+            />
+          ))}
+        </div>
+      )}
 
       {/* Rule sheet */}
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
@@ -368,14 +378,14 @@ export function RecurringView({ rules, categories, monthlyTotal, annualTotal, in
 
           <SheetFooter className="flex flex-row gap-2">
             {editing && (
-              <Button variant="destructive" size="sm" onClick={onArchive} type="button">
+              <Button variant="destructive" size="sm" onClick={onArchive} type="button" disabled={isPending}>
                 Archive
               </Button>
             )}
-            <Button variant="outline" size="sm" onClick={() => setSheetOpen(false)} type="button" className="ml-auto">
+            <Button variant="outline" size="sm" onClick={() => setSheetOpen(false)} type="button" className="ml-auto" disabled={isPending}>
               Cancel
             </Button>
-            <Button size="sm" onClick={handleSubmit(onSubmit)} type="button">
+            <Button size="sm" onClick={handleSubmit(onSubmit)} type="button" disabled={isPending}>
               {editing ? 'Save changes' : 'Create rule'}
             </Button>
           </SheetFooter>

@@ -38,7 +38,7 @@ export function Sidebar({ upcomingRenewalsCount = 1, onQuickAdd }: SidebarProps)
   useEffect(() => setMounted(true), []);
 
   return (
-    <aside className="w-[220px] shrink-0 bg-card border border-border rounded-2xl flex flex-col overflow-hidden relative">
+    <aside className="hidden sm:flex w-[220px] shrink-0 bg-card border border-border rounded-2xl flex-col overflow-hidden relative">
       {/* Decorative radial gradient */}
       <svg
         className="absolute inset-0 w-full h-full pointer-events-none"
@@ -122,7 +122,7 @@ export function Sidebar({ upcomingRenewalsCount = 1, onQuickAdd }: SidebarProps)
                     'font-mono text-[10px] rounded-full px-1.5 py-0.5 leading-none',
                     active
                       ? 'bg-white/20 text-white'
-                      : 'bg-amber-500/15 text-amber-500 border border-amber-500/30',
+                      : 'bg-warning/15 text-warning border border-warning/30',
                   )}
                 >
                   {upcomingRenewalsCount}

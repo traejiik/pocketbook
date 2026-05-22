@@ -61,7 +61,7 @@ export function CategoriesView({ categories }: Props) {
   const [editDialog, setEditDialog] = useState<EditState | null>(null)
   const [deleteDialog, setDeleteDialog] = useState<DeleteState | null>(null)
   const [replacementId, setReplacementId] = useState('')
-  const [, startTransition] = useTransition()
+  const [isPending, startTransition] = useTransition()
 
   const groups: KindType[] = ['INCOME', 'EXPENSE', 'SAVINGS']
 
@@ -80,6 +80,10 @@ export function CategoriesView({ categories }: Props) {
 
   function submitEdit() {
     if (!editDialog || !editDialog.name || !editDialog.color) return
+    if (!/^#[0-9A-Fa-f]{6}$/.test(editDialog.color)) {
+      toast.error('Enter a valid hex colour (e.g. #3FBF7F)')
+      return
+    }
     startTransition(async () => {
       const result = await upsertCategory({
         id: editDialog.id,
@@ -107,7 +111,7 @@ export function CategoriesView({ categories }: Props) {
   }
 
   return (
-    <div className="px-8 py-6 max-w-[960px] mx-auto space-y-6">
+    <div className="px-4 sm:px-8 py-4 sm:py-6 max-w-[960px] mx-auto space-y-5 sm:space-y-6">
       <div className="flex items-end justify-between">
         <div>
           <h1 className="text-[22px] font-semibold tracking-tight">Categories</h1>
@@ -139,7 +143,7 @@ export function CategoriesView({ categories }: Props) {
               {list.map((c) => (
                 <div
                   key={c.id}
-                  className="grid grid-cols-[44px_1fr_120px_140px_80px] items-center px-4 py-3 group hover:bg-accent/40 transition-colors"
+                  className="grid grid-cols-[40px_1fr_80px_60px] sm:grid-cols-[44px_1fr_120px_140px_80px] items-center px-4 py-3 group hover:bg-accent/40 transition-colors"
                 >
                   <div className="flex items-center">
                     <span
@@ -154,22 +158,24 @@ export function CategoriesView({ categories }: Props) {
                     <div className="text-[11px] text-muted-foreground mono">{c.color.toUpperCase()}</div>
                   </div>
                   <div className="text-[12px] text-muted-foreground">{c.txCount} txns</div>
-                  <div className="text-right tabular text-[12.5px] text-foreground/85">
+                  <div className="hidden sm:block text-right tabular text-[12.5px] text-foreground/85">
                     {c.txTotalHUF > 0
                       ? fmtHUF(c.txTotalHUF)
                       : <span className="text-muted-foreground">—</span>
                     }
                   </div>
-                  <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
                     <button
                       onClick={() => openEdit(c)}
-                      className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-accent"
+                      aria-label={`Edit ${c.name}`}
+                      className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                     >
                       <Pencil className="w-3.5 h-3.5" />
                     </button>
                     <button
                       onClick={() => openDelete(c)}
-                      className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                      aria-label={`Delete ${c.name}`}
+                      className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -245,8 +251,8 @@ export function CategoriesView({ categories }: Props) {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setEditDialog(null)}>Cancel</Button>
-            <Button size="sm" onClick={submitEdit}>
+            <Button variant="outline" size="sm" onClick={() => setEditDialog(null)} disabled={isPending}>Cancel</Button>
+            <Button size="sm" onClick={submitEdit} disabled={isPending}>
               {editDialog?.id ? 'Save changes' : 'Create'}
             </Button>
           </DialogFooter>
@@ -287,12 +293,12 @@ export function CategoriesView({ categories }: Props) {
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setDeleteDialog(null)}>Cancel</Button>
+            <Button variant="outline" size="sm" onClick={() => setDeleteDialog(null)} disabled={isPending}>Cancel</Button>
             <Button
               variant="destructive"
               size="sm"
               onClick={submitDelete}
-              disabled={(deleteDialog?.txCount ?? 0) > 0 && !replacementId}
+              disabled={isPending || ((deleteDialog?.txCount ?? 0) > 0 && !replacementId)}
             >
               Delete
             </Button>

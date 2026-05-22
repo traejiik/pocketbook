@@ -45,7 +45,7 @@ export function DashboardChartSection({ byCategory, trend6mo, totalExpense }: Pr
   const trendMax = Math.max(...trend6mo.map((t) => t.net), 1)
 
   return (
-    <div className="col-span-7 bg-card border border-border rounded-2xl p-6">
+    <div className="col-span-12 sm:col-span-7 bg-card border border-border rounded-2xl p-4 sm:p-6">
       <div className="flex items-center justify-between mb-5">
         <div>
           <div className="text-[15px] font-semibold tracking-tight">Expenses by category</div>
