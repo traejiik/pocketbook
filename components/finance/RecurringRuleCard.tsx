@@ -19,7 +19,7 @@ export interface CardRule {
 
 interface RecurringRuleCardProps {
   rule: CardRule
-  hufEquivalent: number
+  hufEquivalent: number | null
   daysAway: number
   onEdit?: (rule: CardRule) => void
 }
@@ -69,7 +69,7 @@ export function RecurringRuleCard({ rule, hufEquivalent, daysAway, onEdit }: Rec
           tone={rule.kind === 'INCOME' ? 'income' : 'expense'}
           size="md"
         />
-        {rule.currency !== 'HUF' && (
+        {rule.currency !== 'HUF' && hufEquivalent !== null && (
           <div className="text-[10.5px] text-muted-foreground tabular">≈ {fmtHUF(hufEquivalent)}</div>
         )}
       </div>

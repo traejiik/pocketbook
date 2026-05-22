@@ -32,7 +32,7 @@ export async function buildInsightPrompt(): Promise<string> {
 
   const upcomingList = upcoming
     .slice(0, 5)
-    .map(u => `  - ${u.rule.name}: due in ${u.daysAway} day(s), ${fmtHUF(u.hufEquivalent)}`)
+    .map(u => `  - ${u.rule.name}: due in ${u.daysAway} day(s), ${fmtHUF(u.hufEquivalent ?? 0)}`)
     .join('\n');
 
   const installments = rules
