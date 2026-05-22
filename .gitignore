@@ -48,3 +48,4 @@ next-env.d.ts
 /other
 /graphify-out
 .graphifyignore
+*.override.yml
