@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
 import { auth } from '@/lib/auth';
+import { Prisma } from '@prisma/client';
 
 const categorySchema = z.object({
   id: z.string().optional(),
@@ -14,21 +15,29 @@ const categorySchema = z.object({
 
 export type CategoryInput = z.infer<typeof categorySchema>;
 
-export async function upsertCategory(input: CategoryInput) {
+export async function upsertCategory(input: CategoryInput): Promise<{ ok: true } | { error: string }> {
   const session = await auth();
   if (!session?.user) throw new Error('Unauthorised');
 
   const { id, ...data } = categorySchema.parse(input);
 
-  if (id) {
-    await prisma.category.update({ where: { id }, data });
-  } else {
-    await prisma.category.create({ data });
+  try {
+    if (id) {
+      await prisma.category.update({ where: { id }, data });
+    } else {
+      await prisma.category.create({ data });
+    }
+  } catch (e) {
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+      return { error: 'A category with that name already exists.' };
+    }
+    throw e;
   }
 
   revalidatePath('/categories');
   revalidatePath('/dashboard');
   revalidatePath('/transactions');
+  return { ok: true };
 }
 
 export async function deleteCategory(id: string, replacementId?: string) {

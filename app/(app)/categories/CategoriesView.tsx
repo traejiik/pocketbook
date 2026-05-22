@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { Plus, Pencil, Trash2 } from 'lucide-react'
+import { toast } from 'sonner'
 import { upsertCategory, deleteCategory } from '@/server-actions/categories'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
@@ -80,12 +81,16 @@ export function CategoriesView({ categories }: Props) {
   function submitEdit() {
     if (!editDialog || !editDialog.name || !editDialog.color) return
     startTransition(async () => {
-      await upsertCategory({
+      const result = await upsertCategory({
         id: editDialog.id,
         name: editDialog.name,
         color: editDialog.color,
         kind: editDialog.kind,
       })
+      if ('error' in result) {
+        toast.error(result.error)
+        return
+      }
       setEditDialog(null)
     })
   }
