@@ -16,7 +16,7 @@ export function DashboardActions() {
         <Plus className="w-4 h-4" /> Add transaction
       </button>
       <Link
-        href="/transactions"
+        href="/settings#import"
         className="inline-flex items-center h-11 px-5 rounded-full border border-border bg-card text-foreground font-medium text-[13.5px] hover:bg-accent transition"
       >
         Import data

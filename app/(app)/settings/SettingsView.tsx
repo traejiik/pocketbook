@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useTransition } from 'react';
-import { DollarSign, Lock, Sparkles, Check, AlertTriangle, RefreshCw, Plus, Trash2, Edit, Repeat, Database } from 'lucide-react';
+import { useState, useTransition, useRef } from 'react';
+import { DollarSign, Lock, Sparkles, Check, AlertTriangle, RefreshCw, Plus, Trash2, Edit, Repeat, Database, Upload, Loader2 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -72,6 +72,98 @@ function passwordStrength(pw: string): { bars: number; label: string } {
   const bars = Math.min(4, Math.ceil(score * 0.8));
   const labels = ['', 'Weak', 'Fair', 'Good', 'Strong'];
   return { bars, label: labels[bars] ?? '' };
+}
+
+function ImportSection() {
+  const [file, setFile] = useState<File | null>(null);
+  const [status, setStatus] = useState<'idle' | 'uploading' | 'done' | 'error'>('idle');
+  const [result, setResult] = useState<{ imported: number; skipped: number; errors: string[] } | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  async function handleImport() {
+    if (!file) return;
+    setStatus('uploading');
+    const form = new FormData();
+    form.append('file', file);
+    const res = await fetch('/api/import', { method: 'POST', body: form });
+    if (!res.ok) {
+      setStatus('error');
+      setResult(null);
+      return;
+    }
+    const data = await res.json();
+    setResult(data);
+    setStatus('done');
+  }
+
+  return (
+    <section id="import">
+      <div className="flex items-center gap-2 mb-3">
+        <Upload className="w-4 h-4 text-muted-foreground" />
+        <h2 className="text-[14px] font-semibold tracking-tight">Import data</h2>
+      </div>
+      <Card className="p-5 space-y-4">
+        <div>
+          <div className="text-[13px] font-medium">Import transactions from CSV</div>
+          <div className="text-[11.5px] text-muted-foreground mt-0.5">
+            Duplicates are skipped automatically based on date + description + amount.
+          </div>
+        </div>
+        <div className="flex items-center gap-3 flex-wrap">
+          <input
+            ref={inputRef}
+            type="file"
+            accept=".csv"
+            className="sr-only"
+            onChange={e => {
+              setFile(e.target.files?.[0] ?? null);
+              setStatus('idle');
+              setResult(null);
+            }}
+          />
+          <Button variant="outline" size="sm" onClick={() => inputRef.current?.click()}>
+            <Upload className="w-3.5 h-3.5 mr-1.5" />Choose file
+          </Button>
+          {file && (
+            <span className="text-[12px] text-muted-foreground mono truncate max-w-[200px]">{file.name}</span>
+          )}
+          <Button
+            size="sm"
+            disabled={!file || status === 'uploading'}
+            onClick={handleImport}
+          >
+            {status === 'uploading' ? (
+              <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />Importing…</>
+            ) : (
+              <><Check className="w-3.5 h-3.5 mr-1.5" />Import</>
+            )}
+          </Button>
+        </div>
+        {status === 'done' && result && (
+          <div className="space-y-2">
+            <div className="text-[12.5px] text-income">
+              <Check className="w-3.5 h-3.5 inline mr-1" />
+              {result.imported} imported · {result.skipped} skipped
+            </div>
+            {result.errors.length > 0 && (
+              <details className="text-[12px] text-muted-foreground">
+                <summary className="cursor-pointer text-warning">{result.errors.length} row error{result.errors.length !== 1 ? 's' : ''}</summary>
+                <ul className="mt-2 space-y-1 ml-4 list-disc">
+                  {result.errors.map((e, i) => <li key={i}>{e}</li>)}
+                </ul>
+              </details>
+            )}
+          </div>
+        )}
+        {status === 'error' && (
+          <div className="text-[12.5px] text-destructive">
+            <AlertTriangle className="w-3.5 h-3.5 inline mr-1" />
+            Import failed. Please try again.
+          </div>
+        )}
+      </Card>
+    </section>
+  );
 }
 
 export function SettingsView({
@@ -221,7 +313,7 @@ export function SettingsView({
         </div>
 
         {/* ── Currencies & FX rates ──────────────────────────────────── */}
-        <section>
+        <section id="currencies">
           <div className="flex items-center gap-2 mb-3">
             <DollarSign className="w-4 h-4 text-muted-foreground" />
             <h2 className="text-[14px] font-semibold tracking-tight">Currencies & exchange rates</h2>
@@ -370,7 +462,7 @@ export function SettingsView({
         </section>
 
         {/* ── Security ──────────────────────────────────────────────── */}
-        <section>
+        <section id="security">
           <div className="flex items-center gap-2 mb-3">
             <Lock className="w-4 h-4 text-muted-foreground" />
             <h2 className="text-[14px] font-semibold tracking-tight">Security</h2>
@@ -413,7 +505,7 @@ export function SettingsView({
         </section>
 
         {/* ── AI Insights ───────────────────────────────────────────── */}
-        <section>
+        <section id="ai-insights">
           <div className="flex items-center gap-2 mb-3">
             <Sparkles className="w-4 h-4 text-muted-foreground" />
             <h2 className="text-[14px] font-semibold tracking-tight">AI insights</h2>
@@ -470,8 +562,11 @@ export function SettingsView({
           </Card>
         </section>
 
+        {/* ── Import Data ───────────────────────────────────────────── */}
+        <ImportSection />
+
         {/* ── About ─────────────────────────────────────────────────── */}
-        <section>
+        <section id="about">
           <Card className="p-5 grid grid-cols-3 gap-5 text-[12px]">
             <div>
               <div className="text-[10.5px] uppercase tracking-[0.08em] text-muted-foreground font-medium">Version</div>
@@ -489,7 +584,7 @@ export function SettingsView({
         </section>
 
         {/* ── Danger zone ───────────────────────────────────────────── */}
-        <section>
+        <section id="data">
           <div className="flex items-center gap-2 mb-3">
             <Database className="w-4 h-4 text-muted-foreground" />
             <h2 className="text-[14px] font-semibold tracking-tight">Data</h2>
