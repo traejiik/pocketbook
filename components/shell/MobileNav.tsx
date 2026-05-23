@@ -69,7 +69,10 @@ export function MobileNav({ upcomingRenewalsCount = 0, onQuickAdd }: MobileNavPr
               <Icon className="w-5 h-5" />
               {item.label}
               {item.id === 'renewals' && upcomingRenewalsCount > 0 && (
-                <span className="absolute top-2.5 right-[calc(50%-12px)] w-2 h-2 rounded-full bg-warning border border-card" />
+                <>
+                  <span className="absolute top-2.5 right-[calc(50%-12px)] w-2 h-2 rounded-full bg-warning border border-card" aria-hidden="true" />
+                  <span className="sr-only">{upcomingRenewalsCount} due</span>
+                </>
               )}
             </Link>
           );

@@ -65,11 +65,10 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>
 
-const TODAY = new Date()
-TODAY.setHours(0, 0, 0, 0)
-
 function daysUntil(dateStr: string) {
-  return Math.round((new Date(dateStr).getTime() - TODAY.getTime()) / 86_400_000)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  return Math.round((new Date(dateStr).getTime() - today.getTime()) / 86_400_000)
 }
 
 export function RecurringView({ rules, categories, monthlyTotal, annualTotal, incomeMonthly }: Props) {
@@ -176,8 +175,9 @@ export function RecurringView({ rules, categories, monthlyTotal, annualTotal, in
           </div>
         </div>
         <button
+          type="button"
           onClick={openNew}
-          className="inline-flex items-center gap-2 h-9 px-4 rounded-full bg-primary text-primary-foreground font-medium text-[13px] hover:opacity-90 transition"
+          className="inline-flex items-center gap-2 h-9 px-4 rounded-full bg-primary text-primary-foreground font-medium text-[13px] hover:opacity-90 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
         >
           <Plus className="w-3.5 h-3.5" /> New rule
         </button>
@@ -234,7 +234,7 @@ export function RecurringView({ rules, categories, monthlyTotal, annualTotal, in
               <button
                 key={opt.value}
                 onClick={() => setSortKey(opt.value)}
-                className="w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-md text-[12.5px] hover:bg-accent transition-colors"
+                className="w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-md text-[12.5px] hover:bg-accent transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/60"
               >
                 <span className={sortKey === opt.value ? 'text-foreground' : 'text-muted-foreground'}>
                   {opt.label}
@@ -269,7 +269,7 @@ export function RecurringView({ rules, categories, monthlyTotal, annualTotal, in
 
       {/* Rule sheet */}
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-        <SheetContent side="right" className="w-[420px] sm:max-w-[420px] overflow-y-auto">
+        <SheetContent side="right" className="w-full sm:w-[420px] sm:max-w-[420px] overflow-y-auto">
           <SheetHeader>
             <SheetTitle>{editing ? 'Edit rule' : 'New recurring rule'}</SheetTitle>
           </SheetHeader>

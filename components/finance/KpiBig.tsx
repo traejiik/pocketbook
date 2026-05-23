@@ -63,14 +63,17 @@ export function KpiBig({ label, value, tone = 'income', deltaPct, footnote, href
           <span className="text-[16px] text-muted-foreground font-medium ml-1.5">Ft</span>
         </div>
         <div className="flex items-center gap-1.5 mt-3">
-          <span className="mono text-[10.5px] bg-secondary border border-border rounded-md px-1.5 py-0.5 inline-flex items-center gap-0.5 text-foreground/80">
+          <span
+            className="mono text-[10.5px] bg-secondary border border-border rounded-md px-1.5 py-0.5 inline-flex items-center gap-0.5 text-foreground/80"
+            aria-label={isStatic ? footnote : `${deltaDown ? 'Down' : 'Up'} ${deltaPct.replace('−', '').replace('-', '')} — ${footnote}`}
+          >
             {!isStatic && (deltaDown
-              ? <ArrowDown className="w-2.5 h-2.5" />
-              : <ArrowUp className="w-2.5 h-2.5" />
+              ? <ArrowDown className="w-2.5 h-2.5" aria-hidden="true" />
+              : <ArrowUp className="w-2.5 h-2.5" aria-hidden="true" />
             )}
-            {deltaPct.replace('−', '').replace('-', '')}
+            <span aria-hidden="true">{deltaPct.replace('−', '').replace('-', '')}</span>
           </span>
-          <span className="text-[11px] text-muted-foreground">{footnote}</span>
+          <span className="text-[11px] text-muted-foreground" aria-hidden="true">{footnote}</span>
         </div>
       </div>
     </div>

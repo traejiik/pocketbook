@@ -11,7 +11,8 @@ export function GaugeMeter({ percent }: GaugeMeterProps) {
   const arcD = `M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`
 
   return (
-    <svg viewBox="0 0 280 200" className="w-full max-w-[300px] block">
+    <svg viewBox="0 0 280 200" className="w-full max-w-[300px] block" role="img" aria-labelledby="gauge-title">
+      <title id="gauge-title">Income used: {p}%</title>
       <defs>
         <pattern id="gauge-hatch" patternUnits="userSpaceOnUse" width="7" height="7" patternTransform="rotate(45)">
           <rect width="7" height="7" fill="hsl(var(--secondary))" />

@@ -214,7 +214,7 @@ export function SettingsView({
 
   return (
     <>
-      <div className="px-8 py-6 max-w-[760px] mx-auto space-y-7">
+      <div className="px-4 sm:px-8 py-4 sm:py-6 max-w-[760px] mx-auto space-y-7">
         <div>
           <h1 className="text-[22px] font-semibold tracking-tight">Settings</h1>
           <div className="text-[12.5px] text-muted-foreground mt-1">Configure currencies, security, and the local LLM.</div>
@@ -242,7 +242,7 @@ export function SettingsView({
                   key={c.code}
                   onClick={() => handleAnchorClick(c.code)}
                   className={cn(
-                    'p-3 rounded-lg border text-left transition-colors',
+                    'p-3 rounded-lg border text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
                     anchor === c.code
                       ? 'border-primary/60 bg-primary/8 ring-2 ring-primary/20'
                       : 'border-border bg-transparent hover:bg-accent/40',
@@ -297,7 +297,7 @@ export function SettingsView({
                         key={opt}
                         onClick={() => handleModeToggle(idx, opt)}
                         className={cn(
-                          'h-7 px-2.5 rounded text-[11.5px] font-medium inline-flex items-center gap-1 transition-colors',
+                          'h-7 px-2.5 rounded text-[11.5px] font-medium inline-flex items-center gap-1 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/60',
                           r.mode === opt ? 'bg-card text-foreground shadow-pb-1' : 'text-muted-foreground hover:text-foreground',
                         )}
                       >
@@ -441,7 +441,7 @@ export function SettingsView({
                     key={m.name}
                     onClick={() => handleModelChange(m.name)}
                     className={cn(
-                      'w-full text-left p-3 rounded-md border transition-colors flex items-center gap-3',
+                      'w-full text-left p-3 rounded-md border transition-colors flex items-center gap-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
                       model === m.name ? 'border-ring/60 bg-accent/40' : 'border-border bg-transparent hover:bg-accent/30',
                     )}
                   >

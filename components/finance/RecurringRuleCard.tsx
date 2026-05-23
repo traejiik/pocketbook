@@ -32,8 +32,9 @@ export function RecurringRuleCard({ rule, hufEquivalent, daysAway, onEdit }: Rec
   } : null
 
   return (
-    <div
-      className="bg-card border border-border rounded-2xl p-4 group cursor-pointer hover:border-ring/40 transition-colors"
+    <button
+      type="button"
+      className="w-full text-left bg-card border border-border rounded-2xl p-4 group cursor-pointer hover:border-ring/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
       onClick={() => onEdit?.(rule)}
     >
       <div className="flex items-start justify-between gap-3">
@@ -111,6 +112,6 @@ export function RecurringRuleCard({ rule, hufEquivalent, daysAway, onEdit }: Rec
           )}
         </div>
       )}
-    </div>
+    </button>
   )
 }

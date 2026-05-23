@@ -202,7 +202,7 @@ export function TransactionForm({
       <Sheet open={open} onOpenChange={o => { if (!o) close(); }}>
         <SheetContent
           side="right"
-          className="w-[440px] sm:max-w-[440px] flex flex-col gap-0 p-0 overflow-y-auto"
+          className="w-full sm:w-[440px] sm:max-w-[440px] flex flex-col gap-0 p-0 overflow-y-auto"
         >
           <SheetHeader className="px-5 pt-5 pb-4 border-b border-border">
             <SheetTitle>{editingTx ? 'Edit transaction' : 'New transaction'}</SheetTitle>
@@ -234,7 +234,7 @@ export function TransactionForm({
                       type="button"
                       onClick={() => setValue('type', o.value)}
                       className={cn(
-                        'h-8 text-[12.5px] font-medium rounded-[5px] transition-colors flex items-center justify-center gap-1.5',
+                        'h-8 text-[12.5px] font-medium rounded-[5px] transition-colors flex items-center justify-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
                         type === o.value
                           ? `bg-card text-${o.tone} shadow-pb-1`
                           : 'text-muted-foreground hover:text-foreground',
@@ -322,7 +322,7 @@ export function TransactionForm({
                       type="button"
                       onClick={() => setValue('categoryId', c.id)}
                       className={cn(
-                        'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[12px] transition-colors',
+                        'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[12px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
                         categoryId === c.id
                           ? 'border-ring/60 bg-accent text-foreground'
                           : 'border-border bg-transparent text-muted-foreground hover:text-foreground',
@@ -366,7 +366,7 @@ export function TransactionForm({
                   <button
                     type="button"
                     onClick={() => setDeleteConfirmOpen(true)}
-                    className="text-[12px] text-destructive hover:underline"
+                    className="text-[12px] text-destructive hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-destructive/60 rounded"
                   >
                     Delete this transaction…
                   </button>
