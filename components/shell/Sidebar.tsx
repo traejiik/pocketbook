@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
@@ -71,9 +72,12 @@ export function Sidebar({ upcomingRenewalsCount = 1, onQuickAdd }: SidebarProps)
       {/* Logo / branding */}
       <div className="relative px-3 pt-5 pb-3 flex items-center">
         {mounted ? (
-          <img
+          <Image
             src={theme === 'dark' ? '/wordmark-dark.svg' : '/wordmark-light.svg'}
             alt="Pocketbook"
+            width={0}
+            height={0}
+            sizes="100vw"
             className="h-9 w-auto"
             style={{ minWidth: '90%' }}
           />

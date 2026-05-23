@@ -263,7 +263,7 @@ export function CategoriesView({ categories }: Props) {
       <Dialog open={deleteDialog !== null} onOpenChange={(open) => !open && setDeleteDialog(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete "{deleteDialog?.name}"</DialogTitle>
+            <DialogTitle>Delete &ldquo;{deleteDialog?.name}&rdquo;</DialogTitle>
           </DialogHeader>
           <div className="px-4 pb-2 space-y-3">
             {(deleteDialog?.txCount ?? 0) > 0 ? (
