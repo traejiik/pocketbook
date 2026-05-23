@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Sparkles, ChevronRight, ThumbsUp, ThumbsDown, RefreshCw } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -82,9 +82,10 @@ export function InsightCard({ ollamaUrl, ollamaModel, history, autoGenerate }: P
   }, [state]);
 
   // Auto-generate on mount if requested
-  useState(() => {
+  useEffect(() => {
     if (autoGenerate) generate();
-  });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleFeedback = async (value: 'helpful' | 'not-useful') => {
     if (savedId) {

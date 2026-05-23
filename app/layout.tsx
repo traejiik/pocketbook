@@ -17,7 +17,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`${sans.variable} ${mono.variable} dark`} suppressHydrationWarning>
       <body className="font-sans bg-background text-foreground">
-        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+        <ThemeProvider attribute="class" forcedTheme="dark">
           {children}
           <Toaster position="bottom-center" />
         </ThemeProvider>
