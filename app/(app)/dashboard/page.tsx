@@ -16,7 +16,6 @@ import {
 import { prisma } from '@/lib/prisma'
 import { pingOllama } from '@/lib/ollama'
 import { fmtHUF, fmtCur, fmtDate } from '@/lib/format'
-import { KpiBig } from '@/components/finance/KpiBig'
 import { GaugeMeter } from '@/components/finance/GaugeMeter'
 import { DashboardChartSection } from './DashboardChartSection'
 import { Badge } from '@/components/ui/badge'
@@ -77,13 +76,6 @@ export default async function DashboardPage() {
         <DashboardActions />
       </div>
 
-      {/* Row 1 — KPI cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-        <KpiBig label="Income"   value={kpis.income}  tone="income"  deltaPct={incomeDelta?.label  ?? '—'} footnote={deltaFootnote(incomeDelta)}  href="/transactions?type=INCOME" />
-        <KpiBig label="Expenses" value={kpis.expense} tone="expense" deltaPct={expenseDelta?.label ?? '—'} footnote={deltaFootnote(expenseDelta)} href="/transactions?type=EXPENSE" />
-        <KpiBig label="Net"      value={kpis.net}     tone="income"  deltaPct={netDelta?.label     ?? '—'} footnote={deltaFootnote(netDelta)}     href="/transactions" />
-        <KpiBig label="Savings"  value={kpis.savings} tone="savings" deltaPct={savingsDelta?.label ?? '—'} footnote={deltaFootnote(savingsDelta)} href="/transactions?type=SAVINGS" />
-      </div>
 
       {/* Row 2 + 3 in the same 12-col grid */}
       <div className="grid grid-cols-12 gap-3 sm:gap-4">
@@ -222,9 +214,9 @@ export default async function DashboardPage() {
           </div>
         </div>
 
-        {/* Income used — Gauge */}
-        <div className="col-span-12 sm:col-span-4 bg-card border border-border rounded-2xl p-5 flex flex-col">
-          <div className="flex items-start justify-between">
+        {/* Income used — Gauge + KPI summary */}
+        <div className="col-span-12 sm:col-span-4 bg-card border border-border rounded-2xl p-5">
+          <div className="flex items-center justify-between mb-3">
             <div>
               <div className="text-[15px] font-semibold tracking-tight">Income used</div>
               <div className="text-[11.5px] text-muted-foreground mt-0.5">
@@ -235,24 +227,40 @@ export default async function DashboardPage() {
               {monthLabel}
             </span>
           </div>
-          <div className="flex-1 flex items-center justify-center -my-2">
-            <GaugeMeter percent={kpis.incomeUsedPct} />
-          </div>
-          <div className="flex items-center justify-center gap-5 mt-1">
-            <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
-              <span className="w-2.5 h-2.5 rounded-full bg-income" />
-              Used
-            </span>
-            <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
-              <span
-                className="w-3 h-2.5 rounded-sm"
-                style={{
-                  background: 'repeating-linear-gradient(45deg, hsl(var(--muted-foreground)/0.35) 0 2px, transparent 2px 5px)',
-                  border: '1px solid hsl(var(--border))',
-                }}
-              />
-              Remaining
-            </span>
+          <div className="flex items-center gap-3">
+            <div className="w-[150px] shrink-0 flex flex-col items-center gap-2">
+              <GaugeMeter percent={kpis.incomeUsedPct} />
+              <div className="flex items-center gap-3">
+                <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+                  <span className="w-2 h-2 rounded-full bg-income" />
+                  Used
+                </span>
+                <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+                  <span
+                    className="w-2.5 h-1.5 rounded-sm"
+                    style={{
+                      background: 'repeating-linear-gradient(45deg, hsl(var(--muted-foreground)/0.35) 0 2px, transparent 2px 5px)',
+                      border: '1px solid hsl(var(--border))',
+                    }}
+                  />
+                  Left
+                </span>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2 flex-1 min-w-0">
+              {[
+                { label: 'Income',   value: kpis.income,  delta: incomeDelta,  href: '/transactions?type=INCOME',  cls: 'text-income'  },
+                { label: 'Expenses', value: kpis.expense, delta: expenseDelta, href: '/transactions?type=EXPENSE', cls: 'text-expense' },
+                { label: 'Net',      value: kpis.net,     delta: netDelta,     href: '/transactions',               cls: kpis.net >= 0 ? 'text-income' : 'text-expense' },
+                { label: 'Savings',  value: kpis.savings, delta: savingsDelta, href: '/transactions?type=SAVINGS', cls: 'text-savings' },
+              ].map(({ label, value, delta, href, cls }) => (
+                <Link key={label} href={href} className="p-2.5 rounded-lg border border-border bg-secondary/30 hover:bg-accent/40 transition-colors block overflow-hidden">
+                  <div className="text-[9.5px] uppercase tracking-[0.07em] text-muted-foreground">{label}</div>
+                  <div className={`text-[12px] font-semibold tabular leading-tight mt-0.5 truncate ${cls}`}>{fmtHUF(value)}</div>
+                  <div className="text-[10px] text-muted-foreground mt-0.5">{delta?.label ?? '—'}</div>
+                </Link>
+              ))}
+            </div>
           </div>
         </div>
 

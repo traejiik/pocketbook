@@ -2,12 +2,13 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, List, CalendarDays, Settings, Plus } from 'lucide-react';
+import { LayoutDashboard, List, Repeat2, CalendarDays, Settings, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const LEFT_NAV = [
-  { id: 'dashboard',    label: 'Home',     icon: LayoutDashboard },
-  { id: 'transactions', label: 'Txns',     icon: List },
+  { id: 'dashboard',    label: 'Home',      icon: LayoutDashboard },
+  { id: 'transactions', label: 'Txns',      icon: List },
+  { id: 'recurring',    label: 'Recurring', icon: Repeat2 },
 ];
 const RIGHT_NAV = [
   { id: 'renewals', label: 'Renewals', icon: CalendarDays },
