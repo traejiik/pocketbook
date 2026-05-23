@@ -58,11 +58,17 @@ export function TransactionsView({
   const { openNew, openEdit } = useTransactionSheet();
   const searchParams = useSearchParams();
   const [search, setSearch] = useState(() => searchParams.get('q') ?? '');
-  const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>(() => {
+    const t = searchParams.get('type');
+    return t === 'INCOME' || t === 'EXPENSE' || t === 'SAVINGS' ? t : 'all';
+  });
 
   useEffect(() => {
     const q = searchParams.get('q') ?? '';
     setSearch(q);
+    const t = searchParams.get('type');
+    if (t === 'INCOME' || t === 'EXPENSE' || t === 'SAVINGS') setTypeFilter(t);
+    else setTypeFilter('all');
   }, [searchParams]);
   const [catFilter, setCatFilter] = useState('all');
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
