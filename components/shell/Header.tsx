@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
@@ -88,9 +89,12 @@ export function Header({ upcomingRenewalsCount = 0, displayName = 'User' }: Head
       {/* Wordmark — mobile only */}
       <div className="sm:hidden flex-1">
         {mounted ? (
-          <img
+          <Image
             src={theme === 'dark' ? '/wordmark-dark.svg' : '/wordmark-light.svg'}
             alt="Pocketbook"
+            width={0}
+            height={0}
+            sizes="100vw"
             className="h-7 w-auto"
           />
         ) : <div className="h-7 w-28" />}
