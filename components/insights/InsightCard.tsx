@@ -122,7 +122,7 @@ export function InsightCard({ ollamaUrl, ollamaModel, history, autoGenerate }: P
           </span>
         </div>
         <div className="mono text-muted-foreground/70 text-[11px]">
-          {model} · temp 0.4
+          {model}
         </div>
       </Card>
 

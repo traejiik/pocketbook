@@ -367,7 +367,7 @@ export function SettingsView({
               {displayRates.map((r) => {
                 const idx = rates.indexOf(r);
                 return (
-                <div key={r.id} className="px-1 py-3.5 grid grid-cols-[auto_1fr_auto_auto_auto] items-center gap-3">
+                <div key={r.id} className="px-1 py-3.5 grid grid-cols-[auto_1fr_auto] sm:grid-cols-[auto_1fr_auto_auto_auto] items-center gap-3">
                   {/* Code chip */}
                   <div className="w-12 h-12 rounded-lg border border-border bg-secondary/40 flex flex-col items-center justify-center shrink-0">
                     <div className="text-[14px] font-bold mono leading-none">{r.from}</div>
@@ -383,7 +383,7 @@ export function SettingsView({
                     </div>
                   </div>
                   {/* Mode toggle */}
-                  <div className="flex items-center gap-0.5 p-0.5 bg-secondary border border-border rounded-md">
+                  <div className="hidden sm:flex items-center gap-0.5 p-0.5 bg-secondary border border-border rounded-md">
                     {(['AUTO', 'MANUAL'] as const).map(opt => (
                       <button
                         key={opt}
@@ -399,7 +399,7 @@ export function SettingsView({
                     ))}
                   </div>
                   {/* Rate value / live indicator */}
-                  <div className="w-[150px]">
+                  <div className="hidden sm:block w-[150px]">
                     {r.mode === 'MANUAL' ? (
                       <div className="flex gap-1">
                         <Input
@@ -525,34 +525,40 @@ export function SettingsView({
               </Badge>
             </div>
             <div className="h-px bg-border" />
-            <div>
-              <Label>Default model</Label>
-              <div className="space-y-2 mt-2">
-                {ollamaModels.map(m => (
-                  <button
-                    key={m.name}
-                    onClick={() => handleModelChange(m.name)}
-                    className={cn(
-                      'w-full text-left p-3 rounded-md border transition-colors flex items-center gap-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
-                      model === m.name ? 'border-ring/60 bg-accent/40' : 'border-border bg-transparent hover:bg-accent/30',
-                    )}
-                  >
-                    <span className={cn(
-                      'w-3.5 h-3.5 rounded-full border flex items-center justify-center shrink-0',
-                      model === m.name ? 'border-primary' : 'border-border',
-                    )}>
-                      {model === m.name && <span className="w-1.5 h-1.5 rounded-full bg-primary" />}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-[13px] font-medium mono">{m.name}</span>
-                        <span className="text-[11px] text-muted-foreground">· {formatModelSize(m.size)}</span>
+            {ollamaConnected ? (
+              <div>
+                <Label>Default model</Label>
+                <div className="space-y-2 mt-2">
+                  {ollamaModels.map(m => (
+                    <button
+                      key={m.name}
+                      onClick={() => handleModelChange(m.name)}
+                      className={cn(
+                        'w-full text-left p-3 rounded-md border transition-colors flex items-center gap-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
+                        model === m.name ? 'border-ring/60 bg-accent/40' : 'border-border bg-transparent hover:bg-accent/30',
+                      )}
+                    >
+                      <span className={cn(
+                        'w-3.5 h-3.5 rounded-full border flex items-center justify-center shrink-0',
+                        model === m.name ? 'border-primary' : 'border-border',
+                      )}>
+                        {model === m.name && <span className="w-1.5 h-1.5 rounded-full bg-primary" />}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-[13px] font-medium mono">{m.name}</span>
+                          <span className="text-[11px] text-muted-foreground">· {formatModelSize(m.size)}</span>
+                        </div>
                       </div>
-                    </div>
-                  </button>
-                ))}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            ) : (
+              <p className="text-[12.5px] text-muted-foreground py-3 px-4 rounded-md bg-secondary/60 border border-border">
+                Ollama is unreachable — connect it to browse available models.
+              </p>
+            )}
             <div className="flex items-center justify-between pt-2 border-t border-border">
               <div className="text-[12px] text-muted-foreground inline-flex items-center gap-2">
                 <Switch checked={autoInsights} onCheckedChange={handleAutoInsightsToggle} />
