@@ -326,8 +326,8 @@ export default async function DashboardPage() {
                     </span>
                   )}
                   <Link
-                    href="/settings"
-                    title="Settings"
+                    href="/settings#ai-insights"
+                    title="AI settings"
                     className="w-9 h-9 rounded-full bg-destructive text-white flex items-center justify-center hover:scale-105 transition"
                   >
                     <Settings className="w-4 h-4" />
