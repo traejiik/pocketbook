@@ -1,8 +1,8 @@
 #!/bin/sh
 set -e
 
-if [ -z "$NEXTAUTH_SECRET" ] || [ -z "$NEXTAUTH_URL" ]; then
-  echo "ERROR: NEXTAUTH_SECRET and NEXTAUTH_URL must be set in Portainer stack environment variables."
+if [ -z "$AUTH_SECRET" ] || [ -z "$AUTH_URL" ]; then
+  echo "ERROR: PB_NEXTAUTH_SECRET and PB_NEXTAUTH_URL must be set in Portainer stack environment variables."
   echo "See DEPLOY.md for setup instructions."
   exit 1
 fi
