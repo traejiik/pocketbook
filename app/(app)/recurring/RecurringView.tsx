@@ -7,6 +7,9 @@ import { z } from 'zod'
 import { Plus, ArrowUpDown, Check, RepeatIcon } from 'lucide-react'
 import { Segmented } from '@/components/ui/segmented'
 import { KpiCard } from '@/components/finance/KpiCard'
+import { GaugeMeter } from '@/components/finance/GaugeMeter'
+import type { RecurringBudgetSummary } from '@/lib/aggregations'
+import type { Currency } from '@/lib/fx'
 import { RecurringRuleCard } from '@/components/finance/RecurringRuleCard'
 import { AmountDisplay } from '@/components/finance/AmountDisplay'
 import {
@@ -44,9 +47,8 @@ export type SerialisedRule = {
 interface Props {
   rules: SerialisedRule[]
   categories: Category[]
-  monthlyTotal: number
-  annualTotal: number
-  incomeMonthly: number
+  budget: RecurringBudgetSummary
+  anchorCurrency: string
 }
 
 const formSchema = z.object({
@@ -55,7 +57,7 @@ const formSchema = z.object({
   currency: z.enum(['HUF', 'USD', 'EUR', 'GBP']),
   cycle: z.enum(['MONTHLY', 'ANNUAL']),
   nextDue: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  kind: z.enum(['INCOME', 'EXPENSE']),
+  kind: z.enum(['INCOME', 'EXPENSE', 'SAVINGS']),
   categoryId: z.string().min(1, 'Please select a category'),
   hasInstallment: z.boolean(),
   installmentPaid: z.coerce.number().int().min(0).optional(),
@@ -71,9 +73,9 @@ function daysUntil(dateStr: string) {
   return Math.round((new Date(dateStr).getTime() - today.getTime()) / 86_400_000)
 }
 
-export function RecurringView({ rules, categories, monthlyTotal, annualTotal, incomeMonthly }: Props) {
+export function RecurringView({ rules, categories, budget, anchorCurrency }: Props) {
   type SortKey = 'nextDue' | 'amountDesc' | 'amountAsc' | 'name'
-  const [tab, setTab] = useState<'EXPENSE' | 'INCOME'>('EXPENSE')
+  const [tab, setTab] = useState<'EXPENSE' | 'INCOME' | 'SAVINGS'>('EXPENSE')
   const [sortKey, setSortKey] = useState<SortKey>('nextDue')
   const [sheetOpen, setSheetOpen] = useState(false)
   const [editing, setEditing] = useState<SerialisedRule | null>(null)
@@ -92,13 +94,14 @@ export function RecurringView({ rules, categories, monthlyTotal, annualTotal, in
 
   const expenseRules = rules.filter((r) => r.kind === 'EXPENSE')
   const incomeRules  = rules.filter((r) => r.kind === 'INCOME')
+  const savingsRules = rules.filter((r) => r.kind === 'SAVINGS')
 
   const { register, handleSubmit, watch, setValue, reset, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       currency: 'HUF',
       cycle: 'MONTHLY',
-      kind: 'EXPENSE',
+      kind: 'EXPENSE' as 'INCOME' | 'EXPENSE' | 'SAVINGS',
       hasInstallment: false,
     },
   })
@@ -112,7 +115,7 @@ export function RecurringView({ rules, categories, monthlyTotal, annualTotal, in
   function openNew() {
     setEditing(null)
     reset({
-      currency: 'HUF', cycle: 'MONTHLY', kind: tab as 'INCOME' | 'EXPENSE',
+      currency: 'HUF', cycle: 'MONTHLY', kind: tab as 'INCOME' | 'EXPENSE' | 'SAVINGS',
       hasInstallment: false, nextDue: new Date().toISOString().split('T')[0],
     })
     setSheetOpen(true)
@@ -126,7 +129,7 @@ export function RecurringView({ rules, categories, monthlyTotal, annualTotal, in
       currency: rule.currency as 'HUF' | 'USD' | 'EUR' | 'GBP',
       cycle: rule.cycle as 'MONTHLY' | 'ANNUAL',
       nextDue: rule.nextDue,
-      kind: rule.kind as 'INCOME' | 'EXPENSE',
+      kind: rule.kind as 'INCOME' | 'EXPENSE' | 'SAVINGS',
       categoryId: rule.categoryId,
       hasInstallment: rule.installmentTotal != null,
       installmentPaid: rule.installmentPaid ?? 0,
@@ -183,35 +186,52 @@ export function RecurringView({ rules, categories, monthlyTotal, annualTotal, in
         </button>
       </div>
 
-      {/* Summary strip */}
+      {/* Budget summary strip */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-        <div className="bg-card border border-border rounded-xl p-4">
-          <div className="text-[11px] uppercase tracking-[0.08em] text-muted-foreground">Monthly outflow</div>
-          <div className="mt-1.5"><AmountDisplay value={monthlyTotal} tone="expense" size="lg" /></div>
-          <div className="text-[11px] text-muted-foreground mt-1">{expenseRules.filter(r => r.cycle === 'MONTHLY').length} monthly rules</div>
-        </div>
-        <div className="bg-card border border-border rounded-xl p-4">
-          <div className="text-[11px] uppercase tracking-[0.08em] text-muted-foreground">Annual outflow</div>
-          <div className="mt-1.5"><AmountDisplay value={annualTotal} tone="expense" size="lg" /></div>
-          <div className="text-[11px] text-muted-foreground mt-1">{expenseRules.filter(r => r.cycle === 'ANNUAL').length} annual rules</div>
-        </div>
-        <div className="bg-card border border-border rounded-xl p-4">
-          <div className="text-[11px] uppercase tracking-[0.08em] text-muted-foreground">Annualised total</div>
-          <div className="mt-1.5"><AmountDisplay value={monthlyTotal * 12 + annualTotal} tone="neutral" size="lg" /></div>
-          <div className="text-[11px] text-muted-foreground mt-1">All subscriptions / 12 mo</div>
-        </div>
-        <div className="bg-card border border-border rounded-xl p-4">
-          <div className="text-[11px] uppercase tracking-[0.08em] text-muted-foreground">Monthly income</div>
-          <div className="mt-1.5"><AmountDisplay value={incomeMonthly} tone="income" size="lg" /></div>
-          <div className="text-[11px] text-muted-foreground mt-1">{incomeRules.filter(r => r.cycle === 'MONTHLY').length} recurring sources</div>
-        </div>
+        <KpiCard
+          label="Monthly income"
+          value={budget.monthlyIncome}
+          currency={anchorCurrency as Currency}
+          tone="income"
+          footnote="from recurring rules"
+        />
+        <KpiCard
+          label="Monthly expenses"
+          value={budget.monthlyExpenses}
+          currency={anchorCurrency as Currency}
+          tone="expense"
+          footnote="from recurring rules"
+        />
+        <KpiCard
+          label="Monthly savings"
+          value={budget.monthlySavings}
+          currency={anchorCurrency as Currency}
+          tone="savings"
+          footnote="from recurring rules"
+        />
+        <KpiCard
+          label="Net usable"
+          value={budget.netUsable}
+          currency={anchorCurrency as Currency}
+          tone={budget.netUsable >= 0 ? 'income' : 'expense'}
+          footnote="before discretionary spend"
+        />
       </div>
+      <div className="bg-card border border-border rounded-xl p-4 flex items-center gap-4">
+        <GaugeMeter percent={Math.round(budget.expenseRatio * 100)} />
+      </div>
+      {budget.hasNormalisedAnnuals && (
+        <p className="text-xs text-muted-foreground">
+          Annual rules are shown as monthly equivalents (÷ 12)
+        </p>
+      )}
 
       <div className="flex items-center justify-between">
         <Segmented
           options={[
             { label: `Expenses · ${expenseRules.length}`, value: 'EXPENSE' as const },
-            { label: `Income · ${incomeRules.length}`,   value: 'INCOME' as const },
+            { label: `Income · ${incomeRules.length}`,    value: 'INCOME'  as const },
+            { label: `Savings · ${savingsRules.length}`,  value: 'SAVINGS' as const },
           ]}
           value={tab}
           onChange={setTab}
@@ -249,7 +269,7 @@ export function RecurringView({ rules, categories, monthlyTotal, annualTotal, in
       {list.length === 0 ? (
         <Empty
           icon={RepeatIcon}
-          title={`No ${tab === 'EXPENSE' ? 'expense' : 'income'} rules`}
+          title={`No ${tab === 'EXPENSE' ? 'expense' : tab === 'INCOME' ? 'income' : 'savings'} rules`}
           body="Add a recurring rule to track subscriptions, installments, and regular income."
           action={<Button size="sm" onClick={openNew}>New rule</Button>}
         />
@@ -312,11 +332,12 @@ export function RecurringView({ rules, categories, monthlyTotal, annualTotal, in
               </div>
               <div className="space-y-1.5">
                 <Label>Kind</Label>
-                <Select value={kind} onValueChange={(v) => v && setValue('kind', v as 'INCOME' | 'EXPENSE')}>
+                <Select value={kind} onValueChange={(v) => v && setValue('kind', v as 'INCOME' | 'EXPENSE' | 'SAVINGS')}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="EXPENSE">Expense</SelectItem>
                     <SelectItem value="INCOME">Income</SelectItem>
+                    <SelectItem value="SAVINGS">Savings</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

@@ -181,3 +181,50 @@ export const getLastAiInsight = cache(async () => {
 export const getAiInsightCount = cache(async () => {
   return prisma.aiInsight.count();
 });
+
+export type RecurringBudgetSummary = {
+  monthlyIncome: number
+  monthlyExpenses: number
+  monthlySavings: number
+  netUsable: number
+  expenseRatio: number           // monthlyExpenses / monthlyIncome, clamped 0–1
+  hasNormalisedAnnuals: boolean
+}
+
+export const getRecurringBudgetSummary = cache(async (): Promise<RecurringBudgetSummary> => {
+  const rules = await prisma.recurringRule.findMany({
+    where: { archived: false },
+    include: { category: true },
+  })
+
+  let monthlyIncome = 0, monthlyExpenses = 0, monthlySavings = 0
+  let hasNormalisedAnnuals = false
+
+  for (const rule of rules) {
+    const rawAmt = Number(rule.amount)
+    const normalised = rule.cycle === 'ANNUAL' ? rawAmt / 12 : rawAmt
+    const amt = await toAnchor(normalised, rule.currency as 'HUF' | 'USD' | 'EUR' | 'GBP')
+    if (amt === null) continue
+    if (rule.cycle === 'ANNUAL') hasNormalisedAnnuals = true
+    if (rule.category.kind === 'INCOME')        monthlyIncome   += amt
+    else if (rule.category.kind === 'EXPENSE')  monthlyExpenses += amt
+    else if (rule.category.kind === 'SAVINGS')  monthlySavings  += amt
+  }
+
+  const netUsable    = monthlyIncome - monthlyExpenses - monthlySavings
+  const expenseRatio = monthlyIncome > 0 ? Math.min(monthlyExpenses / monthlyIncome, 1) : 0
+
+  return {
+    monthlyIncome:   Math.round(monthlyIncome),
+    monthlyExpenses: Math.round(monthlyExpenses),
+    monthlySavings:  Math.round(monthlySavings),
+    netUsable:       Math.round(netUsable),
+    expenseRatio,
+    hasNormalisedAnnuals,
+  }
+})
+
+export const getAnchorCurrency = cache(async (): Promise<string> => {
+  const s = await prisma.appSettings.findFirst({ where: { id: 'singleton' } })
+  return s?.anchorCurrency ?? 'HUF'
+})

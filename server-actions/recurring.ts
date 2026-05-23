@@ -13,7 +13,7 @@ const ruleSchema = z.object({
   currency: z.enum(['HUF', 'USD', 'EUR', 'GBP']),
   cycle: z.enum(['MONTHLY', 'ANNUAL']),
   nextDue: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  kind: z.enum(['INCOME', 'EXPENSE']),
+  kind: z.enum(['INCOME', 'EXPENSE', 'SAVINGS']),
   categoryId: z.string().min(1),
   hasInstallment: z.boolean().default(false),
   installmentPaid: z.number().int().min(0).optional().nullable(),
