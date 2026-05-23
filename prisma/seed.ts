@@ -53,21 +53,26 @@ async function main() {
   console.log('  ✓ AppSettings: singleton');
 
   // ── Exchange Rates ────────────────────────────────────────────────────────
-  const fxData = [
-    { fromCurrency: 'HUF', toCurrency: 'USD', rate: 0.002791, mode: FxMode.AUTO, provider: 'frankfurter.app' },
-    { fromCurrency: 'USD', toCurrency: 'HUF', rate: 358.40,   mode: FxMode.AUTO, provider: 'frankfurter.app' },
-    { fromCurrency: 'HUF', toCurrency: 'EUR', rate: 0.002525, mode: FxMode.AUTO, provider: 'frankfurter.app' },
-    { fromCurrency: 'EUR', toCurrency: 'HUF', rate: 396.10,   mode: FxMode.AUTO, provider: 'frankfurter.app' },
-  ];
+  const existingRateCount = await prisma.exchangeRate.count();
+  if (existingRateCount === 0) {
+    const fxData = [
+      { fromCurrency: 'HUF', toCurrency: 'USD', rate: 0.002791, mode: FxMode.AUTO, provider: 'frankfurter.app' },
+      { fromCurrency: 'USD', toCurrency: 'HUF', rate: 358.40,   mode: FxMode.AUTO, provider: 'frankfurter.app' },
+      { fromCurrency: 'HUF', toCurrency: 'EUR', rate: 0.002525, mode: FxMode.AUTO, provider: 'frankfurter.app' },
+      { fromCurrency: 'EUR', toCurrency: 'HUF', rate: 396.10,   mode: FxMode.AUTO, provider: 'frankfurter.app' },
+    ];
 
-  for (const fx of fxData) {
-    await prisma.exchangeRate.upsert({
-      where: { fromCurrency_toCurrency: { fromCurrency: fx.fromCurrency, toCurrency: fx.toCurrency } },
-      update: { rate: fx.rate, updatedAt: new Date() },
-      create: fx,
-    });
+    for (const fx of fxData) {
+      await prisma.exchangeRate.upsert({
+        where: { fromCurrency_toCurrency: { fromCurrency: fx.fromCurrency, toCurrency: fx.toCurrency } },
+        update: { rate: fx.rate, updatedAt: new Date() },
+        create: fx,
+      });
+    }
+    console.log('  ✓ Seeded default FX rates.');
+  } else {
+    console.log(`  Skipped FX seed — ${existingRateCount} rate(s) already in DB.`);
   }
-  console.log(`  ✓ ExchangeRates: ${fxData.length} rows`);
 
   // Run CSV importer if /seed/transactions.csv exists
   const { existsSync } = await import('fs');
