@@ -74,6 +74,15 @@ async function main() {
     console.log(`  Skipped FX seed — ${existingRateCount} rate(s) already in DB.`);
   }
 
+  // ── Savings category ──────────────────────────────────────────────────────
+  const existingSavingsCat = await prisma.category.findFirst({ where: { kind: 'SAVINGS' } })
+  if (!existingSavingsCat) {
+    await prisma.category.create({ data: { name: 'Savings', color: '#10b981', kind: 'SAVINGS' } })
+    console.log('  ✓ Seeded Savings category')
+  } else {
+    console.log('  Skipped Savings category — already exists.')
+  }
+
   // Run CSV importer if /seed/transactions.csv exists
   const { existsSync } = await import('fs');
   const { resolve: res } = await import('path');
