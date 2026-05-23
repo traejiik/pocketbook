@@ -337,14 +337,8 @@ export function TransactionsView({
         )}
       </Card>
 
-      {/* Pagination — display only for v1 */}
-      <div className="flex items-center justify-between text-[12px] text-muted-foreground">
-        <div>Showing 1–{filtered.length} of {filtered.length}</div>
-        <div className="flex items-center gap-1">
-          <Button variant="ghost" size="sm" disabled>← Prev</Button>
-          <div className="mono px-2">Page 1 / 1</div>
-          <Button variant="ghost" size="sm" disabled>Next →</Button>
-        </div>
+      <div className="text-[12px] text-muted-foreground">
+        {filtered.length} transaction{filtered.length !== 1 ? 's' : ''}
       </div>
 
       {/* Sheet + delete dialog — lives here to access handleFormSubmit and categories */}
