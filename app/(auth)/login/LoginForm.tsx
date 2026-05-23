@@ -32,7 +32,7 @@ export function LoginForm({ displayName, version, instanceName, host }: { displa
   return (
     <div className="w-full h-screen grid place-items-center relative overflow-hidden">
       {/* Near-black backdrop */}
-      <div className="absolute inset-0 pointer-events-none" style={{ background: '#070912' }} />
+      <div className="absolute inset-0 pointer-events-none bg-background" />
 
       {/* SVG glow-grid background */}
       <svg
@@ -48,9 +48,9 @@ export function LoginForm({ displayName, version, instanceName, host }: { displa
             <feGaussianBlur stdDeviation="1.2" />
           </filter>
           <radialGradient id="lp-vignette" cx="50%" cy="50%" r="75%">
-            <stop offset="0%" stopColor="#070912" stopOpacity="0" />
-            <stop offset="80%" stopColor="#070912" stopOpacity="0.55" />
-            <stop offset="100%" stopColor="#000000" stopOpacity="0.9" />
+            <stop offset="0%" stopColor="hsl(var(--background))" stopOpacity="0" />
+            <stop offset="80%" stopColor="hsl(var(--background))" stopOpacity="0.55" />
+            <stop offset="100%" stopColor="hsl(var(--background))" stopOpacity="0.9" />
           </radialGradient>
         </defs>
         {([
@@ -67,10 +67,10 @@ export function LoginForm({ displayName, version, instanceName, host }: { displa
         ] as [number, number, number, number][]).map(([y, x, w, h], i) => (
           <g key={i}>
             <rect x={x} y={y} width={w} height={h} rx={h * 0.45}
-              fill="none" stroke="#6b9eff" strokeOpacity="0.20" strokeWidth="2"
+              fill="none" stroke="hsl(var(--primary))" strokeOpacity="0.20" strokeWidth="2"
               filter="url(#lp-halo)" />
             <rect x={x} y={y} width={w} height={h} rx={h * 0.45}
-              fill="none" stroke="#8ab4ff" strokeOpacity="0.24" strokeWidth="0.7"
+              fill="none" stroke="hsl(var(--primary))" strokeOpacity="0.24" strokeWidth="0.7"
               filter="url(#lp-edge)" />
           </g>
         ))}
@@ -78,7 +78,7 @@ export function LoginForm({ displayName, version, instanceName, host }: { displa
       </svg>
 
       {/* Faint currency glyphs */}
-      <div className="absolute inset-0 pointer-events-none font-mono select-none" style={{ color: '#8ab4ff' }}>
+      <div className="absolute inset-0 pointer-events-none font-mono select-none text-primary">
         <span className="absolute top-[14%] left-[7%] text-[80px] font-light leading-none" style={{ opacity: 0.045 }}>€</span>
         <span className="absolute top-[68%] right-[10%] text-[64px] font-light leading-none" style={{ opacity: 0.055 }}>Ft</span>
         <span className="absolute bottom-[8%] left-[22%] text-[56px] font-light leading-none" style={{ opacity: 0.045 }}>$</span>
@@ -149,7 +149,7 @@ export function LoginForm({ displayName, version, instanceName, host }: { displa
           </div>
         </Card>
 
-        <div className="text-center text-[11px] mt-4" style={{ color: 'rgba(255,255,255,0.55)' }}>
+        <div className="text-center text-[11px] mt-4 text-white/55">
           Self-hosted. No accounts, no tracking. Just your numbers.
         </div>
       </div>

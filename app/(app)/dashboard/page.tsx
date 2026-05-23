@@ -22,7 +22,12 @@ import { DashboardChartSection } from './DashboardChartSection'
 import { Badge } from '@/components/ui/badge'
 
 export default async function DashboardPage() {
-  const [kpis, lastKpis, byCategory, upcoming, recentTx, trend6mo, lastInsight, insightCount, settings] = await Promise.all([
+  // Fetch settings first so pingOllama can start as soon as the URL is known,
+  // overlapping with the remaining DB queries rather than running serially after them.
+  const settingsPromise = prisma.appSettings.findUnique({ where: { id: 'singleton' } })
+  const pingPromise = settingsPromise.then(s => pingOllama(s?.ollamaUrl ?? 'http://ollama:11434'))
+
+  const [kpis, lastKpis, byCategory, upcoming, recentTx, trend6mo, lastInsight, insightCount, settings, ollamaReachable] = await Promise.all([
     getCurrentMonthKpis(),
     getLastMonthKpis(),
     getExpensesByCategory(),
@@ -31,11 +36,11 @@ export default async function DashboardPage() {
     getMonthlyTrend(6),
     getLastAiInsight(),
     getAiInsightCount(),
-    prisma.appSettings.findUnique({ where: { id: 'singleton' } }),
+    settingsPromise,
+    pingPromise,
   ])
 
   const ollamaUrl = settings?.ollamaUrl ?? 'http://ollama:11434'
-  const ollamaReachable = await pingOllama(ollamaUrl)
 
   function kpiDelta(curr: number, prev: number) {
     if (prev === 0) return null;
@@ -281,7 +286,7 @@ export default async function DashboardPage() {
           {/* AI Insights dark card */}
           <div
             className="rounded-2xl p-5 relative overflow-hidden flex flex-col text-white flex-1"
-            style={{ background: 'linear-gradient(150deg, #0a1a33 0%, #112a55 50%, #0c1f3d 100%)' }}
+            style={{ background: 'linear-gradient(150deg, hsl(var(--ai-card-from)) 0%, hsl(var(--ai-card-mid)) 50%, hsl(var(--ai-card-to)) 100%)' }}
           >
             <svg
               className="absolute inset-0 w-full h-full opacity-55 pointer-events-none"
@@ -296,18 +301,6 @@ export default async function DashboardPage() {
                 </radialGradient>
               </defs>
               <rect width="280" height="280" fill="url(#ai-glow)" />
-              {Array.from({ length: 6 }).map((_, i) => (
-                <ellipse
-                  key={i}
-                  cx="220" cy="60"
-                  rx={50 + i * 18} ry={36 + i * 12}
-                  fill="none"
-                  stroke="hsl(var(--primary))"
-                  strokeOpacity={0.22 - i * 0.022}
-                  strokeWidth="1"
-                  transform={`rotate(${-25 + i * 3} 220 60)`}
-                />
-              ))}
             </svg>
             <div className="relative flex-1 flex flex-col">
               <div className="flex items-start justify-between">
@@ -320,7 +313,7 @@ export default async function DashboardPage() {
                     <Link
                       href="/insights?generate=1"
                       title="Generate insights"
-                      className="w-9 h-9 rounded-full bg-white text-[#0a1a33] flex items-center justify-center hover:scale-105 transition"
+                      className="w-9 h-9 rounded-full bg-white flex items-center justify-center hover:scale-105 transition" style={{ color: 'hsl(var(--ai-card-from))' }}
                     >
                       <Sparkles className="w-4 h-4" />
                     </Link>
