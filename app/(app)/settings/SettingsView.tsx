@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useTransition, useRef } from 'react';
+import { useState, useTransition, useRef, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { DollarSign, Lock, Sparkles, Check, AlertTriangle, RefreshCw, Plus, Trash2, Edit, Repeat, Database, Upload, Loader2 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -209,6 +210,10 @@ export function SettingsView({
   const [confirmPw, setConfirmPw] = useState('');
 
   const [isPending, startTransition] = useTransition();
+  const router = useRouter();
+
+  // Re-sync local rate state when server props update after router.refresh()
+  useEffect(() => { setRates(initialRates); }, [initialRates]);
 
   const anchorMeta = ANCHOR_OPTIONS.find(c => c.code === anchor);
 
@@ -446,6 +451,7 @@ export function SettingsView({
                     startTransition(async () => {
                       const { synced } = await forceFxSync();
                       toast.success(`Synced ${synced} rate${synced !== 1 ? 's' : ''}`);
+                      router.refresh();
                     });
                   }}
                 >
@@ -648,6 +654,7 @@ export function SettingsView({
                   await clearAllData();
                   setClearDbOpen(false);
                   toast.success('All data cleared');
+                  router.refresh();
                 });
               }}
             >
