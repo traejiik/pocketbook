@@ -100,8 +100,8 @@ export function Header({ upcomingRenewalsCount = 0, displayName = 'User' }: Head
         {/* Notification bell → renewals */}
         <Link
           href="/renewals"
-          title="Renewals due soon"
-          className="w-9 h-9 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent relative"
+          aria-label={upcomingRenewalsCount > 0 ? `${upcomingRenewalsCount} renewal${upcomingRenewalsCount !== 1 ? 's' : ''} due soon` : 'Renewals'}
+          className="w-10 h-10 sm:w-9 sm:h-9 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 relative"
         >
           <Bell className="w-4 h-4" />
           {upcomingRenewalsCount > 0 && (
@@ -111,9 +111,10 @@ export function Header({ upcomingRenewalsCount = 0, displayName = 'User' }: Head
 
         {/* Theme toggle — mounted guard prevents Sun/Moon SVG hydration mismatch */}
         <button
+          type="button"
           onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-          title={mounted ? `Switch to ${theme === 'dark' ? 'light' : 'dark'} mode` : 'Toggle theme'}
-          className="w-9 h-9 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent"
+          aria-label={mounted ? `Switch to ${theme === 'dark' ? 'light' : 'dark'} mode` : 'Toggle theme'}
+          className="w-10 h-10 sm:w-9 sm:h-9 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
         >
           {mounted
             ? theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />
