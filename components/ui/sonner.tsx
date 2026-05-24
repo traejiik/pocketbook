@@ -40,14 +40,14 @@ const Toaster = ({ ...props }: ToasterProps) => {
           "--error-text": "hsl(var(--popover-foreground))",
           "--error-border": "hsl(var(--border))",
           "--border-radius": "9999px",
-          "--width": "fit-content",
+          "--width": "auto",
         } as React.CSSProperties
       }
       toastOptions={{
         classNames: {
-          toast: "cn-toast",
+          toast: "cn-toast justify-center",
         },
-        style: { textAlign: 'center' },
+        style: { textAlign: 'center', minWidth: '160px' },
       }}
       {...props}
     />
