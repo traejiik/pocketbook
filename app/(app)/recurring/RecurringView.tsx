@@ -6,10 +6,9 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Plus, ArrowUpDown, Check, RepeatIcon } from 'lucide-react'
 import { Segmented } from '@/components/ui/segmented'
-import { KpiCard } from '@/components/finance/KpiCard'
+import { KpiBig } from '@/components/finance/KpiBig'
 import { GaugeMeter } from '@/components/finance/GaugeMeter'
 import type { RecurringBudgetSummary } from '@/lib/aggregations'
-import type { Currency } from '@/lib/fx'
 import { RecurringRuleCard } from '@/components/finance/RecurringRuleCard'
 import { AmountDisplay } from '@/components/finance/AmountDisplay'
 import {
@@ -186,39 +185,33 @@ export function RecurringView({ rules, categories, budget, anchorCurrency }: Pro
         </button>
       </div>
 
-      {/* Budget summary strip */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-        <KpiCard
-          label="Monthly income"
-          value={budget.monthlyIncome}
-          currency={anchorCurrency as Currency}
-          tone="income"
-          footnote="from recurring rules"
-        />
-        <KpiCard
-          label="Monthly expenses"
-          value={budget.monthlyExpenses}
-          currency={anchorCurrency as Currency}
-          tone="expense"
-          footnote="from recurring rules"
-        />
-        <KpiCard
-          label="Monthly savings"
-          value={budget.monthlySavings}
-          currency={anchorCurrency as Currency}
-          tone="savings"
-          footnote="from recurring rules"
-        />
-        <KpiCard
-          label="Net usable"
-          value={budget.netUsable}
-          currency={anchorCurrency as Currency}
-          tone={budget.netUsable >= 0 ? 'income' : 'expense'}
-          footnote="before discretionary spend"
-        />
-      </div>
-      <div className="bg-card border border-border rounded-xl p-4 flex items-center gap-4">
-        <GaugeMeter percent={Math.round(budget.expenseRatio * 100)} />
+      {/* Budget summary — gauge left, 2×2 KPI grid right */}
+      <div className="grid grid-cols-[auto_1fr] gap-3 sm:gap-4 items-stretch">
+        <div className="bg-card border border-border rounded-2xl p-5 flex flex-col items-center justify-center gap-3">
+          <GaugeMeter percent={Math.round(budget.expenseRatio * 100)} />
+          <div className="flex items-center gap-4">
+            <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
+              <span className="w-2.5 h-2.5 rounded-full bg-income" />
+              Used
+            </span>
+            <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
+              <span
+                className="w-3 h-2.5 rounded-sm"
+                style={{
+                  background: 'repeating-linear-gradient(45deg, hsl(var(--muted-foreground)/0.35) 0 2px, transparent 2px 5px)',
+                  border: '1px solid hsl(var(--border))',
+                }}
+              />
+              Left
+            </span>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 grid-rows-2 gap-3 sm:gap-4">
+          <KpiBig label="Income"   value={budget.monthlyIncome}   tone="income" />
+          <KpiBig label="Expenses" value={budget.monthlyExpenses} tone="expense" />
+          <KpiBig label="Net"      value={budget.netUsable}       tone={budget.netUsable >= 0 ? 'income' : 'expense'} />
+          <KpiBig label="Savings"  value={budget.monthlySavings}  tone="savings" />
+        </div>
       </div>
       {budget.hasNormalisedAnnuals && (
         <p className="text-xs text-muted-foreground">
