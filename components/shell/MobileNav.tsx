@@ -6,12 +6,12 @@ import { LayoutDashboard, List, Repeat2, CalendarDays, Plus } from 'lucide-react
 import { cn } from '@/lib/utils';
 
 const LEFT_NAV = [
-  { id: 'dashboard',    label: 'Home',      icon: LayoutDashboard },
-  { id: 'transactions', label: 'Txns',      icon: List },
-  { id: 'recurring',    label: 'Recurring', icon: Repeat2 },
+  { id: 'dashboard',    label: 'Home', icon: LayoutDashboard },
+  { id: 'transactions', label: 'Txns', icon: List },
 ];
 const RIGHT_NAV = [
-  { id: 'renewals', label: 'Renewals', icon: CalendarDays },
+  { id: 'recurring', label: 'Recurring', icon: Repeat2 },
+  { id: 'renewals',  label: 'Renewals',  icon: CalendarDays },
 ];
 
 interface MobileNavProps {
