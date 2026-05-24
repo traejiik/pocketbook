@@ -176,17 +176,14 @@ export function RecurringView({ rules, categories, budget, anchorCurrency }: Pro
             Subscriptions, installments, and recurring income.
           </div>
         </div>
-        <button
-          type="button"
-          onClick={openNew}
-          className="inline-flex items-center gap-2 h-9 px-4 rounded-full bg-primary text-primary-foreground font-medium text-[13px] hover:opacity-90 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-        >
-          <Plus className="w-3.5 h-3.5" /> New rule
-        </button>
+        <Button size="sm" onClick={openNew}>
+          <Plus className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline">New rule</span>
+        </Button>
       </div>
 
       {/* Budget summary — gauge left, 2×2 KPI grid right */}
-      <div className="grid grid-cols-[auto_1fr] gap-3 sm:gap-4 items-stretch">
+      <div className="grid grid-cols-1 sm:grid-cols-[auto_1fr] gap-3 sm:gap-4 items-stretch">
         <div className="bg-card border border-border rounded-2xl p-5 flex flex-col items-center justify-center gap-3">
           <GaugeMeter percent={Math.round(budget.expenseRatio * 100)} />
           <div className="flex items-center gap-4">

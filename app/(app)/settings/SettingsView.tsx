@@ -436,12 +436,12 @@ export function SettingsView({
               })}
             </div>
 
-            <div className="mt-4 pt-4 border-t border-border flex items-center justify-between">
+            <div className="mt-4 pt-4 border-t border-border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div className="flex items-center gap-2.5 text-[12px] text-muted-foreground">
                 <Switch checked={autoSync} onCheckedChange={handleAutoSyncToggle} />
                 Auto-sync dynamic rates daily at 03:00
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 self-end sm:self-auto">
                 <div className="text-[11px] text-muted-foreground mono">frankfurter.app · ECB feed</div>
                 <Button
                   variant="outline"
