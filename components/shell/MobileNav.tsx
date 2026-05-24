@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, List, Repeat2, CalendarDays, Settings, Plus } from 'lucide-react';
+import { LayoutDashboard, List, Repeat2, CalendarDays, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const LEFT_NAV = [
@@ -12,7 +12,6 @@ const LEFT_NAV = [
 ];
 const RIGHT_NAV = [
   { id: 'renewals', label: 'Renewals', icon: CalendarDays },
-  { id: 'settings', label: 'Settings', icon: Settings },
 ];
 
 interface MobileNavProps {

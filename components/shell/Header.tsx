@@ -4,7 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
-import { Search, Bell, Sun, Moon, LogOut } from 'lucide-react';
+import { Search, Bell, Sun, Moon, LogOut, Settings } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { useState, useEffect, useRef, type KeyboardEvent } from 'react';
 import { signOut, useSession } from 'next-auth/react';
@@ -144,6 +144,14 @@ export function Header({ upcomingRenewalsCount = 0, displayName = 'User' }: Head
               <div className="text-[11px] text-muted-foreground font-mono truncate">{email}</div>
             </div>
             <DropdownMenuSeparator />
+            <DropdownMenuItem
+              className="sm:hidden text-[13px] gap-2 cursor-pointer"
+              onClick={() => router.push('/settings')}
+            >
+              <Settings className="w-3.5 h-3.5" />
+              Settings
+            </DropdownMenuItem>
+            <DropdownMenuSeparator className="sm:hidden" />
             <DropdownMenuItem
               className="text-[13px] gap-2 cursor-pointer"
               onClick={() => signOut({ callbackUrl: '/login' })}
