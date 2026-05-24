@@ -3,8 +3,6 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState, useEffect } from 'react';
-import { useTheme } from 'next-themes';
 import {
   LayoutDashboard,
   List,
@@ -34,9 +32,6 @@ interface SidebarProps {
 
 export function Sidebar({ upcomingRenewalsCount = 1, onQuickAdd }: SidebarProps) {
   const pathname = usePathname();
-  const { theme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
 
   return (
     <aside className="hidden sm:flex w-[220px] shrink-0 bg-card border border-border rounded-2xl flex-col overflow-hidden relative">
@@ -71,19 +66,16 @@ export function Sidebar({ upcomingRenewalsCount = 1, onQuickAdd }: SidebarProps)
 
       {/* Logo / branding */}
       <div className="relative px-3 pt-5 pb-3 flex items-center">
-        {mounted ? (
-          <Image
-            src={theme === 'dark' ? '/wordmark-dark.svg' : '/wordmark-light.svg'}
+        <Image
+            src="/wordmark-dark.svg"
             alt="Pocketbook"
             width={0}
             height={0}
             sizes="100vw"
+            priority
             className="h-9 w-auto"
             style={{ minWidth: '90%' }}
           />
-        ) : (
-          <div className="h-9" />
-        )}
       </div>
 
       {/* Section label */}

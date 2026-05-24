@@ -88,16 +88,15 @@ export function Header({ upcomingRenewalsCount = 0, displayName = 'User' }: Head
 
       {/* Wordmark — mobile only */}
       <div className="sm:hidden flex-1">
-        {mounted ? (
-          <Image
-            src={theme === 'dark' ? '/wordmark-dark.svg' : '/wordmark-light.svg'}
+        <Image
+            src="/wordmark-dark.svg"
             alt="Pocketbook"
             width={0}
             height={0}
             sizes="100vw"
+            priority
             className="h-7 w-auto"
           />
-        ) : <div className="h-7 w-28" />}
       </div>
 
       <div className="ml-auto flex items-center gap-1.5">
