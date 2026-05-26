@@ -32,10 +32,12 @@ export function RecurringRuleCard({ rule, hufEquivalent, daysAway, onEdit }: Rec
   } : null
 
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       className="w-full text-left bg-card border border-border rounded-2xl p-4 group cursor-pointer hover:border-ring/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
       onClick={() => onEdit?.(rule)}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onEdit?.(rule); } }}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2.5 min-w-0">
@@ -112,6 +114,6 @@ export function RecurringRuleCard({ rule, hufEquivalent, daysAway, onEdit }: Rec
           )}
         </div>
       )}
-    </button>
+    </div>
   )
 }
