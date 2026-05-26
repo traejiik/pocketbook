@@ -189,6 +189,7 @@ export type RecurringBudgetSummary = {
   netUsable: number
   expenseRatio: number           // monthlyExpenses / monthlyIncome, clamped 0–1
   hasNormalisedAnnuals: boolean
+  expensesByCategory: { categoryId: string; name: string; color: string; amount: number }[]
 }
 
 export const getRecurringBudgetSummary = cache(async (): Promise<RecurringBudgetSummary> => {
@@ -199,6 +200,7 @@ export const getRecurringBudgetSummary = cache(async (): Promise<RecurringBudget
 
   let monthlyIncome = 0, monthlyExpenses = 0, monthlySavings = 0
   let hasNormalisedAnnuals = false
+  const expenseCatMap = new Map<string, { name: string; color: string; amount: number }>()
 
   for (const rule of rules) {
     const rawAmt = Number(rule.amount)
@@ -206,13 +208,24 @@ export const getRecurringBudgetSummary = cache(async (): Promise<RecurringBudget
     const amt = await toAnchor(normalised, rule.currency as 'HUF' | 'USD' | 'EUR' | 'GBP')
     if (amt === null) continue
     if (rule.cycle === 'ANNUAL') hasNormalisedAnnuals = true
-    if (rule.category.kind === 'INCOME')        monthlyIncome   += amt
-    else if (rule.category.kind === 'EXPENSE')  monthlyExpenses += amt
-    else if (rule.category.kind === 'SAVINGS')  monthlySavings  += amt
+    if (rule.category.kind === 'INCOME') {
+      monthlyIncome += amt
+    } else if (rule.category.kind === 'EXPENSE') {
+      monthlyExpenses += amt
+      const existing = expenseCatMap.get(rule.categoryId)
+      if (existing) existing.amount += amt
+      else expenseCatMap.set(rule.categoryId, { name: rule.category.name, color: rule.category.color, amount: amt })
+    } else if (rule.category.kind === 'SAVINGS') {
+      monthlySavings += amt
+    }
   }
 
   const netUsable    = monthlyIncome - monthlyExpenses - monthlySavings
   const expenseRatio = monthlyIncome > 0 ? Math.min(monthlyExpenses / monthlyIncome, 1) : 0
+
+  const expensesByCategory = [...expenseCatMap.entries()]
+    .map(([categoryId, d]) => ({ categoryId, ...d, amount: Math.round(d.amount) }))
+    .sort((a, b) => b.amount - a.amount)
 
   return {
     monthlyIncome:   Math.round(monthlyIncome),
@@ -221,6 +234,7 @@ export const getRecurringBudgetSummary = cache(async (): Promise<RecurringBudget
     netUsable:       Math.round(netUsable),
     expenseRatio,
     hasNormalisedAnnuals,
+    expensesByCategory,
   }
 })
 

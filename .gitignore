@@ -41,6 +41,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# dev-only scripts — never runs in production
+/prisma/seed-dev.ts
+
 # self files
 /design-system/
 /PRODUCT.md
