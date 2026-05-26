@@ -68,7 +68,7 @@ export function DashboardChartSection({ byCategory, trend6mo, totalExpense }: Pr
           <div className="grid grid-cols-7 gap-3 h-[210px] items-end px-1">
             {byCategory.slice(0, 7).map((b, i) => {
               const pct = b.value / maxCat
-              const h = 30 + pct * 170
+              const h = 30 + pct * 140
               const isMax = i === 0
               const variant =
                 i === 1 || i === 4 ? 'soft'
@@ -110,7 +110,7 @@ export function DashboardChartSection({ byCategory, trend6mo, totalExpense }: Pr
       ) : (
         <div className="h-[210px] flex items-end justify-around gap-3">
           {trend6mo.map((t, i) => {
-            const h = 30 + (t.net / trendMax) * 170
+            const h = 30 + (t.net / trendMax) * 140
             const isLast = i === trend6mo.length - 1
             const variant =
               isLast ? 'solid'
