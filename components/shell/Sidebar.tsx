@@ -3,6 +3,8 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useTheme } from 'next-themes';
+import { useState, useEffect } from 'react';
 import {
   LayoutDashboard,
   List,
@@ -32,6 +34,10 @@ interface SidebarProps {
 
 export function Sidebar({ upcomingRenewalsCount = 1, onQuickAdd }: SidebarProps) {
   const pathname = usePathname();
+  const { resolvedTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  const wordmark = mounted && resolvedTheme === 'light' ? '/wordmark-light.svg' : '/wordmark-dark.svg';
 
   return (
     <aside className="hidden sm:flex w-[220px] shrink-0 bg-card border border-border rounded-2xl flex-col overflow-hidden relative">
@@ -67,7 +73,7 @@ export function Sidebar({ upcomingRenewalsCount = 1, onQuickAdd }: SidebarProps)
       {/* Logo / branding */}
       <div className="relative px-3 pt-5 pb-3 flex items-center">
         <Image
-            src="/wordmark-dark.svg"
+            src={wordmark}
             alt="Pocketbook"
             width={0}
             height={0}
