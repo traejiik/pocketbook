@@ -1,15 +1,30 @@
 export const dynamic = 'force-dynamic'
 
 import { Suspense } from 'react';
-import { startOfMonth, endOfMonth } from 'date-fns';
+import { startOfMonth, endOfMonth, format } from 'date-fns';
 import { prisma } from '@/lib/prisma';
 import { TransactionsView, type SerializedTx } from '@/components/transactions/TransactionsView';
 import type { SerializedCategory, SerializedRecurringRule } from '@/components/forms/TransactionForm';
 
-export default async function TransactionsPage() {
-  const now = new Date();
-  const from = startOfMonth(now);
-  const to = endOfMonth(now);
+export default async function TransactionsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ month?: string }>;
+}) {
+  const { month } = await searchParams;
+
+  let from: Date;
+  let to: Date;
+  if (month && /^\d{4}-\d{2}$/.test(month)) {
+    const [y, m] = month.split('-').map(Number);
+    const base = new Date(y, m - 1, 1);
+    from = startOfMonth(base);
+    to = endOfMonth(base);
+  } else {
+    const now = new Date();
+    from = startOfMonth(now);
+    to = endOfMonth(now);
+  }
 
   const [rawTxs, categories, recurringRules, exchangeRates] = await Promise.all([
     prisma.transaction.findMany({
@@ -65,7 +80,8 @@ export default async function TransactionsPage() {
     }
   }
 
-  const monthLabel = now.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+  const monthLabel = format(from, 'MMMM yyyy');
+  const currentMonthISO = format(from, 'yyyy-MM');
 
   return (
     <Suspense>
@@ -75,6 +91,7 @@ export default async function TransactionsPage() {
         recurringRules={serialisedRules}
         fxRates={rateMap}
         monthLabel={monthLabel}
+        currentMonthISO={currentMonthISO}
       />
     </Suspense>
   );

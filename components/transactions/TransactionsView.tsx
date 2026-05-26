@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useOptimistic, startTransition, useMemo, useCallback, useEffect } from 'react';
-import { useSearchParams } from 'next/navigation';
-import { SearchIcon, ChevronRightIcon, RepeatIcon, DownloadIcon, PlusIcon, ChevronDownIcon } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { format, subMonths, addMonths } from 'date-fns';
+import { SearchIcon, ChevronRightIcon, ChevronLeftIcon, ChevronDownIcon, RepeatIcon, DownloadIcon, PlusIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { upsertTransaction, type TxInput } from '@/server-actions/transactions';
@@ -37,6 +38,7 @@ interface TransactionsViewProps {
   recurringRules: SerializedRecurringRule[];
   fxRates: { USD: number; EUR: number; GBP: number };
   monthLabel: string;
+  currentMonthISO: string;
 }
 
 function toHUF(tx: SerializedTx, rates: { USD: number; EUR: number; GBP: number }): number {
@@ -54,9 +56,23 @@ export function TransactionsView({
   recurringRules,
   fxRates,
   monthLabel,
+  currentMonthISO,
 }: TransactionsViewProps) {
   const { openNew, openEdit } = useTransactionSheet();
+  const router = useRouter();
   const searchParams = useSearchParams();
+
+  const thisMonthISO = format(new Date(), 'yyyy-MM');
+  const isCurrentMonth = currentMonthISO === thisMonthISO;
+
+  function navigateMonth(direction: 'prev' | 'next') {
+    const [y, m] = currentMonthISO.split('-').map(Number);
+    const base = new Date(y, m - 1, 1);
+    const target = direction === 'prev' ? subMonths(base, 1) : addMonths(base, 1);
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('month', format(target, 'yyyy-MM'));
+    router.push(`/transactions?${params.toString()}`);
+  }
   const [search, setSearch] = useState(() => searchParams.get('q') ?? '');
   const [typeFilter, setTypeFilter] = useState<TypeFilter>(() => {
     const t = searchParams.get('type');
@@ -221,9 +237,30 @@ export function TransactionsView({
             </select>
             <ChevronDownIcon className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
           </div>
-          <Button variant="ghost" size="sm" className="hidden sm:inline-flex">
-            {monthLabel}
-          </Button>
+          <div className="flex items-center gap-0.5">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 p-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+              onClick={() => navigateMonth('prev')}
+              aria-label="Previous month"
+            >
+              <ChevronLeftIcon className="w-4 h-4" />
+            </Button>
+            <span className="text-[12.5px] font-medium px-1 min-w-[88px] text-center tabular-nums">
+              {monthLabel}
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 p-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+              onClick={() => navigateMonth('next')}
+              disabled={isCurrentMonth}
+              aria-label="Next month"
+            >
+              <ChevronRightIcon className="w-4 h-4" />
+            </Button>
+          </div>
           <div className="hidden sm:flex ml-auto text-[11.5px] text-muted-foreground mono whitespace-nowrap">
             Net:{' '}
             <span className={cn('font-medium ml-1', net >= 0 ? 'text-income' : 'text-expense')}>
