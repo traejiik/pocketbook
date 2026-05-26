@@ -216,6 +216,27 @@ export function RecurringView({ rules, categories, budget, anchorCurrency }: Pro
               Left
             </span>
           </div>
+          {budget.expensesByCategory.length > 0 && (
+            <div className="w-full border-t border-border pt-3 space-y-1.5">
+              {budget.expensesByCategory.slice(0, 4).map(c => {
+                const pct = budget.monthlyExpenses > 0
+                  ? Math.round((c.amount / budget.monthlyExpenses) * 100)
+                  : 0
+                return (
+                  <div key={c.categoryId} className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ background: c.color }} />
+                    <span className="flex-1 text-[11px] text-muted-foreground truncate">{c.name}</span>
+                    <span className="text-[11px] tabular text-foreground/60">{pct}%</span>
+                  </div>
+                )
+              })}
+              {budget.expensesByCategory.length > 4 && (
+                <p className="text-[10.5px] text-muted-foreground/60 pl-4">
+                  +{budget.expensesByCategory.length - 4} more
+                </p>
+              )}
+            </div>
+          )}
         </div>
         <div className="grid grid-cols-2 grid-rows-2 gap-3 sm:gap-4">
           <KpiBig label="Income"   value={budget.monthlyIncome}   tone="income" />
