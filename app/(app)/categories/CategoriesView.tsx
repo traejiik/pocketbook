@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useEffect, useCallback } from 'react'
 import { Plus, Pencil, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { upsertCategory, deleteCategory } from '@/server-actions/categories'
@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { fmtHUF } from '@/lib/format'
+import { useFabContext } from '@/contexts/fab-context'
 
 type KindType = 'INCOME' | 'EXPENSE' | 'SAVINGS'
 
@@ -62,6 +63,15 @@ export function CategoriesView({ categories }: Props) {
   const [deleteDialog, setDeleteDialog] = useState<DeleteState | null>(null)
   const [replacementId, setReplacementId] = useState('')
   const [isPending, startTransition] = useTransition()
+
+  const { registerFabAction, clearFabAction } = useFabContext()
+  const openNewExpense = useCallback(() => {
+    setEditDialog({ name: '', color: PALETTE[0], kind: 'EXPENSE' })
+  }, [])
+  useEffect(() => {
+    registerFabAction(openNewExpense)
+    return () => clearFabAction()
+  }, [registerFabAction, clearFabAction, openNewExpense])
 
   const groups: KindType[] = ['INCOME', 'EXPENSE', 'SAVINGS']
 

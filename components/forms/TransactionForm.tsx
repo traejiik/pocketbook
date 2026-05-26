@@ -275,7 +275,7 @@ export function TransactionForm({
                   <div className="relative">
                     <select
                       {...register('currency')}
-                      className="appearance-none h-9 w-full pl-3 pr-7 bg-transparent border border-input rounded-md text-[13px] focus:outline-hidden focus:ring-2 focus:ring-ring/60"
+                      className="appearance-none h-9 w-full pl-3 pr-7 bg-transparent border border-input rounded-md text-base sm:text-[13px] focus:outline-hidden focus:ring-2 focus:ring-ring/60"
                     >
                       <option>HUF</option>
                       <option>EUR</option>
@@ -359,7 +359,7 @@ export function TransactionForm({
                 <div className="relative">
                   <select
                     {...register('recurringRuleId')}
-                    className="appearance-none h-9 w-full pl-3 pr-7 bg-transparent border border-input rounded-md text-[13px] focus:outline-hidden focus:ring-2 focus:ring-ring/60"
+                    className="appearance-none h-9 w-full pl-3 pr-7 bg-transparent border border-input rounded-md text-base sm:text-[13px] focus:outline-hidden focus:ring-2 focus:ring-ring/60"
                   >
                     <option value="">— None —</option>
                     {eligibleRules.map(r => (
