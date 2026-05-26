@@ -372,65 +372,109 @@ export function SettingsView({
               {displayRates.map((r) => {
                 const idx = rates.indexOf(r);
                 return (
-                <div key={r.id} className="px-1 py-3.5 grid grid-cols-[auto_1fr_auto] sm:grid-cols-[auto_1fr_auto_auto_auto] items-center gap-3">
-                  {/* Code chip */}
-                  <div className="w-12 h-12 rounded-lg border border-border bg-secondary/40 flex flex-col items-center justify-center shrink-0">
-                    <div className="text-[14px] font-bold mono leading-none">{r.from}</div>
-                    <div className="text-[11px] text-muted-foreground leading-none mt-1">→{r.to}</div>
+                <div key={r.id}>
+                  {/* Main row */}
+                  <div className="px-1 py-3.5 grid grid-cols-[auto_1fr_auto] sm:grid-cols-[auto_1fr_auto_auto_auto] items-center gap-3">
+                    {/* Code chip */}
+                    <div className="w-12 h-12 rounded-lg border border-border bg-secondary/40 flex flex-col items-center justify-center shrink-0">
+                      <div className="text-[14px] font-bold mono leading-none">{r.from}</div>
+                      <div className="text-[11px] text-muted-foreground leading-none mt-1">→{r.to}</div>
+                    </div>
+                    {/* Rate info */}
+                    <div className="min-w-0">
+                      <div className="text-[13px] font-medium">{r.from}</div>
+                      <div className="text-[11px] text-muted-foreground mono mt-0.5">
+                        1 {r.from} = <span className="tabular text-foreground/80">{r.rate.toFixed(2)}</span> {r.to}
+                        <span className="mx-1.5 text-border">·</span>
+                        Updated {fmtDate(r.updatedAt)}
+                      </div>
+                    </div>
+                    {/* Mode toggle — desktop */}
+                    <div className="hidden sm:flex items-center gap-0.5 p-0.5 bg-secondary border border-border rounded-md">
+                      {(['AUTO', 'MANUAL'] as const).map(opt => (
+                        <button
+                          key={opt}
+                          onClick={() => handleModeToggle(idx, opt)}
+                          className={cn(
+                            'h-7 px-2.5 rounded text-[11.5px] font-medium inline-flex items-center gap-1 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/60',
+                            r.mode === opt ? 'bg-card text-foreground shadow-pb-1' : 'text-muted-foreground hover:text-foreground',
+                          )}
+                        >
+                          {opt === 'AUTO' ? <Repeat className="w-3 h-3" /> : <Edit className="w-3 h-3" />}
+                          {opt === 'AUTO' ? 'Dynamic' : 'Manual'}
+                        </button>
+                      ))}
+                    </div>
+                    {/* Rate value / live indicator — desktop */}
+                    <div className="hidden sm:block w-[150px]">
+                      {r.mode === 'MANUAL' ? (
+                        <div className="flex gap-1">
+                          <Input
+                            type="number"
+                            value={r.rate}
+                            onChange={e => handleRateChange(idx, parseFloat(e.target.value) || 0)}
+                            className="h-9 text-[12px] mono"
+                          />
+                          <Button variant="outline" size="sm" className="h-9 px-2" onClick={() => handleRateSave(idx)}>
+                            <Check className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="h-9 rounded-md border border-border bg-secondary/40 px-3 flex items-center justify-between">
+                          <span className="inline-flex items-center gap-1.5 text-[11.5px] text-income">
+                            <span className="w-1.5 h-1.5 rounded-full bg-income animate-pulse" />
+                            Live
+                          </span>
+                          <span className="text-[10.5px] text-muted-foreground mono truncate ml-2">{r.provider ?? 'auto'}</span>
+                        </div>
+                      )}
+                    </div>
+                    {/* Remove */}
+                    <Button variant="ghost" size="sm" className="h-9 w-9 p-0 text-muted-foreground hover:text-destructive" onClick={() => handleRemoveCurrency(r.from, r.to)}>
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
                   </div>
-                  {/* Rate info */}
-                  <div className="min-w-0">
-                    <div className="text-[13px] font-medium">{r.from}</div>
-                    <div className="text-[11px] text-muted-foreground mono mt-0.5">
-                      1 {r.from} = <span className="tabular text-foreground/80">{r.rate.toFixed(2)}</span> {r.to}
-                      <span className="mx-1.5 text-border">·</span>
-                      Updated {fmtDate(r.updatedAt)}
+                  {/* Mobile-only mode + rate row */}
+                  <div className="sm:hidden px-1 pb-3.5 flex flex-col gap-2">
+                    <div className="flex items-center gap-0.5 p-0.5 bg-secondary border border-border rounded-md self-start">
+                      {(['AUTO', 'MANUAL'] as const).map(opt => (
+                        <button
+                          key={opt}
+                          onClick={() => handleModeToggle(idx, opt)}
+                          className={cn(
+                            'h-7 px-2.5 rounded text-[11.5px] font-medium inline-flex items-center gap-1 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/60',
+                            r.mode === opt ? 'bg-card text-foreground shadow-pb-1' : 'text-muted-foreground hover:text-foreground',
+                          )}
+                        >
+                          {opt === 'AUTO' ? <Repeat className="w-3 h-3" /> : <Edit className="w-3 h-3" />}
+                          {opt === 'AUTO' ? 'Dynamic' : 'Manual'}
+                        </button>
+                      ))}
+                    </div>
+                    <div>
+                      {r.mode === 'MANUAL' ? (
+                        <div className="flex gap-1">
+                          <Input
+                            type="number"
+                            value={r.rate}
+                            onChange={e => handleRateChange(idx, parseFloat(e.target.value) || 0)}
+                            className="h-9 text-base mono"
+                          />
+                          <Button variant="outline" size="sm" className="h-9 px-2 shrink-0" onClick={() => handleRateSave(idx)}>
+                            <Check className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="h-9 rounded-md border border-border bg-secondary/40 px-3 flex items-center justify-between">
+                          <span className="inline-flex items-center gap-1.5 text-[11.5px] text-income">
+                            <span className="w-1.5 h-1.5 rounded-full bg-income animate-pulse" />
+                            Live
+                          </span>
+                          <span className="text-[10.5px] text-muted-foreground mono truncate ml-2">{r.provider ?? 'auto'}</span>
+                        </div>
+                      )}
                     </div>
                   </div>
-                  {/* Mode toggle */}
-                  <div className="hidden sm:flex items-center gap-0.5 p-0.5 bg-secondary border border-border rounded-md">
-                    {(['AUTO', 'MANUAL'] as const).map(opt => (
-                      <button
-                        key={opt}
-                        onClick={() => handleModeToggle(idx, opt)}
-                        className={cn(
-                          'h-7 px-2.5 rounded text-[11.5px] font-medium inline-flex items-center gap-1 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/60',
-                          r.mode === opt ? 'bg-card text-foreground shadow-pb-1' : 'text-muted-foreground hover:text-foreground',
-                        )}
-                      >
-                        {opt === 'AUTO' ? <Repeat className="w-3 h-3" /> : <Edit className="w-3 h-3" />}
-                        {opt === 'AUTO' ? 'Dynamic' : 'Manual'}
-                      </button>
-                    ))}
-                  </div>
-                  {/* Rate value / live indicator */}
-                  <div className="hidden sm:block w-[150px]">
-                    {r.mode === 'MANUAL' ? (
-                      <div className="flex gap-1">
-                        <Input
-                          type="number"
-                          value={r.rate}
-                          onChange={e => handleRateChange(idx, parseFloat(e.target.value) || 0)}
-                          className="h-9 text-[12px] mono"
-                        />
-                        <Button variant="outline" size="sm" className="h-9 px-2" onClick={() => handleRateSave(idx)}>
-                          <Check className="w-3.5 h-3.5" />
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="h-9 rounded-md border border-border bg-secondary/40 px-3 flex items-center justify-between">
-                        <span className="inline-flex items-center gap-1.5 text-[11.5px] text-income">
-                          <span className="w-1.5 h-1.5 rounded-full bg-income animate-pulse" />
-                          Live
-                        </span>
-                        <span className="text-[10.5px] text-muted-foreground mono truncate ml-2">{r.provider ?? 'auto'}</span>
-                      </div>
-                    )}
-                  </div>
-                  {/* Remove */}
-                  <Button variant="ghost" size="sm" className="h-9 w-9 p-0 text-muted-foreground hover:text-destructive" onClick={() => handleRemoveCurrency(r.from, r.to)}>
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </Button>
                 </div>
                 );
               })}
