@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -70,10 +70,13 @@ interface TransactionFormProps {
 function getToday() { return new Date().toISOString().slice(0, 10); }
 
 const TYPE_OPTIONS = [
-  { value: 'EXPENSE' as const, label: 'Expense', tone: 'expense' },
-  { value: 'INCOME' as const, label: 'Income', tone: 'income' },
-  { value: 'SAVINGS' as const, label: 'Savings', tone: 'savings' },
+  { value: 'EXPENSE' as const, label: 'Expense', tone: 'expense' as const },
+  { value: 'INCOME' as const, label: 'Income', tone: 'income' as const },
+  { value: 'SAVINGS' as const, label: 'Savings', tone: 'savings' as const },
 ] as const;
+
+const TONE_BG   = { expense: 'bg-expense',   income: 'bg-income',   savings: 'bg-savings'   } as const;
+const TONE_TEXT = { expense: 'text-expense',  income: 'text-income', savings: 'text-savings'  } as const;
 
 export function TransactionForm({
   categories,
@@ -84,6 +87,15 @@ export function TransactionForm({
   setDeleteConfirmOpen,
 }: TransactionFormProps) {
   const { open, editingTx, close } = useTransactionSheet();
+
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== 'undefined' && window.innerWidth < 640,
+  );
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth < 640);
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, []);
 
   const {
     register,
@@ -201,8 +213,8 @@ export function TransactionForm({
     <>
       <Sheet open={open} onOpenChange={o => { if (!o) close(); }}>
         <SheetContent
-          side="right"
-          className="w-full sm:w-[440px] sm:max-w-[440px] flex flex-col gap-0 p-0 overflow-y-auto"
+          side={isMobile ? 'bottom' : 'right'}
+          className="w-full sm:w-[440px] sm:max-w-[440px] max-sm:h-[95dvh] flex flex-col gap-0 p-0 overflow-y-auto"
         >
           <SheetHeader className="px-5 pt-5 pb-4 border-b border-border">
             <SheetTitle>{editingTx ? 'Edit transaction' : 'New transaction'}</SheetTitle>
@@ -236,11 +248,11 @@ export function TransactionForm({
                       className={cn(
                         'h-8 text-[12.5px] font-medium rounded-[5px] transition-colors flex items-center justify-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
                         type === o.value
-                          ? `bg-card text-${o.tone} shadow-pb-1`
+                          ? `bg-card shadow-pb-1 ${TONE_TEXT[o.tone]}`
                           : 'text-muted-foreground hover:text-foreground',
                       )}
                     >
-                      <span className={cn('w-1.5 h-1.5 rounded-full', `bg-${o.tone}`)} />
+                      <span className={cn('w-1.5 h-1.5 rounded-full', TONE_BG[o.tone])} />
                       {o.label}
                     </button>
                   ))}
