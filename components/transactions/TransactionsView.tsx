@@ -241,7 +241,7 @@ export function TransactionsView({
             <Button
               variant="ghost"
               size="sm"
-              className="h-8 w-8 p-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+              className="h-9 w-9 p-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
               onClick={() => navigateMonth('prev')}
               aria-label="Previous month"
             >
@@ -253,7 +253,7 @@ export function TransactionsView({
             <Button
               variant="ghost"
               size="sm"
-              className="h-8 w-8 p-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+              className="h-9 w-9 p-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
               onClick={() => navigateMonth('next')}
               disabled={isCurrentMonth}
               aria-label="Next month"

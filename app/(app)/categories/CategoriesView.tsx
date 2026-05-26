@@ -130,8 +130,9 @@ export function CategoriesView({ categories }: Props) {
           </div>
         </div>
         <button
+          type="button"
           onClick={() => openNew('EXPENSE')}
-          className="inline-flex items-center gap-2 h-9 px-4 rounded-full bg-primary text-primary-foreground font-medium text-[13px] hover:opacity-90 transition"
+          className="inline-flex items-center gap-2 h-9 px-4 rounded-full bg-primary text-primary-foreground font-medium text-[13px] hover:opacity-90 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
         >
           <Plus className="w-3.5 h-3.5" /> New category
         </button>
@@ -176,16 +177,18 @@ export function CategoriesView({ categories }: Props) {
                   </div>
                   <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
                     <button
+                      type="button"
                       onClick={() => openEdit(c)}
                       aria-label={`Edit ${c.name}`}
-                      className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      className="p-2 rounded text-muted-foreground hover:text-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                     >
                       <Pencil className="w-3.5 h-3.5" />
                     </button>
                     <button
+                      type="button"
                       onClick={() => openDelete(c)}
                       aria-label={`Delete ${c.name}`}
-                      className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      className="p-2 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -193,8 +196,9 @@ export function CategoriesView({ categories }: Props) {
                 </div>
               ))}
               <button
+                type="button"
                 onClick={() => openNew(g)}
-                className="w-full px-4 py-2.5 text-[12px] text-muted-foreground hover:text-foreground hover:bg-accent/30 transition cursor-pointer flex items-center gap-2"
+                className="w-full px-4 py-2.5 text-[12px] text-muted-foreground hover:text-foreground hover:bg-accent/30 transition cursor-pointer flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-inset"
               >
                 <Plus className="w-3.5 h-3.5" />
                 Add {KIND_LABELS[g].toLowerCase()} category
@@ -222,19 +226,25 @@ export function CategoriesView({ categories }: Props) {
 
             <div className="space-y-1.5">
               <Label>Colour</Label>
-              <div className="flex flex-wrap gap-2 mt-1">
+              <div className="flex flex-wrap gap-1 mt-1">
                 {PALETTE.map((hex) => (
                   <button
                     key={hex}
                     type="button"
+                    aria-label={hex}
+                    aria-pressed={editDialog?.color === hex}
                     onClick={() => setEditDialog((d) => d ? { ...d, color: hex } : d)}
-                    className="w-6 h-6 rounded-md border-2 transition-all"
-                    style={{
-                      background: hex,
-                      borderColor: editDialog?.color === hex ? hex : 'transparent',
-                      boxShadow: editDialog?.color === hex ? `0 0 0 2px hsl(var(--background)), 0 0 0 4px ${hex}` : undefined,
-                    }}
-                  />
+                    className="w-9 h-9 flex items-center justify-center rounded-md transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                  >
+                    <span
+                      className="w-6 h-6 rounded-[5px] block border-2"
+                      style={{
+                        background: hex,
+                        borderColor: editDialog?.color === hex ? hex : 'transparent',
+                        boxShadow: editDialog?.color === hex ? `0 0 0 2px hsl(var(--background)), 0 0 0 4px ${hex}` : undefined,
+                      }}
+                    />
+                  </button>
                 ))}
               </div>
               <Input

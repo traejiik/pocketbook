@@ -17,7 +17,7 @@ export function MobileNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="sm:hidden fixed bottom-0 inset-x-0 z-40 bg-card/95 backdrop-blur-sm border-t border-border">
+    <nav aria-label="Main navigation" className="sm:hidden fixed bottom-0 inset-x-0 z-40 bg-card/95 backdrop-blur-sm border-t border-border">
       <div className="flex items-center justify-around h-16">
         {NAV_ITEMS.map(item => {
           const active = pathname.startsWith(`/${item.id}`);
@@ -26,8 +26,9 @@ export function MobileNav() {
             <Link
               key={item.id}
               href={`/${item.id}`}
+              aria-current={active ? 'page' : undefined}
               className={cn(
-                'flex-1 flex flex-col items-center justify-center gap-1 h-full text-[10px] font-medium transition-colors',
+                'flex-1 flex flex-col items-center justify-center gap-1 h-full text-[10px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:rounded-md',
                 active ? 'text-primary' : 'text-muted-foreground',
               )}
             >
