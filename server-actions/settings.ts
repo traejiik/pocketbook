@@ -1,11 +1,23 @@
 'use server';
 
+import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
 import { syncAllAutoRates } from '@/lib/frankfurter';
+import { requireAuthenticatedUser } from '@/lib/require-auth';
+
+const currencySchema = z.enum(['HUF', 'USD', 'EUR', 'GBP']);
+const rateSchema = z.object({
+  from: currencySchema,
+  to: currencySchema,
+  rate: z.number().positive().finite(),
+  mode: z.enum(['AUTO', 'MANUAL']),
+});
 
 export async function setAnchorCurrency(code: string) {
+  await requireAuthenticatedUser();
+  currencySchema.parse(code);
   await prisma.appSettings.update({
     where: { id: 'singleton' },
     data: { anchorCurrency: code },
@@ -19,20 +31,18 @@ export async function setExchangeRate(input: {
   rate: number;
   mode: 'AUTO' | 'MANUAL';
 }) {
+  await requireAuthenticatedUser();
+  const { from, to, rate, mode } = rateSchema.parse(input);
   await prisma.exchangeRate.upsert({
-    where: { fromCurrency_toCurrency: { fromCurrency: input.from, toCurrency: input.to } },
-    update: { rate: input.rate, mode: input.mode, updatedAt: new Date() },
-    create: {
-      fromCurrency: input.from,
-      toCurrency: input.to,
-      rate: input.rate,
-      mode: input.mode,
-    },
+    where: { fromCurrency_toCurrency: { fromCurrency: from, toCurrency: to } },
+    update: { rate, mode, updatedAt: new Date() },
+    create: { fromCurrency: from, toCurrency: to, rate, mode },
   });
   revalidatePath('/', 'layout');
 }
 
 export async function addTrackedCurrency(code: string) {
+  await requireAuthenticatedUser();
   const settings = await prisma.appSettings.findUnique({ where: { id: 'singleton' } });
   const anchor = settings?.anchorCurrency ?? 'HUF';
 
@@ -46,6 +56,7 @@ export async function addTrackedCurrency(code: string) {
 }
 
 export async function removeTrackedCurrency(from: string, to: string) {
+  await requireAuthenticatedUser();
   await prisma.exchangeRate.deleteMany({
     where: { fromCurrency: from, toCurrency: to },
   });
@@ -53,6 +64,7 @@ export async function removeTrackedCurrency(from: string, to: string) {
 }
 
 export async function setFxAutoSync(enabled: boolean) {
+  await requireAuthenticatedUser();
   await prisma.appSettings.update({
     where: { id: 'singleton' },
     data: { fxAutoSync: enabled },
@@ -60,6 +72,7 @@ export async function setFxAutoSync(enabled: boolean) {
 }
 
 export async function setAutoInsights(enabled: boolean) {
+  await requireAuthenticatedUser();
   await prisma.appSettings.update({
     where: { id: 'singleton' },
     data: { autoInsightsMonthly: enabled },
@@ -67,6 +80,7 @@ export async function setAutoInsights(enabled: boolean) {
 }
 
 export async function setOllamaModel(model: string) {
+  await requireAuthenticatedUser();
   await prisma.appSettings.update({
     where: { id: 'singleton' },
     data: { ollamaModel: model },
@@ -75,6 +89,7 @@ export async function setOllamaModel(model: string) {
 }
 
 export async function changePassword(input: { current: string; next: string }) {
+  await requireAuthenticatedUser();
   const user = await prisma.user.findFirst();
   if (!user) return { error: 'No user found' };
 
@@ -87,12 +102,14 @@ export async function changePassword(input: { current: string; next: string }) {
 }
 
 export async function forceFxSync(): Promise<{ synced: number }> {
+  await requireAuthenticatedUser();
   const synced = await syncAllAutoRates();
   revalidatePath('/settings');
   return { synced };
 }
 
 export async function clearAllData(): Promise<void> {
+  await requireAuthenticatedUser();
   await prisma.aiInsight.deleteMany();
   await prisma.transaction.deleteMany();
   await prisma.recurringRule.deleteMany();
@@ -101,6 +118,7 @@ export async function clearAllData(): Promise<void> {
 }
 
 export async function getDatabaseSize(): Promise<string> {
+  await requireAuthenticatedUser();
   try {
     const result = await prisma.$queryRaw<Array<{ pg_size_pretty: string }>>`
       SELECT pg_size_pretty(pg_database_size(current_database()))

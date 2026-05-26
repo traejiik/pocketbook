@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import { endOfMonth, isBefore } from 'date-fns';
 import { prisma } from '@/lib/prisma';
-import { auth } from '@/lib/auth';
+import { requireAuthenticatedUser } from '@/lib/require-auth';
 
 const ruleSchema = z.object({
   id: z.string().optional(),
@@ -24,8 +24,7 @@ const ruleSchema = z.object({
 export type RecurringRuleInput = z.infer<typeof ruleSchema>;
 
 export async function upsertRecurringRule(input: RecurringRuleInput): Promise<{ ok: true; backfilled?: boolean; backfilledDate?: string } | { error: string }> {
-  const session = await auth();
-  if (!session?.user) throw new Error('Unauthorised');
+  await requireAuthenticatedUser();
 
   const parsed = ruleSchema.parse(input);
   const { id, hasInstallment, ...fields } = parsed;
@@ -100,8 +99,7 @@ export async function upsertRecurringRule(input: RecurringRuleInput): Promise<{ 
 }
 
 export async function archiveRecurringRule(id: string) {
-  const session = await auth();
-  if (!session?.user) throw new Error('Unauthorised');
+  await requireAuthenticatedUser();
 
   await prisma.recurringRule.update({ where: { id }, data: { archived: true } });
 

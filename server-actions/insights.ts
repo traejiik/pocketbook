@@ -9,8 +9,10 @@ import {
   getRecurringRules,
 } from '@/lib/aggregations';
 import { fmtHUF } from '@/lib/format';
+import { requireAuthenticatedUser } from '@/lib/require-auth';
 
 export async function buildInsightPrompt(): Promise<string> {
+  await requireAuthenticatedUser();
   const [kpis, byCategory, upcoming, rules] = await Promise.all([
     getCurrentMonthKpis(),
     getExpensesByCategory(),
@@ -69,6 +71,7 @@ Write a conversational monthly summary in plain text. Rules:
 }
 
 export async function saveInsight(content: string, model: string, monthCovered: string) {
+  await requireAuthenticatedUser();
   const user = await prisma.user.findFirst();
   if (!user) throw new Error('No user found');
 
@@ -79,10 +82,12 @@ export async function saveInsight(content: string, model: string, monthCovered: 
 }
 
 export async function setInsightFeedback(id: string, feedback: 'helpful' | 'not-useful') {
+  await requireAuthenticatedUser();
   await prisma.aiInsight.update({ where: { id }, data: { feedback } });
 }
 
 export async function getInsightHistory() {
+  await requireAuthenticatedUser();
   return prisma.aiInsight.findMany({
     orderBy: { generatedAt: 'desc' },
     take: 12,
