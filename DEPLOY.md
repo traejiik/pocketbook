@@ -4,31 +4,45 @@ Stack: Next.js 16 · React 19 · Tailwind CSS 4 · Node 24 · Postgres 16 · Doc
 
 ---
 
-## Portainer stack deployment
+## Host-side secrets file (`stack.env`)
 
-The `docker-compose.yml` uses `${VAR}` placeholders that Portainer substitutes from its **Stack environment variables** panel. Database credentials and most infrastructure values have built-in defaults — you only need to configure the six variables below.
+Secrets are stored in a file on the Docker host rather than in Portainer's env panel.
+This means **Watchtower restarts and Portainer GitOps redeployments both work reliably** — Docker
+reads the file directly on every container start, so secrets are never dropped.
 
-**Required** (Portainer → your stack → Environment variables):
+### One-time setup (run once on the Docker host)
 
-| Variable | Example |
+```bash
+mkdir -p /opt/docker/pocketbook
+cp stack.env.example /opt/docker/pocketbook/stack.env
+nano /opt/docker/pocketbook/stack.env   # fill in every value
+```
+
+**Required values to set** (no defaults — left blank will brick the container):
+
+| Key in `stack.env` | Example |
 | --- | --- |
-| `PB_NEXTAUTH_URL` | `https://pocketbook.yourdomain.com` |
-| `PB_NEXTAUTH_SECRET` | *(output of `openssl rand -base64 32`)* |
-| `PB_SEED_USER_EMAIL` | `you@yourdomain.com` |
-| `PB_SEED_USER_PASSWORD` | *(strong password)* |
-| `PB_FX_SYNC_SECRET` | *(output of `openssl rand -hex 32`)* |
+| `AUTH_URL` | `https://pocketbook.yourdomain.com` |
+| `AUTH_SECRET` | *(output of `openssl rand -base64 32`)* |
+| `SEED_USER_EMAIL` | `you@yourdomain.com` |
+| `SEED_USER_PASSWORD` | *(strong password)* |
+| `FX_SYNC_SECRET` | *(output of `openssl rand -hex 32`)* |
+| `POSTGRES_PASSWORD` | *(strong password)* |
+| `PB_POSTGRES_PASSWORD` | *(same as `POSTGRES_PASSWORD`)* |
 
-**Optional overrides** (sensible defaults apply if omitted):
+**Optional** (sensible defaults apply if omitted):
 
-| Variable | Default |
+| Key | Default |
 | --- | --- |
-| `PB_POSTGRES_PASSWORD` | `pocketbook` |
 | `PB_USER_DISPLAY_NAME` | `Pocketbook` |
-| `PB_OLLAMA_BASE_URL` | `http://ollama:11434` |
-| `PB_DOCKER_DIR` | `/opt/docker` |
 | `PB_INSTANCE_NAME` | *(empty — no label shown)* |
+| `OLLAMA_BASE_URL` | `http://ollama:11434` |
 
-> **Portainer redeploy gotcha**: Some Portainer versions reset stack environment variables when you pull an updated compose file from GitHub. Re-enter or verify the required variables after every GitOps redeploy.
+> **Portainer panel**: The "Stack environment variables" panel is no longer used for secrets.
+> You only need it if you want to override `PB_DOCKER_DIR` (default: `/opt/docker`).
+>
+> **Watchtower**: Because `env_file` is stored in the container definition, Watchtower recreates
+> containers with the correct secrets automatically — no manual intervention needed after updates.
 
 ---
 
@@ -36,8 +50,8 @@ The `docker-compose.yml` uses `${VAR}` placeholders that Portainer substitutes f
 
 - [ ] `core_net` exists: `docker network ls | grep core_net`
 - [ ] AI stack running (Ollama reachable on `core_net` at `$PB_OLLAMA_BASE_URL`)
-- [ ] All variables from the table above are set in Portainer stack environment (or in `.env` for local dev)
-- [ ] `${PB_DOCKER_DIR}/pocketbook/postgres` directory exists on the host and is writable
+- [ ] `/opt/docker/pocketbook/stack.env` exists and all required values are filled in
+- [ ] `/opt/docker/pocketbook/postgres` directory exists on the host and is writable
 - [ ] GitHub Actions pushed a successful build to GHCR (check the Actions tab on the repo)
 
 ---
