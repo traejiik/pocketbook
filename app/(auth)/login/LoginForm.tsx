@@ -85,7 +85,7 @@ export function LoginForm({ displayName, version, instanceName, host }: { displa
       </div>
 
       {/* Login card */}
-      <div className="relative w-[380px]">
+      <div className="relative w-full max-w-[380px] px-4 sm:px-0">
         <div className="flex items-center gap-2.5 justify-center mb-6">
           <LogoMark size={24} className="text-white" />
           <div className="text-[18px] font-semibold tracking-tight text-white">Pocketbook</div>
@@ -116,7 +116,9 @@ export function LoginForm({ displayName, version, instanceName, host }: { displa
                 <button
                   type="button"
                   onClick={() => setShow(!show)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  aria-label={show ? 'Hide password' : 'Show password'}
+                  aria-controls="pw"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 rounded"
                 >
                   {show ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                 </button>

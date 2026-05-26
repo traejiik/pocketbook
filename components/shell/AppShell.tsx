@@ -66,7 +66,7 @@ export function AppShell({ children, upcomingRenewalsCount = 0, categories, recu
         <Sidebar upcomingRenewalsCount={upcomingRenewalsCount} onQuickAdd={openNew} />
         <div className="flex-1 flex flex-col sm:gap-3 overflow-hidden min-h-0">
           <Header upcomingRenewalsCount={upcomingRenewalsCount} displayName={displayName} />
-          <main className="flex-1 overflow-auto relative pb-16 sm:pb-0">{children}</main>
+          <main id="main-content" className="flex-1 overflow-auto relative pb-16 sm:pb-0">{children}</main>
         </div>
         <MobileNav />
         <FabButton defaultAction={openNew} pathname={pathname} />

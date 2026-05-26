@@ -100,8 +100,9 @@ export function Sidebar({ upcomingRenewalsCount = 1, onQuickAdd }: SidebarProps)
             <Link
               key={item.id}
               href={`/${item.id}`}
+              aria-current={active ? 'page' : undefined}
               className={cn(
-                'group w-full flex items-center gap-2.5 pl-2.5 pr-2 py-2 rounded-full text-[12.5px] transition-all relative',
+                'group w-full flex items-center gap-2.5 pl-2.5 pr-2 py-2 rounded-full text-[12.5px] transition-all relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
                 active
                   ? 'bg-primary text-primary-foreground font-medium shadow-pb-1'
                   : 'text-foreground/70 hover:text-foreground hover:bg-accent/60',

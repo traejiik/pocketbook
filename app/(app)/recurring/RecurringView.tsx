@@ -262,7 +262,7 @@ export function RecurringView({ rules, categories, budget, anchorCurrency }: Pro
           onChange={setTab}
         />
         <Popover>
-          <PopoverTrigger className="inline-flex items-center gap-2 h-8 px-3 rounded-full border border-border text-[12px] text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
+          <PopoverTrigger className="inline-flex items-center gap-2 h-8 px-3 rounded-full border border-border text-[12px] text-muted-foreground hover:text-foreground hover:bg-accent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60">
             <ArrowUpDown className="w-3.5 h-3.5" />
             Sort
           </PopoverTrigger>

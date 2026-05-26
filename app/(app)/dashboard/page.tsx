@@ -105,7 +105,7 @@ export default async function DashboardPage() {
             </div>
             <Link
               href="/renewals"
-              className="text-[12px] inline-flex items-center gap-1.5 border border-border rounded-full pl-2 pr-2.5 py-1 hover:bg-accent"
+              className="text-[12px] inline-flex items-center gap-1.5 border border-border rounded-full pl-2 pr-2.5 py-1 hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
             >
               View all <ChevronRight className="w-3 h-3" />
             </Link>
@@ -165,7 +165,7 @@ export default async function DashboardPage() {
             </div>
             <Link
               href="/transactions"
-              className="text-[12px] inline-flex items-center gap-1.5 border border-border rounded-full pl-2 pr-2.5 py-1 hover:bg-accent"
+              className="text-[12px] inline-flex items-center gap-1.5 border border-border rounded-full pl-2 pr-2.5 py-1 hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
             >
               <Plus className="w-3 h-3" /> View all
             </Link>
@@ -270,7 +270,7 @@ export default async function DashboardPage() {
               </div>
               <Link
                 href="/renewals"
-                className="mt-3.5 w-full inline-flex items-center justify-center gap-2 h-9 rounded-full bg-primary text-primary-foreground font-medium text-[12px] hover:opacity-90 transition"
+                className="mt-3.5 w-full inline-flex items-center justify-center gap-2 h-9 rounded-full bg-primary text-primary-foreground font-medium text-[12px] hover:opacity-90 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
               >
                 View renewals
               </Link>
