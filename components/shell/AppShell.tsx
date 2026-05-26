@@ -8,9 +8,24 @@ import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { MobileNav } from './MobileNav';
 import { useTransactionSheet } from '@/contexts/sheet-context';
+import { FabProvider, useFabContext } from '@/contexts/fab-context';
 import { useGlobalKeys } from '@/hooks/use-global-keys';
 import { TransactionForm, type SerializedCategory, type SerializedRecurringRule } from '@/components/forms/TransactionForm';
 import { upsertTransaction, type TxInput } from '@/server-actions/transactions';
+
+function FabButton({ defaultAction, pathname }: { defaultAction: () => void; pathname: string }) {
+  const { fabAction } = useFabContext();
+  if (pathname.startsWith('/settings')) return null;
+  return (
+    <button
+      onClick={fabAction ?? defaultAction}
+      aria-label="Add"
+      className="sm:hidden fixed bottom-21 right-4 z-40 w-14 h-14 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-xl transition hover:opacity-90 active:scale-95"
+    >
+      <Plus className="w-6 h-6" />
+    </button>
+  );
+}
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -46,31 +61,26 @@ export function AppShell({ children, upcomingRenewalsCount = 0, categories, recu
   const showGlobalSheet = !pathname.startsWith('/transactions');
 
   return (
-    <div className="w-full h-dvh bg-background text-foreground flex flex-col sm:flex-row overflow-hidden sm:p-3 sm:gap-3">
-      <Sidebar upcomingRenewalsCount={upcomingRenewalsCount} onQuickAdd={openNew} />
-      <div className="flex-1 flex flex-col sm:gap-3 overflow-hidden min-h-0">
-        <Header upcomingRenewalsCount={upcomingRenewalsCount} displayName={displayName} />
-        <main className="flex-1 overflow-auto relative pb-16 sm:pb-0">{children}</main>
+    <FabProvider>
+      <div className="w-full h-dvh bg-background text-foreground flex flex-col sm:flex-row overflow-hidden sm:p-3 sm:gap-3">
+        <Sidebar upcomingRenewalsCount={upcomingRenewalsCount} onQuickAdd={openNew} />
+        <div className="flex-1 flex flex-col sm:gap-3 overflow-hidden min-h-0">
+          <Header upcomingRenewalsCount={upcomingRenewalsCount} displayName={displayName} />
+          <main className="flex-1 overflow-auto relative pb-16 sm:pb-0">{children}</main>
+        </div>
+        <MobileNav />
+        <FabButton defaultAction={openNew} pathname={pathname} />
+        {showGlobalSheet && (
+          <TransactionForm
+            categories={categories}
+            recurringRules={recurringRules}
+            fxRates={fxRates}
+            onFormSubmit={handleFormSubmit}
+            deleteConfirmOpen={deleteConfirmOpen}
+            setDeleteConfirmOpen={setDeleteConfirmOpen}
+          />
+        )}
       </div>
-      <MobileNav />
-      {/* Floating FAB — mobile only, covered by the sheet overlay (z-50) when open */}
-      <button
-        onClick={openNew}
-        aria-label="Add transaction"
-        className="sm:hidden fixed bottom-21 right-4 z-40 w-14 h-14 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-xl transition hover:opacity-90 active:scale-95"
-      >
-        <Plus className="w-6 h-6" />
-      </button>
-      {showGlobalSheet && (
-        <TransactionForm
-          categories={categories}
-          recurringRules={recurringRules}
-          fxRates={fxRates}
-          onFormSubmit={handleFormSubmit}
-          deleteConfirmOpen={deleteConfirmOpen}
-          setDeleteConfirmOpen={setDeleteConfirmOpen}
-        />
-      )}
-    </div>
+    </FabProvider>
   );
 }

@@ -213,7 +213,7 @@ export function TransactionsView({
             <select
               value={catFilter}
               onChange={e => setCatFilter(e.target.value)}
-              className="appearance-none h-8 pl-3 pr-7 bg-secondary border border-border rounded-md text-[12px] text-foreground focus:outline-hidden focus:ring-2 focus:ring-ring/60"
+              className="appearance-none h-8 pl-3 pr-7 bg-secondary border border-border rounded-md text-base sm:text-[12px] text-foreground focus:outline-hidden focus:ring-2 focus:ring-ring/60"
             >
               {catOptions.map(c => (
                 <option key={c.id} value={c.id}>{c.name}</option>

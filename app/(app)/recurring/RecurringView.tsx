@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useEffect, useCallback } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -23,6 +23,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { toast } from 'sonner'
 import { upsertRecurringRule, archiveRecurringRule, type RecurringRuleInput } from '@/server-actions/recurring'
+import { useFabContext } from '@/contexts/fab-context'
 import type { CardRule } from '@/components/finance/RecurringRuleCard'
 
 type Category = { id: string; name: string; color: string; kind: string }
@@ -79,6 +80,13 @@ export function RecurringView({ rules, categories, budget, anchorCurrency }: Pro
   const [sheetOpen, setSheetOpen] = useState(false)
   const [editing, setEditing] = useState<SerialisedRule | null>(null)
   const [isPending, startTransition] = useTransition()
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== 'undefined' && window.innerWidth < 640)
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth < 640)
+    window.addEventListener('resize', handler)
+    return () => window.removeEventListener('resize', handler)
+  }, [])
 
   const list = rules
     .filter((r) => r.kind === tab)
@@ -111,14 +119,20 @@ export function RecurringView({ rules, categories, budget, anchorCurrency }: Pro
   const kind          = watch('kind')
   const categoryId    = watch('categoryId')
 
-  function openNew() {
+  const openNew = useCallback(() => {
     setEditing(null)
     reset({
       currency: 'HUF', cycle: 'MONTHLY', kind: tab as 'INCOME' | 'EXPENSE' | 'SAVINGS',
       hasInstallment: false, nextDue: new Date().toISOString().split('T')[0],
     })
     setSheetOpen(true)
-  }
+  }, [tab, reset])
+
+  const { registerFabAction, clearFabAction } = useFabContext()
+  useEffect(() => {
+    registerFabAction(openNew)
+    return () => clearFabAction()
+  }, [registerFabAction, clearFabAction, openNew])
 
   function openEdit(rule: SerialisedRule) {
     setEditing(rule)
@@ -279,12 +293,12 @@ export function RecurringView({ rules, categories, budget, anchorCurrency }: Pro
 
       {/* Rule sheet */}
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-        <SheetContent side="right" className="w-full sm:w-[420px] sm:max-w-[420px] overflow-y-auto">
-          <SheetHeader>
+        <SheetContent side={isMobile ? 'bottom' : 'right'} className="w-full sm:w-105 sm:max-w-105 max-sm:h-[95dvh] flex flex-col gap-0 p-0">
+          <SheetHeader className="px-5 pt-5 pb-4 border-b border-border shrink-0">
             <SheetTitle>{editing ? 'Edit rule' : 'New recurring rule'}</SheetTitle>
           </SheetHeader>
 
-          <form onSubmit={handleSubmit(onSubmit)} className="px-4 space-y-4 pb-4">
+          <form onSubmit={handleSubmit(onSubmit)} className="px-5 space-y-4 py-5 flex-1 overflow-y-auto">
             <div className="space-y-1.5">
               <Label>Name</Label>
               <Input {...register('name')} placeholder="e.g. Spotify Family" />
@@ -387,7 +401,7 @@ export function RecurringView({ rules, categories, budget, anchorCurrency }: Pro
             )}
           </form>
 
-          <SheetFooter className="flex flex-row gap-2">
+          <SheetFooter className="flex flex-row gap-2 px-5 py-4 border-t border-border shrink-0">
             {editing && (
               <Button variant="destructive" size="sm" onClick={onArchive} type="button" disabled={isPending}>
                 Archive
