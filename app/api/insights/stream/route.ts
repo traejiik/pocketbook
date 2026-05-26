@@ -1,5 +1,5 @@
 import { auth } from '@/lib/auth';
-import { buildInsightPrompt } from '@/server-actions/insights';
+import { buildInsightPrompt } from '@/lib/insights-generation';
 import { streamGenerate } from '@/lib/ollama';
 import { prisma } from '@/lib/prisma';
 

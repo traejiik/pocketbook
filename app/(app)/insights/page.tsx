@@ -48,7 +48,6 @@ export default async function AiInsightsPage() {
         ollamaUrl={ollamaUrl}
         ollamaModel={ollamaModel}
         history={serialisedHistory}
-        autoGenerate={autoInsights && history.length === 0}
       />
     </div>
   );
