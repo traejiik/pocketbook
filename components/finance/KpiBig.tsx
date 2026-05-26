@@ -47,7 +47,7 @@ export function KpiBig({ label, value, tone = 'income', deltaPct, footnote, href
         {href && (
           <Link
             href={href}
-            className="w-8 h-8 rounded-full border border-border flex items-center justify-center text-foreground/80 hover:bg-accent transition"
+            className="w-8 h-8 rounded-full border border-border flex items-center justify-center text-foreground/80 hover:bg-accent transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
           >
             <ArrowUpRight className="w-3.5 h-3.5" />
           </Link>
