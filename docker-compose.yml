@@ -6,8 +6,9 @@ services:
     env_file:
       - /opt/docker/pocketbook/stack.env
     environment:
-      POSTGRES_USER: pocketbook
-      POSTGRES_DB: pocketbook
+      - POSTGRES_USER=pocketbook
+      - POSTGRES_DB=pocketbook
+      - POSTGRES_PASSWORD   # Portainer override (optional); stack.env is the baseline
     volumes:
       - ${PB_DOCKER_DIR:-/opt/docker}/pocketbook/postgres:/var/lib/postgresql/data
     healthcheck:
@@ -31,10 +32,20 @@ services:
     env_file:
       - /opt/docker/pocketbook/stack.env
     environment:
-      PB_POSTGRES_USER: pocketbook
-      PB_POSTGRES_DB: pocketbook
-      AUTH_TRUST_HOST: "true"
-      NODE_ENV: production
+      - PB_POSTGRES_USER=pocketbook
+      - PB_POSTGRES_DB=pocketbook
+      - AUTH_TRUST_HOST=true
+      - NODE_ENV=production
+      # Portainer overrides (optional) — only applied if set in the panel; stack.env wins otherwise
+      - AUTH_URL
+      - AUTH_SECRET
+      - PB_POSTGRES_PASSWORD
+      - OLLAMA_BASE_URL
+      - FX_SYNC_SECRET
+      - PB_USER_DISPLAY_NAME
+      - PB_INSTANCE_NAME
+      - SEED_USER_EMAIL
+      - SEED_USER_PASSWORD
     volumes:
       - ${PB_DOCKER_DIR:-/opt/docker}/pocketbook/data:/data
     networks:
@@ -48,6 +59,8 @@ services:
       - pocketbook-web
     env_file:
       - /opt/docker/pocketbook/stack.env
+    environment:
+      - FX_SYNC_SECRET   # Portainer override (optional)
     command: >
       sh -c "echo '0 3 * * * wget -qO- --header=\"X-Sync-Secret: $$FX_SYNC_SECRET\"
       --post-data=\"\" http://pocketbook-web:3000/api/fx/sync || true' | crontab - && crond -f -l 8"
