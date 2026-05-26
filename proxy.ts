@@ -4,11 +4,17 @@ import { NextResponse } from 'next/server';
 
 const { auth } = NextAuth(authConfig);
 
+const SECRET_AUTHENTICATED_CRON_PATHS = new Set([
+  '/api/fx/sync',
+  '/api/insights/monthly',
+])
+
 export default auth((req) => {
   const isLoggedIn = !!req.auth;
   const { pathname } = req.nextUrl;
 
   if (pathname.startsWith('/api/auth')) return NextResponse.next();
+  if (SECRET_AUTHENTICATED_CRON_PATHS.has(pathname)) return NextResponse.next();
   if (!isLoggedIn && pathname !== '/login') {
     return NextResponse.redirect(new URL('/login', req.url));
   }

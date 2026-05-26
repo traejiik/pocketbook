@@ -1,4 +1,5 @@
 import { syncAllAutoRates } from '@/lib/frankfurter';
+import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
 
@@ -8,6 +9,11 @@ export async function POST(request: Request) {
 
   if (!expected || secret !== expected) {
     return Response.json({ error: 'Unauthorised' }, { status: 401 });
+  }
+
+  const settings = await prisma.appSettings.findUnique({ where: { id: 'singleton' } });
+  if (settings?.fxAutoSync === false) {
+    return Response.json({ synced: 0, skipped: true });
   }
 
   const synced = await syncAllAutoRates();
