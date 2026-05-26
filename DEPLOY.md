@@ -38,8 +38,10 @@ nano /opt/docker/pocketbook/stack.env   # fill in every value
 | `PB_INSTANCE_NAME` | *(empty — no label shown)* |
 | `OLLAMA_BASE_URL` | `http://ollama:11434` |
 
-> **Portainer panel**: The "Stack environment variables" panel is no longer used for secrets.
-> You only need it if you want to override `PB_DOCKER_DIR` (default: `/opt/docker`).
+> **Portainer panel (optional overrides)**: Any variable from `stack.env` can be overridden via
+> Portainer's "Stack environment variables" panel without editing the file on disk. Use the same
+> variable names as in `stack.env`. Values set in the panel take precedence over the file.
+> The panel is also needed if your Docker data root is not `/opt/docker` — set `PB_DOCKER_DIR`.
 >
 > **Watchtower**: Because `env_file` is stored in the container definition, Watchtower recreates
 > containers with the correct secrets automatically — no manual intervention needed after updates.
