@@ -58,8 +58,9 @@ export function RecurringRuleCard({ rule, hufEquivalent, daysAway, onEdit }: Rec
           </div>
         </div>
         <button
+          type="button"
           aria-label={`Edit ${rule.name}`}
-          className="text-muted-foreground/60 hover:text-foreground opacity-0 group-hover:opacity-100 focus:opacity-100 focus:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded"
+          className="text-muted-foreground/60 hover:text-foreground opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded p-1"
           onClick={(e) => { e.stopPropagation(); onEdit?.(rule); }}
         >
           <MoreHorizontal className="w-4 h-4" />
