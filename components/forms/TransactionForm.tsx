@@ -334,7 +334,7 @@ export function TransactionForm({
                       type="button"
                       onClick={() => setValue('categoryId', c.id)}
                       className={cn(
-                        'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[12px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
+                        'inline-flex items-center gap-1.5 px-3 py-2 sm:py-1 rounded-full border text-[12px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
                         categoryId === c.id
                           ? 'border-ring/60 bg-accent text-foreground'
                           : 'border-border bg-transparent text-muted-foreground hover:text-foreground',

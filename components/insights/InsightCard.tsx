@@ -250,7 +250,8 @@ export function InsightCard({ ollamaUrl, ollamaModel, history, autoGenerate }: P
             {history.map(item => (
               <button
                 key={item.id}
-                className="w-full text-left px-5 py-3 hover:bg-accent/40 transition-colors flex items-center gap-4"
+                type="button"
+                className="w-full text-left px-5 py-3 hover:bg-accent/40 transition-colors flex items-center gap-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-inset"
                 onClick={() => setActiveHistory(activeHistory?.id === item.id ? null : item)}
               >
                 <div className="text-[13px] font-medium w-[140px] shrink-0">{item.monthCovered}</div>
