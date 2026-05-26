@@ -1,7 +1,8 @@
 import { PrismaClient, FxMode } from '@prisma/client';
 import bcrypt from 'bcryptjs';
-import { readFileSync } from 'fs';
+import { readFileSync, existsSync } from 'fs';
 import { resolve } from 'path';
+import { importTransactions } from '../lib/import-transactions';
 
 // Load .env.local so SEED_USER_* vars are available when run via tsx directly.
 try {
@@ -84,13 +85,13 @@ async function main() {
   }
 
   // Run CSV importer if /seed/transactions.csv exists
-  const { existsSync } = await import('fs');
-  const { resolve: res } = await import('path');
-  const csvPath = res(process.cwd(), 'seed', 'transactions.csv');
+  const csvPath = resolve(process.cwd(), 'seed', 'transactions.csv');
   if (existsSync(csvPath)) {
-    const { execSync } = await import('child_process');
     console.log('  Running CSV importer…');
-    execSync('pnpm tsx scripts/csv-import.ts', { stdio: 'inherit' });
+    const csv = readFileSync(csvPath, 'utf-8');
+    const { imported, skipped, errors } = await importTransactions(csv);
+    console.log(`  CSV import: ${imported} inserted, ${skipped} skipped.`);
+    if (errors.length > 0) errors.forEach(e => console.warn('  ', e));
   }
 
   console.log('Seed complete.');

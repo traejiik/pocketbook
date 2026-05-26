@@ -25,6 +25,7 @@ import {
   forceFxSync,
   clearAllData,
 } from '@/server-actions/settings';
+import { uploadTransactionCsv } from '@/server-actions/import';
 
 type Rate = {
   id: string;
@@ -86,15 +87,14 @@ function ImportSection() {
     setStatus('uploading');
     const form = new FormData();
     form.append('file', file);
-    const res = await fetch('/api/import', { method: 'POST', body: form });
-    if (!res.ok) {
+    try {
+      const data = await uploadTransactionCsv(form);
+      setResult(data);
+      setStatus('done');
+    } catch {
       setStatus('error');
       setResult(null);
-      return;
     }
-    const data = await res.json();
-    setResult(data);
-    setStatus('done');
   }
 
   return (
