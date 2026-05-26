@@ -3,7 +3,7 @@
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
-import { auth } from '@/lib/auth';
+import { requireAuthenticatedUser } from '@/lib/require-auth';
 import { Prisma } from '@prisma/client';
 
 const categorySchema = z.object({
@@ -16,8 +16,7 @@ const categorySchema = z.object({
 export type CategoryInput = z.infer<typeof categorySchema>;
 
 export async function upsertCategory(input: CategoryInput): Promise<{ ok: true } | { error: string }> {
-  const session = await auth();
-  if (!session?.user) throw new Error('Unauthorised');
+  await requireAuthenticatedUser();
 
   const { id, ...data } = categorySchema.parse(input);
 
@@ -41,8 +40,7 @@ export async function upsertCategory(input: CategoryInput): Promise<{ ok: true }
 }
 
 export async function deleteCategory(id: string, replacementId?: string) {
-  const session = await auth();
-  if (!session?.user) throw new Error('Unauthorised');
+  await requireAuthenticatedUser();
 
   const txCount = await prisma.transaction.count({ where: { categoryId: id } });
 

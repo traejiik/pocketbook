@@ -3,7 +3,7 @@
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
-import { auth } from '@/lib/auth';
+import { requireAuthenticatedUser } from '@/lib/require-auth';
 
 const txSchema = z.object({
   id: z.string().optional(),
@@ -19,8 +19,7 @@ const txSchema = z.object({
 export type TxInput = z.infer<typeof txSchema>;
 
 export async function upsertTransaction(input: TxInput) {
-  const session = await auth();
-  if (!session?.user) throw new Error('Unauthorised');
+  await requireAuthenticatedUser();
 
   const parsed = txSchema.parse(input);
   const { id, ...fields } = parsed;
@@ -71,8 +70,7 @@ export async function upsertTransaction(input: TxInput) {
 }
 
 export async function deleteTransaction(id: string) {
-  const session = await auth();
-  if (!session?.user) throw new Error('Unauthorised');
+  await requireAuthenticatedUser();
 
   await prisma.transaction.delete({ where: { id } });
   revalidatePath('/transactions');
