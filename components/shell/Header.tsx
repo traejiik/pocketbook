@@ -23,7 +23,7 @@ interface HeaderProps {
 }
 
 export function Header({ upcomingRenewalsCount = 0, displayName = 'User' }: HeaderProps) {
-  const { theme, setTheme } = useTheme();
+  const { theme, setTheme, resolvedTheme } = useTheme();
   const { data: session } = useSession();
   const [mounted, setMounted] = useState(false);
   const [searchValue, setSearchValue] = useState('');
@@ -89,7 +89,7 @@ export function Header({ upcomingRenewalsCount = 0, displayName = 'User' }: Head
       {/* Wordmark — mobile only */}
       <div className="sm:hidden flex-1">
         <Image
-            src="/wordmark-dark.svg"
+            src={mounted && resolvedTheme === 'light' ? '/wordmark-light.svg' : '/wordmark-dark.svg'}
             alt="Pocketbook"
             width={0}
             height={0}
