@@ -58,16 +58,13 @@ export function InsightCard({ ollamaUrl, ollamaModel, history, autoGenerate }: P
         return;
       }
 
-      if (state === 'loading' || state === 'ready') {
-        setState('streaming');
-      }
-
       if (data.delta !== undefined) {
         setState('streaming');
         setText(prev => prev + data.delta);
       }
 
       if (data.done && data.saved) {
+        if (data.id) setSavedId(data.id);
         setMeta({ tokens: data.tokens, elapsed: data.elapsed });
         setState('done');
         es.close();
@@ -79,7 +76,7 @@ export function InsightCard({ ollamaUrl, ollamaModel, history, autoGenerate }: P
       setState('error');
       es.close();
     };
-  }, [state]);
+  }, []);
 
   // Auto-generate on mount if requested
   useEffect(() => {

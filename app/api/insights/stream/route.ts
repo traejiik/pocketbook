@@ -40,8 +40,9 @@ export async function GET() {
 
         const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
         const user = await prisma.user.findFirst();
+        let savedId: string | undefined;
         if (user) {
-          await prisma.aiInsight.create({
+          const record = await prisma.aiInsight.create({
             data: {
               userId: user.id,
               monthCovered,
@@ -49,11 +50,12 @@ export async function GET() {
               content: full,
             },
           });
+          savedId = record.id;
         }
 
         controller.enqueue(
           encoder.encode(
-            `data: ${JSON.stringify({ done: true, saved: true, tokens: tokenCount, elapsed })}\n\n`,
+            `data: ${JSON.stringify({ done: true, saved: true, id: savedId, tokens: tokenCount, elapsed })}\n\n`,
           ),
         );
       } catch (err) {
