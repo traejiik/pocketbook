@@ -25,14 +25,20 @@ export function GaugeMeter({ percent }: GaugeMeterProps) {
       </defs>
       {/* Remaining hatched arc — drawn first, full arc */}
       <path d={arcD} fill="none" stroke="url(#gauge-hatch)" strokeWidth="44" strokeLinecap="round" />
-      {/* Filled portion clipped via strokeDasharray */}
+      {/* Filled portion — animated draw-in via stroke-dashoffset */}
       <path
         d={arcD}
         fill="none"
         stroke="url(#gauge-fill)"
         strokeWidth="44"
         strokeLinecap="round"
-        strokeDasharray={`${usedLen} ${arcLen + 50}`}
+        strokeDasharray={arcLen}
+        strokeDashoffset={arcLen - usedLen}
+        className="gauge-fill-arc"
+        style={{
+          '--gauge-arc': arcLen,
+          '--gauge-offset': arcLen - usedLen,
+        } as React.CSSProperties}
       />
       <text x={cx} y={cy - 5} textAnchor="middle" fill="hsl(var(--foreground))" fontFamily="Geist, system-ui" fontSize="44" fontWeight="600" letterSpacing="-1">
         {p}%
