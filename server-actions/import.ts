@@ -1,0 +1,16 @@
+'use server'
+
+import { revalidatePath } from 'next/cache'
+import { requireAuthenticatedUser } from '@/lib/require-auth'
+import { importTransactions } from '@/lib/import-transactions'
+
+export async function uploadTransactionCsv(
+  formData: FormData
+): Promise<{ imported: number; skipped: number; errors: string[] }> {
+  await requireAuthenticatedUser()
+  const file = formData.get('file')
+  if (!(file instanceof File)) throw new Error('CSV file is required')
+  const result = await importTransactions(await file.text())
+  revalidatePath('/', 'layout')
+  return result
+}
