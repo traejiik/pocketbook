@@ -3,6 +3,7 @@
 import { useMemo, useState, useTransition } from 'react';
 import { usePathname } from 'next/navigation';
 import { toast } from 'sonner';
+import { Plus } from 'lucide-react';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { MobileNav } from './MobileNav';
@@ -51,7 +52,15 @@ export function AppShell({ children, upcomingRenewalsCount = 0, categories, recu
         <Header upcomingRenewalsCount={upcomingRenewalsCount} displayName={displayName} />
         <main className="flex-1 overflow-auto relative pb-16 sm:pb-0">{children}</main>
       </div>
-      <MobileNav upcomingRenewalsCount={upcomingRenewalsCount} onQuickAdd={openNew} />
+      <MobileNav />
+      {/* Floating FAB — mobile only, covered by the sheet overlay (z-50) when open */}
+      <button
+        onClick={openNew}
+        aria-label="Add transaction"
+        className="sm:hidden fixed bottom-21 right-4 z-40 w-14 h-14 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-xl transition hover:opacity-90 active:scale-95"
+      >
+        <Plus className="w-6 h-6" />
+      </button>
       {showGlobalSheet && (
         <TransactionForm
           categories={categories}
