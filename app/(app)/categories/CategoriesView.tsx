@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { fmtHUF } from '@/lib/format'
+import { fmtAnchor } from '@/lib/format'
 import { useFabContext } from '@/contexts/fab-context'
 
 type KindType = 'INCOME' | 'EXPENSE' | 'SAVINGS'
@@ -27,6 +27,7 @@ interface CategoryRow {
 
 interface Props {
   categories: CategoryRow[]
+  anchorCurrency?: string
 }
 
 const KIND_LABELS: Record<KindType, string> = {
@@ -58,7 +59,7 @@ interface DeleteState {
   txCount: number
 }
 
-export function CategoriesView({ categories }: Props) {
+export function CategoriesView({ categories, anchorCurrency = 'HUF' }: Props) {
   const [editDialog, setEditDialog] = useState<EditState | null>(null)
   const [deleteDialog, setDeleteDialog] = useState<DeleteState | null>(null)
   const [replacementId, setReplacementId] = useState('')
@@ -171,7 +172,7 @@ export function CategoriesView({ categories }: Props) {
                   <div className="text-[12px] text-muted-foreground">{c.txCount} txns</div>
                   <div className="hidden sm:block text-right tabular text-[12.5px] text-foreground/85">
                     {c.txTotalHUF > 0
-                      ? fmtHUF(c.txTotalHUF)
+                      ? fmtAnchor(c.txTotalHUF, anchorCurrency)
                       : <span className="text-muted-foreground">—</span>
                     }
                   </div>

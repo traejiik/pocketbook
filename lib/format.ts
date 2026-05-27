@@ -14,6 +14,11 @@ export function fmtCur(n: number, cur: 'HUF' | 'USD' | 'EUR' | 'GBP'): string {
   return `${sign}£${abs.toFixed(2)}`;
 }
 
+export function fmtAnchor(n: number, anchor: string, opts?: { signed?: boolean }): string {
+  if (anchor === 'HUF') return fmtHUF(n, opts)
+  return fmtCur(n, anchor as 'USD' | 'EUR' | 'GBP')
+}
+
 export function fmtDate(iso: string | Date, opts?: { short?: boolean }): string {
   const d = typeof iso === 'string' ? new Date(iso.includes('T') ? iso : iso + 'T00:00') : iso;
   if (opts?.short) return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });

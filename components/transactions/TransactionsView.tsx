@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 
 import { upsertTransaction, type TxInput } from '@/server-actions/transactions';
 import { useTransactionSheet, type EditingTx } from '@/contexts/sheet-context';
-import { fmtHUF, fmtDate, dayOfWeek } from '@/lib/format';
+import { fmtAnchor, fmtDate, dayOfWeek } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -39,6 +39,7 @@ interface TransactionsViewProps {
   fxRates: { USD: number; EUR: number; GBP: number };
   monthLabel: string;
   currentMonthISO: string;
+  anchorCurrency?: string;
 }
 
 function toHUF(tx: SerializedTx, rates: { USD: number; EUR: number; GBP: number }): number {
@@ -57,6 +58,7 @@ export function TransactionsView({
   fxRates,
   monthLabel,
   currentMonthISO,
+  anchorCurrency = 'HUF',
 }: TransactionsViewProps) {
   const { openNew, openEdit } = useTransactionSheet();
   const router = useRouter();
@@ -264,7 +266,7 @@ export function TransactionsView({
           <div className="hidden sm:flex ml-auto text-[11.5px] text-muted-foreground mono whitespace-nowrap">
             Net:{' '}
             <span className={cn('font-medium ml-1', net >= 0 ? 'text-income' : 'text-expense')}>
-              {fmtHUF(net, { signed: true })}
+              {fmtAnchor(net, anchorCurrency, { signed: true })}
             </span>
           </div>
         </div>
@@ -392,6 +394,7 @@ export function TransactionsView({
         onFormSubmit={handleFormSubmit}
         deleteConfirmOpen={deleteConfirmOpen}
         setDeleteConfirmOpen={setDeleteConfirmOpen}
+        anchorCurrency={anchorCurrency}
       />
     </div>
   );

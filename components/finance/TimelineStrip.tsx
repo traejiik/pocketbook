@@ -1,6 +1,6 @@
 'use client'
 
-import { fmtHUF } from '@/lib/format'
+import { fmtAnchor } from '@/lib/format'
 
 interface TimelineEvent {
   id: string
@@ -13,9 +13,10 @@ interface TimelineEvent {
 interface TimelineStripProps {
   events: TimelineEvent[]
   horizon: number
+  anchorCurrency?: string
 }
 
-export function TimelineStrip({ events, horizon }: TimelineStripProps) {
+export function TimelineStrip({ events, horizon, anchorCurrency = 'HUF' }: TimelineStripProps) {
   return (
     <div className="bg-card border border-border rounded-2xl p-5">
       <div className="text-[11px] uppercase tracking-[0.08em] text-muted-foreground mb-3 font-medium">
@@ -43,7 +44,7 @@ export function TimelineStrip({ events, horizon }: TimelineStripProps) {
                 {e.daysAway}d
               </div>
               <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute -top-12 left-1/2 -translate-x-1/2 bg-popover border border-border rounded px-2 py-1 text-[11px] whitespace-nowrap shadow-pb-2 z-10">
-                {e.name} · {Math.round(e.hufEquivalent).toLocaleString('hu-HU').replace(/,/g, ' ')} Ft
+                {e.name} · {fmtAnchor(e.hufEquivalent, anchorCurrency)}
               </div>
             </div>
           )

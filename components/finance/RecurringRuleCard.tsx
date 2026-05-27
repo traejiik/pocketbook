@@ -1,6 +1,6 @@
 import { Calendar, Repeat2, MoreHorizontal, AlertTriangle } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { fmtHUF, fmtDate } from '@/lib/format'
+import { fmtAnchor, fmtDate } from '@/lib/format'
 import { AmountDisplay } from './AmountDisplay'
 
 export interface CardRule {
@@ -22,9 +22,10 @@ interface RecurringRuleCardProps {
   hufEquivalent: number | null
   daysAway: number
   onEdit?: (rule: CardRule) => void
+  anchorCurrency?: string
 }
 
-export function RecurringRuleCard({ rule, hufEquivalent, daysAway, onEdit }: RecurringRuleCardProps) {
+export function RecurringRuleCard({ rule, hufEquivalent, daysAway, onEdit, anchorCurrency = 'HUF' }: RecurringRuleCardProps) {
   const inst = rule.installmentTotal != null ? {
     paid:   rule.installmentPaid ?? 0,
     total:  rule.installmentTotal,
@@ -74,8 +75,8 @@ export function RecurringRuleCard({ rule, hufEquivalent, daysAway, onEdit }: Rec
           tone={rule.kind === 'INCOME' ? 'income' : 'expense'}
           size="md"
         />
-        {rule.currency !== 'HUF' && hufEquivalent !== null && (
-          <div className="text-[10.5px] text-muted-foreground tabular">≈ {fmtHUF(hufEquivalent)}</div>
+        {rule.currency !== anchorCurrency && hufEquivalent !== null && (
+          <div className="text-[10.5px] text-muted-foreground tabular">≈ {fmtAnchor(hufEquivalent, anchorCurrency)}</div>
         )}
       </div>
 

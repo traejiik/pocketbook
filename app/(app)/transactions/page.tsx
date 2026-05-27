@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 import { Suspense } from 'react';
 import { startOfMonth, endOfMonth, format } from 'date-fns';
 import { prisma } from '@/lib/prisma';
+import { getAnchorCurrency } from '@/lib/aggregations';
 import { TransactionsView, type SerializedTx } from '@/components/transactions/TransactionsView';
 import type { SerializedCategory, SerializedRecurringRule } from '@/components/forms/TransactionForm';
 
@@ -26,7 +27,7 @@ export default async function TransactionsPage({
     to = endOfMonth(now);
   }
 
-  const [rawTxs, categories, recurringRules, exchangeRates] = await Promise.all([
+  const [rawTxs, categories, recurringRules, exchangeRates, anchorCurrency] = await Promise.all([
     prisma.transaction.findMany({
       where: { date: { gte: from, lte: to } },
       include: { category: true },
@@ -38,6 +39,7 @@ export default async function TransactionsPage({
       orderBy: { name: 'asc' },
     }),
     prisma.exchangeRate.findMany(),
+    getAnchorCurrency(),
   ]);
 
   // Serialise Prisma Decimal + Date to plain values for client components
@@ -72,10 +74,10 @@ export default async function TransactionsPage({
     kind: r.kind,
   }));
 
-  // Build a simple rate map: 1 foreign = X HUF
-  const rateMap = { USD: 358.4, EUR: 396.1, GBP: 452.0 }; // fallback
+  // Build rate map: 1 foreign = X anchorCurrency (fallback to HUF rates)
+  const rateMap = { USD: 358.4, EUR: 396.1, GBP: 452.0 };
   for (const row of exchangeRates) {
-    if (row.toCurrency === 'HUF') {
+    if (row.toCurrency === anchorCurrency) {
       rateMap[row.fromCurrency as keyof typeof rateMap] = Number(row.rate);
     }
   }
@@ -92,6 +94,7 @@ export default async function TransactionsPage({
         fxRates={rateMap}
         monthLabel={monthLabel}
         currentMonthISO={currentMonthISO}
+        anchorCurrency={anchorCurrency}
       />
     </Suspense>
   );
