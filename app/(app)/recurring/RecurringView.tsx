@@ -307,6 +307,7 @@ export function RecurringView({ rules, categories, budget, anchorCurrency }: Pro
               hufEquivalent={r.amount}
               daysAway={daysUntil(r.nextDue)}
               onEdit={(c) => openEdit(c as SerialisedRule)}
+              anchorCurrency={anchorCurrency}
             />
           ))}
         </div>

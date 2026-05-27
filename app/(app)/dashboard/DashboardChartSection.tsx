@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { Segmented } from '@/components/ui/segmented'
 import { PillBar } from '@/components/finance/PillBar'
-import { fmtHUF } from '@/lib/format'
+import { fmtAnchor } from '@/lib/format'
 
 const SHORT_LABEL: Record<string, string> = {
   'Rent Income': 'Rent',
@@ -35,9 +35,10 @@ interface Props {
   byCategory: CategoryBar[]
   trend6mo: TrendBar[]
   totalExpense: number
+  anchorCurrency?: string
 }
 
-export function DashboardChartSection({ byCategory, trend6mo, totalExpense }: Props) {
+export function DashboardChartSection({ byCategory, trend6mo, totalExpense, anchorCurrency = 'HUF' }: Props) {
   const [view, setView] = useState<'cat' | 'trend'>('cat')
 
   const maxCat = Math.max(...byCategory.map((b) => b.value), 1)
@@ -50,7 +51,7 @@ export function DashboardChartSection({ byCategory, trend6mo, totalExpense }: Pr
         <div>
           <div className="text-[15px] font-semibold tracking-tight">Expenses by category</div>
           <div className="text-[12px] text-muted-foreground mt-0.5">
-            {new Date().toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })} · {fmtHUF(totalExpense)} total
+            {new Date().toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })} · {fmtAnchor(totalExpense, anchorCurrency)} total
           </div>
         </div>
         <Segmented
@@ -96,7 +97,7 @@ export function DashboardChartSection({ byCategory, trend6mo, totalExpense }: Pr
               <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
                 <span className="w-2.5 h-2.5 rounded-full" style={{ background: topCat.color }} />
                 <span className="font-medium text-foreground">{topCat.name}</span>
-                <span>leads · {fmtHUF(topCat.value)}</span>
+                <span>leads · {fmtAnchor(topCat.value, anchorCurrency)}</span>
               </div>
             )}
             <div className="ml-auto text-[11px] text-muted-foreground">

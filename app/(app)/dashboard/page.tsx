@@ -15,7 +15,7 @@ import {
 } from '@/lib/aggregations'
 import { prisma } from '@/lib/prisma'
 import { pingOllama } from '@/lib/ollama'
-import { fmtHUF, fmtCur, fmtDate } from '@/lib/format'
+import { fmtAnchor, fmtCur, fmtDate } from '@/lib/format'
 import { KpiBig } from '@/components/finance/KpiBig'
 import { GaugeMeter } from '@/components/finance/GaugeMeter'
 import { DashboardChartSection } from './DashboardChartSection'
@@ -41,6 +41,7 @@ export default async function DashboardPage() {
   ])
 
   const ollamaUrl = settings?.ollamaUrl ?? 'http://ollama:11434'
+  const anchor = settings?.anchorCurrency ?? 'HUF'
 
   function kpiDelta(curr: number, prev: number) {
     if (prev === 0) return null;
@@ -79,10 +80,10 @@ export default async function DashboardPage() {
 
       {/* Row 1 — KPI cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-        <KpiBig label="Income"   value={kpis.income}  tone="income"  deltaPct={incomeDelta?.label  ?? '—'} footnote={deltaFootnote(incomeDelta)}  href="/transactions?type=INCOME" />
-        <KpiBig label="Expenses" value={kpis.expense} tone="expense" deltaPct={expenseDelta?.label ?? '—'} footnote={deltaFootnote(expenseDelta)} href="/transactions?type=EXPENSE" />
-        <KpiBig label="Net"      value={kpis.net}     tone="income"  deltaPct={netDelta?.label     ?? '—'} footnote={deltaFootnote(netDelta)}     href="/transactions" />
-        <KpiBig label="Savings"  value={kpis.savings} tone="savings" deltaPct={savingsDelta?.label ?? '—'} footnote={deltaFootnote(savingsDelta)} href="/transactions?type=SAVINGS" />
+        <KpiBig label="Income"   value={kpis.income}  tone="income"  deltaPct={incomeDelta?.label  ?? '—'} footnote={deltaFootnote(incomeDelta)}  href="/transactions?type=INCOME"  currency={anchor} />
+        <KpiBig label="Expenses" value={kpis.expense} tone="expense" deltaPct={expenseDelta?.label ?? '—'} footnote={deltaFootnote(expenseDelta)} href="/transactions?type=EXPENSE" currency={anchor} />
+        <KpiBig label="Net"      value={kpis.net}     tone="income"  deltaPct={netDelta?.label     ?? '—'} footnote={deltaFootnote(netDelta)}     href="/transactions"              currency={anchor} />
+        <KpiBig label="Savings"  value={kpis.savings} tone="savings" deltaPct={savingsDelta?.label ?? '—'} footnote={deltaFootnote(savingsDelta)} href="/transactions?type=SAVINGS" currency={anchor} />
       </div>
 
       {/* Row 2 + 3 in the same 12-col grid */}
@@ -92,6 +93,7 @@ export default async function DashboardPage() {
           byCategory={byCategory}
           trend6mo={trend6mo}
           totalExpense={kpis.expense}
+          anchorCurrency={anchor}
         />
 
         {/* Upcoming renewals */}
@@ -100,7 +102,7 @@ export default async function DashboardPage() {
             <div>
               <div className="text-[15px] font-semibold tracking-tight">Upcoming renewals</div>
               <div className="text-[11.5px] text-muted-foreground mt-0.5">
-                Next 30 days · {fmtHUF(upcomingTotalHUF)}
+                Next 30 days · {fmtAnchor(upcomingTotalHUF, anchor)}
               </div>
             </div>
             <Link
@@ -140,8 +142,8 @@ export default async function DashboardPage() {
                 </div>
                 <div className="text-right tabular text-[13px] shrink-0">
                   {fmtCur(Number(rule.amount), rule.currency as 'HUF' | 'USD' | 'EUR' | 'GBP')}
-                  {rule.currency !== 'HUF' && hufEquivalent !== null && (
-                    <div className="text-[10px] text-muted-foreground">≈ {fmtHUF(hufEquivalent)}</div>
+                  {rule.currency !== anchor && hufEquivalent !== null && (
+                    <div className="text-[10px] text-muted-foreground">≈ {fmtAnchor(hufEquivalent, anchor)}</div>
                   )}
                 </div>
               </div>
@@ -228,7 +230,7 @@ export default async function DashboardPage() {
             <div>
               <div className="text-[15px] font-semibold tracking-tight">Income used</div>
               <div className="text-[11.5px] text-muted-foreground mt-0.5">
-                {fmtHUF(kpis.expense + kpis.savings)} of {fmtHUF(kpis.income)}
+                {fmtAnchor(kpis.expense + kpis.savings, anchor)} of {fmtAnchor(kpis.income, anchor)}
               </div>
             </div>
             <span className="text-[10.5px] mono uppercase tracking-wider text-muted-foreground bg-secondary border border-border rounded-full px-2 py-0.5">

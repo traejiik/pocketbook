@@ -1,13 +1,17 @@
 export const dynamic = 'force-dynamic'
 
-import { getCategoriesWithStats } from '@/lib/aggregations'
+import { getCategoriesWithStats, getAnchorCurrency } from '@/lib/aggregations'
 import { CategoriesView } from './CategoriesView'
 
 export default async function CategoriesPage() {
-  const categories = await getCategoriesWithStats()
+  const [categories, anchorCurrency] = await Promise.all([
+    getCategoriesWithStats(),
+    getAnchorCurrency(),
+  ])
 
   return (
     <CategoriesView
+      anchorCurrency={anchorCurrency}
       categories={categories.map((c: (typeof categories)[number]) => ({
         id: c.id,
         name: c.name,

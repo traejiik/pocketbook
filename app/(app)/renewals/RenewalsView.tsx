@@ -6,7 +6,7 @@ import { Empty } from '@/components/ui/empty'
 import { CalendarIcon } from 'lucide-react'
 import { TimelineStrip } from '@/components/finance/TimelineStrip'
 import { AmountDisplay } from '@/components/finance/AmountDisplay'
-import { fmtHUF } from '@/lib/format'
+import { fmtAnchor } from '@/lib/format'
 type Category = { id: string; name: string; color: string; kind: string }
 
 type SerialisedRule = {
@@ -33,6 +33,7 @@ interface RenewalItem {
 
 interface Props {
   renewals: RenewalItem[]
+  anchorCurrency?: string
 }
 
 function groupKey(rule: SerialisedRule, grouping: 'week' | 'month') {
@@ -48,7 +49,7 @@ function groupKey(rule: SerialisedRule, grouping: 'week' | 'month') {
   return `${start.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })} – ${end.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}`
 }
 
-export function RenewalsView({ renewals }: Props) {
+export function RenewalsView({ renewals, anchorCurrency = 'HUF' }: Props) {
   const [horizon, setHorizon] = useState<30 | 60 | 90>(60)
   const [grouping, setGrouping] = useState<'week' | 'month'>('week')
 
@@ -84,7 +85,7 @@ export function RenewalsView({ renewals }: Props) {
         <div>
           <h1 className="text-[22px] font-semibold tracking-tight">Upcoming renewals</h1>
           <div className="text-[12.5px] text-muted-foreground mt-1">
-            {filtered.length} renewals · {fmtHUF(total)} due in next {horizon} days
+            {filtered.length} renewals · {fmtAnchor(total, anchorCurrency)} due in next {horizon} days
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -108,7 +109,7 @@ export function RenewalsView({ renewals }: Props) {
         </div>
       </div>
 
-      <TimelineStrip events={timelineEvents} horizon={horizon} />
+      <TimelineStrip events={timelineEvents} horizon={horizon} anchorCurrency={anchorCurrency} />
 
       <div className="space-y-5">
         {[...groups.entries()].map(([key, list]) => {
@@ -120,7 +121,7 @@ export function RenewalsView({ renewals }: Props) {
                   <h3 className="text-[13px] font-semibold tracking-tight">{key}</h3>
                   <span className="text-[11px] text-muted-foreground">· {list.length} renewals</span>
                 </div>
-                <div className="text-[12px] tabular text-foreground/85">{fmtHUF(subTotal)}</div>
+                <div className="text-[12px] tabular text-foreground/85">{fmtAnchor(subTotal, anchorCurrency)}</div>
               </div>
               <div className="bg-card border border-border rounded-xl divide-y divide-border overflow-hidden">
                 {list.map(({ rule, daysAway, hufEquivalent }) => (
@@ -165,9 +166,9 @@ export function RenewalsView({ renewals }: Props) {
                     </div>
                     {/* HUF + daysAway — desktop only */}
                     <div className="hidden sm:block text-right">
-                      {rule.currency !== 'HUF' && hufEquivalent !== null && (
+                      {rule.currency !== anchorCurrency && hufEquivalent !== null && (
                         <div className="text-[11.5px] text-muted-foreground tabular">
-                          ≈ {fmtHUF(hufEquivalent)}
+                          ≈ {fmtAnchor(hufEquivalent, anchorCurrency)}
                         </div>
                       )}
                       <div className={`text-[10.5px] ${daysAway < 0 ? 'text-destructive font-medium' : 'text-muted-foreground/70'}`}>

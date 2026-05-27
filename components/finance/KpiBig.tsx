@@ -10,6 +10,7 @@ interface KpiBigProps {
   deltaPct?: string
   footnote?: string
   href?: string
+  currency?: string
 }
 
 const toneVar: Record<Tone, string> = {
@@ -26,13 +27,15 @@ const toneSurface: Record<Tone, string> = {
   neutral: 'hsl(var(--card))',
 }
 
-export function KpiBig({ label, value, tone = 'income', deltaPct, footnote, href }: KpiBigProps) {
-  const abs = Math.abs(Math.round(value))
+export function KpiBig({ label, value, tone = 'income', deltaPct, footnote, href, currency = 'HUF' }: KpiBigProps) {
   const isNeg = value < 0
-  const valueStr =
-    abs >= 100_000
-      ? `${Math.round(abs / 1000)}k`
-      : abs.toLocaleString('hu-HU').replace(/,/g, ' ')
+  const abs = Math.abs(value)
+  const isHUF = currency === 'HUF'
+  const symbol = currency === 'USD' ? '$' : currency === 'EUR' ? '€' : currency === 'GBP' ? '£' : null
+
+  const valueStr = isHUF
+    ? (() => { const r = Math.round(abs); return r >= 100_000 ? `${Math.round(r / 1000)}k` : r.toLocaleString('hu-HU').replace(/,/g, ' ') })()
+    : abs.toFixed(2)
 
   const deltaDown = deltaPct ? deltaPct.includes('−') || deltaPct.includes('-') : false
   const isStatic  = deltaPct ? !deltaPct.match(/[\d%]/) : true
@@ -55,8 +58,18 @@ export function KpiBig({ label, value, tone = 'income', deltaPct, footnote, href
       </div>
       <div className="mt-auto">
         <div className="tabular font-semibold tracking-tight leading-none" style={{ color: toneVar[tone] }}>
-          <span className="text-[44px]">{isNeg ? '−' : ''}{valueStr}</span>
-          <span className="text-[16px] text-muted-foreground font-medium ml-1.5">Ft</span>
+          {symbol ? (
+            <>
+              {isNeg && <span>−</span>}
+              <span className="text-[16px] text-muted-foreground font-medium mr-0.5">{symbol}</span>
+              <span className="text-[44px]">{valueStr}</span>
+            </>
+          ) : (
+            <>
+              <span className="text-[44px]">{isNeg ? '−' : ''}{valueStr}</span>
+              <span className="text-[16px] text-muted-foreground font-medium ml-1.5">Ft</span>
+            </>
+          )}
         </div>
         {deltaPct && (
           <div className="flex items-center gap-1.5 mt-3">

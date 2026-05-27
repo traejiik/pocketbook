@@ -10,7 +10,7 @@ import { toast } from 'sonner';
 import { deleteTransaction, type TxInput } from '@/server-actions/transactions';
 import { useTransactionSheet } from '@/contexts/sheet-context';
 import { cn } from '@/lib/utils';
-import { fmtHUF } from '@/lib/format';
+import { fmtAnchor } from '@/lib/format';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -65,6 +65,7 @@ interface TransactionFormProps {
   onFormSubmit: (input: TxInput, category: SerializedCategory) => void;
   deleteConfirmOpen: boolean;
   setDeleteConfirmOpen: (open: boolean) => void;
+  anchorCurrency?: string;
 }
 
 function getToday() { return new Date().toISOString().slice(0, 10); }
@@ -85,6 +86,7 @@ export function TransactionForm({
   onFormSubmit,
   deleteConfirmOpen,
   setDeleteConfirmOpen,
+  anchorCurrency = 'HUF',
 }: TransactionFormProps) {
   const { open, editingTx, close } = useTransactionSheet();
 
@@ -285,9 +287,9 @@ export function TransactionForm({
                     <ChevronDownIcon className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
                   </div>
                 </div>
-                {currency !== 'HUF' && amtNum > 0 && (
+                {currency !== anchorCurrency && amtNum > 0 && (
                   <div className="text-[11.5px] text-muted-foreground mono">
-                    ≈ {fmtHUF(hufEquiv)} at 1 {currency} = {rate.toFixed(2)} HUF
+                    ≈ {fmtAnchor(hufEquiv, anchorCurrency)} at 1 {currency} = {rate.toFixed(2)} {anchorCurrency}
                   </div>
                 )}
                 {errors.amount && (
