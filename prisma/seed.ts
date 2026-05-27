@@ -1,4 +1,5 @@
 import { PrismaClient, FxMode } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
 import bcrypt from 'bcryptjs';
 import { readFileSync, existsSync } from 'fs';
 import { resolve } from 'path';
@@ -20,7 +21,11 @@ try {
   // No .env.local — rely on environment already set.
 }
 
-const prisma = new PrismaClient();
+const connectionString = process.env.PB_DATABASE_URL;
+if (!connectionString) {
+  throw new Error('PB_DATABASE_URL must be set to run the seed script');
+}
+const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString }) });
 
 async function main() {
   console.log('Seeding database…');
