@@ -22,13 +22,12 @@ nano /opt/docker/pocketbook/stack.env   # fill in every value
 
 | Key in `stack.env` | Example |
 | --- | --- |
-| `AUTH_URL` | `https://pocketbook.yourdomain.com` |
-| `AUTH_SECRET` | *(output of `openssl rand -base64 32`)* |
-| `SEED_USER_EMAIL` | `you@yourdomain.com` |
-| `SEED_USER_PASSWORD` | *(strong password)* |
-| `FX_SYNC_SECRET` | *(output of `openssl rand -hex 32`)* |
-| `POSTGRES_PASSWORD` | *(strong password)* |
-| `PB_POSTGRES_PASSWORD` | *(same as `POSTGRES_PASSWORD`)* |
+| `PB_AUTH_URL` | `https://pocketbook.yourdomain.com` |
+| `PB_AUTH_SECRET` | *(output of `openssl rand -base64 32`)* |
+| `PB_SEED_USER_EMAIL` | `you@yourdomain.com` |
+| `PB_SEED_USER_PASSWORD` | *(strong password)* |
+| `PB_FX_SYNC_SECRET` | *(output of `openssl rand -hex 32`)* |
+| `PB_POSTGRES_PASSWORD` | *(output of `openssl rand -hex 32`)* |
 
 **Optional** (sensible defaults apply if omitted):
 
@@ -36,11 +35,12 @@ nano /opt/docker/pocketbook/stack.env   # fill in every value
 | --- | --- |
 | `PB_USER_DISPLAY_NAME` | `Pocketbook` |
 | `PB_INSTANCE_NAME` | *(empty — no label shown)* |
-| `OLLAMA_BASE_URL` | `http://ollama:11434` |
+| `PB_OLLAMA_BASE_URL` | `http://ollama:11434` |
 
 > **Portainer panel (optional overrides)**: Any variable from `stack.env` can be overridden via
 > Portainer's "Stack environment variables" panel without editing the file on disk. Use the same
-> variable names as in `stack.env`. Values set in the panel take precedence over the file.
+> `PB_*` names as in `stack.env` — Docker Compose maps them to the internal names the app expects
+> (e.g. `PB_AUTH_URL` → `AUTH_URL`). Values set in the panel take precedence over the file.
 > The panel is also needed if your Docker data root is not `/opt/docker` — set `PB_DOCKER_DIR`.
 >
 > **Watchtower**: Because `env_file` is stored in the container definition, Watchtower recreates
@@ -126,6 +126,22 @@ The `fx-sync` sidecar runs the same command automatically at 03:00 every night v
 
 ---
 
+## Verify monthly insights
+
+```bash
+# Trigger manually for the current month (idempotent — safe to re-run)
+docker compose exec pocketbook-web sh -lc \
+  'wget -qO- --header="X-Sync-Secret: $FX_SYNC_SECRET" --post-data="" http://localhost:3000/api/insights/monthly'
+# Expected response: {"status":"generated","month":"YYYY-MM"} or {"status":"skipped","reason":"..."}
+```
+
+Monthly insights are generated automatically on the 1st of each month at 03:05 (5 minutes after FX
+sync) by the `fx-sync` sidecar. Generation can be disabled per-deployment via the
+**Auto Monthly Insights** toggle in Settings → Insights. The secret is shared with FX sync
+(`PB_FX_SYNC_SECRET`).
+
+---
+
 ## Subsequent updates (CI/CD flow)
 
 After a push to `main` triggers a new GHCR build:
@@ -157,8 +173,9 @@ docker compose down -v                    # ⚠ DESTRUCTIVE — also removes the
 
 | Symptom | Check |
 | --- | --- |
-| Login fails immediately | `PB_NEXTAUTH_SECRET` mismatch or `PB_NEXTAUTH_URL` not matching the actual URL |
+| Login fails immediately | `PB_AUTH_SECRET` mismatch or `PB_AUTH_URL` not matching the actual URL |
 | `PrismaClientInitializationError` on first request | DB not yet healthy — check `docker compose ps` and wait for `pocketbook-db` to show `healthy` |
-| AI insights load forever | Ollama unreachable — verify `PB_OLLAMA_BASE_URL` in `.env` and that Ollama is on `core_net` |
-| FX sync returns 401 | `PB_FX_SYNC_SECRET` in `.env` doesn't match the value baked into `fx-sync` container |
+| AI insights load forever | Ollama unreachable — verify `PB_OLLAMA_BASE_URL` in `stack.env` and that Ollama is on `core_net` |
+| FX sync returns 401 | `PB_FX_SYNC_SECRET` in `stack.env` doesn't match the header sent by the `fx-sync` sidecar |
+| Monthly insights return 401 | Same secret — `PB_FX_SYNC_SECRET` is shared between FX sync and monthly insights |
 | NPM can't reach the app | `pocketbook-web` not joined to `core_net` — verify with `docker inspect pocketbook-web` |
