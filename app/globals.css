@@ -216,3 +216,43 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* Override Sonner v2's @media (max-width: 600px) full-width behaviour for
+   the bottom-centre toaster. By default Sonner forces the toaster wrapper
+   to width: 100% with transform: none and stretches each toast to
+   calc(100% - mobile-offset * 2), which makes the pill span the screen
+   instead of hugging content. The compound [data-x-position="center"]
+   selector outranks Sonner's plain [data-sonner-toaster] on both desktop
+   and the mobile @media block. */
+[data-sonner-toaster][data-x-position="center"] {
+  /* Full-width wrapper on every viewport so the absolute-positioned toast
+     inside has a non-zero containing block to centre against. Sonner's
+     @media (max-width: 600px) block sets these same properties at equal
+     specificity (0,2,0) and wins source order because Sonner injects its
+     <style> tag at runtime after globals.css — hence !important. */
+  left: 0 !important;
+  right: 0 !important;
+  width: 100% !important;
+  transform: none !important;
+}
+
+[data-sonner-toaster][data-x-position="center"] [data-sonner-toast] {
+  /* Centre the absolutely-positioned toast inside the full-width wrapper:
+     stretch it across the wrapper (left:0 + right:0), let max-content size
+     it to its natural width, then margin auto centres it horizontally.
+     Avoids transform: translateX which would clash with Sonner's animation
+     transforms. */
+  left: 0 !important;
+  right: 0 !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  width: max-content;
+  min-width: 200px;
+  max-width: calc(100vw - 2rem);
+  text-align: center;
+  justify-content: center;
+}
+
+[data-sonner-toast] [data-content] {
+  justify-content: center;
+}

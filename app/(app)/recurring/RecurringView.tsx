@@ -65,7 +65,8 @@ const formSchema = z.object({
   installmentEndsOn: z.string().optional(),
 })
 
-type FormValues = z.infer<typeof formSchema>
+type FormInput = z.input<typeof formSchema>
+type FormValues = z.output<typeof formSchema>
 
 function daysUntil(dateStr: string) {
   const today = new Date()
@@ -103,7 +104,7 @@ export function RecurringView({ rules, categories, budget, anchorCurrency }: Pro
   const incomeRules  = rules.filter((r) => r.kind === 'INCOME')
   const savingsRules = rules.filter((r) => r.kind === 'SAVINGS')
 
-  const { register, handleSubmit, watch, setValue, reset, formState: { errors } } = useForm<FormValues>({
+  const { register, handleSubmit, watch, setValue, reset, formState: { errors } } = useForm<FormInput, unknown, FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       currency: 'HUF',
