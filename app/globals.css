@@ -216,3 +216,26 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* Sonner v2 emits its base rules in @layer sonner; unlayered rules here
+   win at equal specificity so the toast pill hugs content width and stays
+   horizontally centred on mobile (the v1 [data-x-position=center] block
+   collapsed it to full screen width). */
+[data-sonner-toaster][data-x-position="center"] {
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
+  width: auto;
+  max-width: calc(100vw - 2rem);
+}
+
+[data-sonner-toast] {
+  width: fit-content;
+  min-width: 160px;
+  text-align: center;
+  justify-content: center;
+}
+
+[data-sonner-toast] [data-content] {
+  justify-content: center;
+}
