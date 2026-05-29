@@ -42,6 +42,7 @@ export type SerialisedRule = {
   installmentEndsOn: string | null  // YYYY-MM-DD or null
   archived: boolean
   category: Category
+  anchorEquivalent: number | null
 }
 
 interface Props {
@@ -305,7 +306,7 @@ export function RecurringView({ rules, categories, budget, anchorCurrency }: Pro
             <RecurringRuleCard
               key={r.id}
               rule={r as CardRule}
-              hufEquivalent={r.amount}
+              hufEquivalent={r.anchorEquivalent}
               daysAway={daysUntil(r.nextDue)}
               onEdit={(c) => openEdit(c as SerialisedRule)}
               anchorCurrency={anchorCurrency}
