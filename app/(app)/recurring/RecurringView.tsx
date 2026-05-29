@@ -25,6 +25,7 @@ import { toast } from 'sonner'
 import { upsertRecurringRule, archiveRecurringRule, type RecurringRuleInput } from '@/server-actions/recurring'
 import { useFabContext } from '@/contexts/fab-context'
 import type { CardRule } from '@/components/finance/RecurringRuleCard'
+import { fmtDate } from '@/lib/format'
 
 type Category = { id: string; name: string; color: string; kind: string }
 
@@ -168,8 +169,11 @@ export function RecurringView({ rules, categories, budget, anchorCurrency }: Pro
         toast.error(result.error)
         return
       }
-      if (result.backfilled && result.backfilledDate) {
-        toast.success(`Added missed payment for ${result.backfilledDate} as a transaction.`)
+      if (result.backfilledCount && result.backfilledFrom && result.backfilledTo) {
+        const range = result.backfilledFrom === result.backfilledTo
+          ? fmtDate(result.backfilledFrom, { short: true })
+          : `${fmtDate(result.backfilledFrom, { short: true })}–${fmtDate(result.backfilledTo, { short: true })}`
+        toast.success(`Added ${result.backfilledCount} catch-up transaction${result.backfilledCount === 1 ? '' : 's'} for ${range}.`)
       }
       setSheetOpen(false)
     })
