@@ -27,7 +27,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN apk add --no-cache openssl && \
     addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs && \
-    npm install -g prisma@5.22.0
+    npm install -g prisma@7.8.0
 
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/package.json ./package.json

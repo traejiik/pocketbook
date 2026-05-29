@@ -34,7 +34,7 @@ Port them faithfully — class names, layout, component composition, unless aske
 
 ## Stack and dependency policy
 
-Current implementation: Next.js 16.2.6 · React 19.2.6 · TypeScript 5 · Tailwind CSS 4.3 · shadcn v4 registry style · Base UI-backed local primitives · Postgres 16 · Prisma 5.22 · Auth.js v5 · react-hook-form + zod · Recharts 2 · Geist fonts · Sonner · date-fns · next-themes · Ollama · Frankfurter · Node 24 · pnpm 10.33.0 in Docker.
+Current implementation: Next.js 16.2.6 · React 19.2.6 · TypeScript 5 · Tailwind CSS 4.3 · shadcn v4 registry style · Base UI-backed local primitives · Postgres 16 · Prisma 7.8 · Auth.js v5 · react-hook-form + zod · Recharts 2 · Geist fonts · Sonner · date-fns · next-themes · Ollama · Frankfurter · Node 24 · pnpm 10.33.0 in Docker.
 
 The stack is not locked to old major versions. Major upgrades are allowed when they are intentional, tested, and documented. Pin exact versions only where operational coupling matters: Next.js with `eslint-config-next`, Docker Node image major, Docker pnpm version, Prisma runner CLI, PostgreSQL image major, and CI action majors. Let ordinary app libraries float by semver range plus `pnpm-lock.yaml`, but treat Prisma, Auth.js beta changes, React, Tailwind, and charting major upgrades as explicit upgrade projects.
 

@@ -9,7 +9,7 @@ A self-hosted personal finance tracker for a single user. Replaces a manual spre
 - **Framework:** Next.js 16.2.6 (App Router) · React 19.2.6 · TypeScript 5
 - **Styling:** Tailwind CSS 4.3 via CSS-first `@theme` tokens in `app/globals.css`
 - **Components:** shadcn v4 registry style, local Base UI-backed primitives, and custom finance components
-- **Database:** PostgreSQL 16 + Prisma 5.22
+- **Database:** PostgreSQL 16 + Prisma 7.8
 - **Auth:** Auth.js v5 (`next-auth@beta`, credentials provider, single user)
 - **Forms:** react-hook-form + zod
 - **Charts:** Recharts 2 + custom SVG
@@ -39,7 +39,7 @@ cd pocketbook
 cp .env.example .env
 
 # 2. Fill in .env — required vars:
-#   PB_POSTGRES_PASSWORD, PB_NEXTAUTH_SECRET, PB_NEXTAUTH_URL
+#   PB_POSTGRES_PASSWORD, PB_AUTH_SECRET, PB_AUTH_URL
 #   PB_SEED_USER_EMAIL, PB_SEED_USER_PASSWORD, PB_FX_SYNC_SECRET
 #   PB_OLLAMA_BASE_URL (e.g. http://homelab.local:11434)
 
