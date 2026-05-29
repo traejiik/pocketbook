@@ -4,23 +4,27 @@ Stack: Next.js 16 · React 19 · Tailwind CSS 4 · Node 24 · Postgres 16 · Doc
 
 ---
 
-## Host-side secrets file (`stack.env`)
+## Secrets (Portainer stack environment panel)
 
-Secrets are stored in a file on the Docker host rather than in Portainer's env panel.
-This means **Watchtower restarts and Portainer GitOps redeployments both work reliably** — Docker
-reads the file directly on every container start, so secrets are never dropped.
+Secrets live in **Portainer's stack environment panel**, not in a file on the host or in the repo.
+Portainer stores them and re-applies them on every (re)deploy and **Watchtower** recreate, so they
+survive restarts. The compose file has **no `env_file:` directive** — that was removed because
+Portainer reads `env_file` paths from inside its own container, so a host path like
+`/opt/docker/...` or `~/docker/...` is invisible to it and breaks the GitOps pull.
 
-### One-time setup (run once on the Docker host)
+### Setup
 
-```bash
-mkdir -p /opt/docker/pocketbook
-cp stack.env.example /opt/docker/pocketbook/stack.env
-nano /opt/docker/pocketbook/stack.env   # fill in every value
-```
+In Portainer: open the Pocketbook stack → **Environment variables** → **Advanced mode**, then paste
+the lines from `stack.env.example` and fill in every value.
 
-**Required values to set** (no defaults — left blank will brick the container):
+> **Use the `PB_`-prefixed names exactly.** The compose passes through only `PB_*` names and the
+> container maps them to the bare names internally (`PB_AUTH_URL` → `AUTH_URL`,
+> `PB_POSTGRES_PASSWORD` → `POSTGRES_PASSWORD`). A bare `AUTH_URL` typed into the panel is **ignored**
+> — this is the #1 cause of "auth url is needed" boot failures.
 
-| Key in `stack.env` | Example |
+**Required** (no defaults — left blank will brick the container):
+
+| Key in the panel | Example |
 | --- | --- |
 | `PB_AUTH_URL` | `https://pocketbook.yourdomain.com` |
 | `PB_AUTH_SECRET` | *(output of `openssl rand -base64 32`)* |
@@ -28,7 +32,6 @@ nano /opt/docker/pocketbook/stack.env   # fill in every value
 | `PB_SEED_USER_PASSWORD` | *(strong password)* |
 | `PB_FX_SYNC_SECRET` | *(output of `openssl rand -hex 32`)* |
 | `PB_POSTGRES_PASSWORD` | *(output of `openssl rand -hex 32`)* |
-| `POSTGRES_PASSWORD` | *(same value as `PB_POSTGRES_PASSWORD`)* |
 
 **Optional** (sensible defaults apply if omitted):
 
@@ -37,15 +40,10 @@ nano /opt/docker/pocketbook/stack.env   # fill in every value
 | `PB_USER_DISPLAY_NAME` | `Pocketbook` |
 | `PB_INSTANCE_NAME` | *(empty — no label shown)* |
 | `PB_OLLAMA_BASE_URL` | `http://ollama:11434` |
+| `PB_DOCKER_DIR` | `/opt/docker` *(host base path for bind-mount volumes)* |
 
-> **Portainer panel (optional overrides)**: Any variable from `stack.env` can be overridden via
-> Portainer's "Stack environment variables" panel without editing the file on disk. Use the same
-> `PB_*` names as in `stack.env` — Docker Compose maps them to the internal names the app expects
-> (e.g. `PB_AUTH_URL` → `AUTH_URL`). Values set in the panel take precedence over the file.
-> The panel is also needed if your Docker data root is not `/opt/docker` — set `PB_DOCKER_DIR`.
->
-> **Watchtower**: Because `env_file` is stored in the container definition, Watchtower recreates
-> containers with the correct secrets automatically — no manual intervention needed after updates.
+> **Shared Postgres stacks**: only `PB_POSTGRES_PASSWORD` is used — there is no unprefixed
+> `POSTGRES_PASSWORD` to collide with another postgres service sharing the same stack environment.
 
 ---
 
@@ -53,8 +51,8 @@ nano /opt/docker/pocketbook/stack.env   # fill in every value
 
 - [ ] `core_net` exists: `docker network ls | grep core_net`
 - [ ] AI stack running (Ollama reachable on `core_net` at `$PB_OLLAMA_BASE_URL`)
-- [ ] `/opt/docker/pocketbook/stack.env` exists and all required values are filled in
-- [ ] `/opt/docker/pocketbook/postgres` directory exists on the host and is writable
+- [ ] All required `PB_*` variables are set in the Portainer stack environment panel
+- [ ] `/opt/docker/pocketbook/postgres` directory exists on the host and is writable (or set `PB_DOCKER_DIR`)
 - [ ] GitHub Actions pushed a successful build to GHCR (check the Actions tab on the repo)
 
 ---
@@ -176,7 +174,8 @@ docker compose down -v                    # ⚠ DESTRUCTIVE — also removes the
 | --- | --- |
 | Login fails immediately | `PB_AUTH_SECRET` mismatch or `PB_AUTH_URL` not matching the actual URL |
 | `PrismaClientInitializationError` on first request | DB not yet healthy — check `docker compose ps` and wait for `pocketbook-db` to show `healthy` |
-| AI insights load forever | Ollama unreachable — verify `PB_OLLAMA_BASE_URL` in `stack.env` and that Ollama is on `core_net` |
-| FX sync returns 401 | `PB_FX_SYNC_SECRET` in `stack.env` doesn't match the header sent by the `fx-sync` sidecar |
+| `auth url is needed` / boot loop | `PB_AUTH_URL`/`PB_AUTH_SECRET` missing — confirm they're set in the panel with the `PB_` prefix (a bare `AUTH_URL` is ignored) |
+| AI insights load forever | Ollama unreachable — verify `PB_OLLAMA_BASE_URL` in the panel and that Ollama is on `core_net` |
+| FX sync returns 401 | `PB_FX_SYNC_SECRET` in the panel doesn't match the header sent by the `fx-sync` sidecar |
 | Monthly insights return 401 | Same secret — `PB_FX_SYNC_SECRET` is shared between FX sync and monthly insights |
 | NPM can't reach the app | `pocketbook-web` not joined to `core_net` — verify with `docker inspect pocketbook-web` |
