@@ -1,8 +1,66 @@
 #!/bin/sh
 set -e
 
-# Resolve PB_-prefixed vars (from the Portainer stack environment panel) to the
-# bare names Auth.js and the app expect. Bare-name vars take precedence if set.
+# ---------------------------------------------------------------------------
+# Startup failure capture
+#
+# On a crash-restart loop the console scrolls and `docker logs` is wiped on a
+# Watchtower/Portainer recreate, so the cause is easy to miss. Before exiting on
+# failure we append a timestamped report to a file on the persistent /data
+# volume, readable on the host at:
+#   ${PB_DOCKER_DIR}/pocketbook/data/startup-failures.log
+# Optionally also POSTs to PB_ALERT_WEBHOOK (e.g. an ntfy topic) for a push.
+# The success path execs into Next.js, so this trap only ever fires on failure.
+# ---------------------------------------------------------------------------
+FAIL_LOG="${PB_FAIL_LOG:-/data/startup-failures.log}"
+RUN_LOG="/tmp/pb-startup.$$"
+STEP="/tmp/pb-step.$$"
+STAGE="init"
+if ! : > "$RUN_LOG" 2>/dev/null; then RUN_LOG=/dev/null; STEP=/dev/null; fi
+
+# echo to console AND this run's capture buffer
+say() { echo "$@"; echo "$@" >> "$RUN_LOG" 2>/dev/null || true; }
+
+# run a command; mirror its output to console + buffer; preserve its exit code
+run() {
+  if "$@" > "$STEP" 2>&1; then rc=0; else rc=$?; fi
+  cat "$STEP" 2>/dev/null || true
+  cat "$STEP" >> "$RUN_LOG" 2>/dev/null || true
+  return "$rc"
+}
+
+on_exit() {
+  code=$?
+  [ "$code" -eq 0 ] && return 0
+  ts="$(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || echo unknown)"
+  {
+    echo "==================================================================="
+    echo "[$ts] pocketbook-web STARTUP FAILED — stage=$STAGE exit=$code"
+    echo "Required variables (set these in the Portainer panel with PB_ names):"
+    for v in PB_AUTH_URL PB_AUTH_SECRET PB_POSTGRES_PASSWORD PB_SEED_USER_EMAIL PB_SEED_USER_PASSWORD; do
+      eval "val=\${$v}"
+      [ -n "$val" ] && echo "  $v = set" || echo "  $v = MISSING"
+    done
+    echo "Output:"
+    sed 's/^/  /' "$RUN_LOG" 2>/dev/null || echo "  (no captured output)"
+    echo ""
+  } >> "$FAIL_LOG" 2>/dev/null \
+    && echo "Startup failed (stage=$STAGE, exit=$code). Report appended to $FAIL_LOG" >&2 \
+    || echo "Startup failed (stage=$STAGE, exit=$code). Could not write $FAIL_LOG — is /data writable by uid 1001?" >&2
+
+  # Optional push notification: set PB_ALERT_WEBHOOK to a URL that accepts a
+  # POSTed text body (e.g. https://ntfy.sh/your-topic). Best-effort, time-boxed.
+  if [ -n "$PB_ALERT_WEBHOOK" ]; then
+    node -e "const u=process.env.PB_ALERT_WEBHOOK,h=require(u.indexOf('https')===0?'https':'http'),d='pocketbook-web startup FAILED: stage=$STAGE exit=$code';const r=h.request(u,{method:'POST'},()=>process.exit(0));r.setTimeout(3000,()=>process.exit(0));r.on('error',()=>process.exit(0));r.end(d);" 2>/dev/null || true
+  fi
+}
+trap on_exit EXIT
+
+# ---------------------------------------------------------------------------
+# Resolve PB_-prefixed vars (from the Portainer panel) to the bare names the app
+# expects. Bare-name vars take precedence if already set.
+# ---------------------------------------------------------------------------
+STAGE="map-env"
 export AUTH_URL="${AUTH_URL:-$PB_AUTH_URL}"
 export AUTH_SECRET="${AUTH_SECRET:-$PB_AUTH_SECRET}"
 export FX_SYNC_SECRET="${FX_SYNC_SECRET:-$PB_FX_SYNC_SECRET}"
@@ -10,8 +68,8 @@ export OLLAMA_BASE_URL="${OLLAMA_BASE_URL:-$PB_OLLAMA_BASE_URL}"
 export SEED_USER_EMAIL="${SEED_USER_EMAIL:-$PB_SEED_USER_EMAIL}"
 export SEED_USER_PASSWORD="${SEED_USER_PASSWORD:-$PB_SEED_USER_PASSWORD}"
 
-# Fail fast with one clear message listing every missing required var, instead of
-# crashing mid-migrate/seed (which looks like a random restart loop).
+# Fail fast with one clear message listing every missing required var.
+STAGE="validate-env"
 missing=""
 [ -z "$AUTH_URL" ] && missing="$missing PB_AUTH_URL"
 [ -z "$AUTH_SECRET" ] && missing="$missing PB_AUTH_SECRET"
@@ -19,34 +77,37 @@ missing=""
 [ -z "$SEED_USER_EMAIL" ] && missing="$missing PB_SEED_USER_EMAIL"
 [ -z "$SEED_USER_PASSWORD" ] && missing="$missing PB_SEED_USER_PASSWORD"
 if [ -n "$missing" ]; then
-  echo "ERROR: missing required variables in the Portainer stack environment panel:"
-  echo "  $missing"
-  echo "Use the PB_-prefixed names exactly (e.g. PB_AUTH_URL, not AUTH_URL). See DEPLOY.md."
+  say "ERROR: missing required variables in the Portainer stack environment panel:"
+  say "  $missing"
+  say "Use the PB_-prefixed names exactly (e.g. PB_AUTH_URL, not AUTH_URL). See DEPLOY.md."
   exit 1
 fi
 
 export PB_DATABASE_URL="postgresql://${PB_POSTGRES_USER}:${PB_POSTGRES_PASSWORD}@pocketbook-db:5432/${PB_POSTGRES_DB}"
 
 # Wait for Postgres to accept TCP connections. depends_on: service_healthy only
-# gates `compose up` — NOT restart-policy restarts after a host reboot or a
-# Watchtower recreate, where this container can start before the DB is ready.
-echo "Waiting for database..."
+# gates `compose up`, not restart-policy restarts after a reboot/Watchtower recreate.
+STAGE="wait-for-db"
+say "Waiting for database..."
 i=0
 until node -e "const s=require('net').createConnection(5432,'pocketbook-db');s.setTimeout(2000);s.on('connect',()=>{s.end();process.exit(0)});s.on('timeout',()=>process.exit(1));s.on('error',()=>process.exit(1))" 2>/dev/null; do
   i=$((i+1))
   if [ "$i" -ge 30 ]; then
-    echo "ERROR: database not reachable after 60s — giving up (container will restart)."
+    say "ERROR: database not reachable after 60s (check: docker logs pocketbook-db)."
     exit 1
   fi
   sleep 2
 done
-echo "Database is up."
+say "Database is up."
 
-echo "Running Prisma migrations..."
-prisma migrate deploy
+STAGE="prisma-migrate"
+say "Running Prisma migrations..."
+run prisma migrate deploy
 
-echo "Seeding database..."
-node /app/prisma/seed.js
+STAGE="seed"
+say "Seeding database..."
+run node /app/prisma/seed.js
 
-echo "Starting Next.js..."
+STAGE="start"
+say "Starting Next.js..."
 exec node /app/server.js
