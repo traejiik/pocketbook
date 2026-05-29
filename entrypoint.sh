@@ -61,12 +61,12 @@ trap on_exit EXIT
 # expects. Bare-name vars take precedence if already set.
 # ---------------------------------------------------------------------------
 STAGE="map-env"
-export AUTH_URL="${AUTH_URL:-$PB_AUTH_URL}"
-export AUTH_SECRET="${AUTH_SECRET:-$PB_AUTH_SECRET}"
-export FX_SYNC_SECRET="${FX_SYNC_SECRET:-$PB_FX_SYNC_SECRET}"
+export AUTH_URL="${PB_AUTH_URL}"
+export AUTH_SECRET="${PB_AUTH_SECRET}"
+export FX_SYNC_SECRET="${PB_FX_SYNC_SECRET}"
 export OLLAMA_BASE_URL="${OLLAMA_BASE_URL:-$PB_OLLAMA_BASE_URL}"
-export SEED_USER_EMAIL="${SEED_USER_EMAIL:-$PB_SEED_USER_EMAIL}"
-export SEED_USER_PASSWORD="${SEED_USER_PASSWORD:-$PB_SEED_USER_PASSWORD}"
+export SEED_USER_EMAIL="${PB_SEED_USER_EMAIL}"
+export SEED_USER_PASSWORD="${PB_SEED_USER_PASSWORD}"
 
 # Fail fast with one clear message listing every missing required var.
 STAGE="validate-env"
