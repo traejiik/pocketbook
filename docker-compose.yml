@@ -53,6 +53,9 @@ services:
       - PB_INSTANCE_NAME=${PB_INSTANCE_NAME:-}
       - PB_SEED_USER_EMAIL=${PB_SEED_USER_EMAIL:-}
       - PB_SEED_USER_PASSWORD=${PB_SEED_USER_PASSWORD:-}
+      # Optional: URL that accepts a POSTed text body (e.g. an ntfy topic) to be
+      # pinged if startup fails. Leave unset to disable.
+      - PB_ALERT_WEBHOOK=${PB_ALERT_WEBHOOK:-}
     volumes:
       - ${PB_DOCKER_DIR:-/opt/docker}/pocketbook/data:/data
     networks:

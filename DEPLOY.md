@@ -179,3 +179,22 @@ docker compose down -v                    # ⚠ DESTRUCTIVE — also removes the
 | FX sync returns 401 | `PB_FX_SYNC_SECRET` in the panel doesn't match the header sent by the `fx-sync` sidecar |
 | Monthly insights return 401 | Same secret — `PB_FX_SYNC_SECRET` is shared between FX sync and monthly insights |
 | NPM can't reach the app | `pocketbook-web` not joined to `core_net` — verify with `docker inspect pocketbook-web` |
+
+### Diagnosing a boot / restart loop
+
+If `pocketbook-web` keeps restarting, the cause is captured on the persistent volume even
+after the console scrolls or a Watchtower/Portainer recreate wipes `docker logs`:
+
+```bash
+# Timestamped report per failed boot: stage, exit code, which PB_* vars were missing,
+# and the captured migrate/seed output.
+cat ${PB_DOCKER_DIR:-/opt/docker}/pocketbook/data/startup-failures.log
+```
+
+The `stage=` field tells you where it died: `validate-env` (a required `PB_*` var is missing
+from the panel), `wait-for-db` (DB never became reachable — check `docker logs pocketbook-db`),
+`prisma-migrate`, or `seed`.
+
+**Optional push alert:** set `PB_ALERT_WEBHOOK` in the panel to a URL that accepts a POSTed
+text body (e.g. an ntfy topic `https://ntfy.sh/your-private-topic`) to be notified on each
+startup failure. The log file is written regardless of whether this is set.
