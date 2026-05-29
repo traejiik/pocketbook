@@ -13,6 +13,10 @@ set -e
 # The success path execs into Next.js, so this trap only ever fires on failure.
 # ---------------------------------------------------------------------------
 FAIL_LOG="${PB_FAIL_LOG:-/data/startup-failures.log}"
+# /data is a bind mount; if the host dir isn't writable by this uid (1001) the
+# persistent log can't be created. Fall back to /tmp so a diagnostic is never
+# lost. (To keep it across container recreation, chown the host dir to 1001.)
+if ! : >> "$FAIL_LOG" 2>/dev/null; then FAIL_LOG=/tmp/startup-failures.log; fi
 RUN_LOG="/tmp/pb-startup.$$"
 STEP="/tmp/pb-step.$$"
 STAGE="init"
@@ -36,8 +40,8 @@ on_exit() {
   {
     echo "==================================================================="
     echo "[$ts] pocketbook-web STARTUP FAILED — stage=$STAGE exit=$code"
-    echo "Required variables (set these in the Portainer panel with PB_ names):"
-    for v in PB_AUTH_URL PB_AUTH_SECRET PB_POSTGRES_PASSWORD PB_SEED_USER_EMAIL PB_SEED_USER_PASSWORD; do
+    echo "Required variables (resolved; pass the bare name via compose OR the PB_ name via the Portainer panel):"
+    for v in AUTH_URL AUTH_SECRET PB_POSTGRES_PASSWORD SEED_USER_EMAIL SEED_USER_PASSWORD; do
       eval "val=\${$v}"
       [ -n "$val" ] && echo "  $v = set" || echo "  $v = MISSING"
     done
@@ -57,29 +61,33 @@ on_exit() {
 trap on_exit EXIT
 
 # ---------------------------------------------------------------------------
-# Resolve PB_-prefixed vars (from the Portainer panel) to the bare names the app
-# expects. Bare-name vars take precedence if already set.
+# Resolve config to the bare names the app + Auth.js read (AUTH_URL, AUTH_SECRET,
+# SEED_USER_*, FX_SYNC_SECRET, OLLAMA_BASE_URL). Accept either form:
+#   - a bare name passed straight through by compose (e.g. AUTH_URL=...), or
+#   - the PB_-prefixed name from the Portainer panel (e.g. PB_AUTH_URL=...).
+# A bare name that's already set wins; otherwise fall back to its PB_ counterpart.
 # ---------------------------------------------------------------------------
 STAGE="map-env"
-export AUTH_URL="${PB_AUTH_URL}"
-export AUTH_SECRET="${PB_AUTH_SECRET}"
-export FX_SYNC_SECRET="${PB_FX_SYNC_SECRET}"
+export AUTH_URL="${AUTH_URL:-$PB_AUTH_URL}"
+export AUTH_SECRET="${AUTH_SECRET:-$PB_AUTH_SECRET}"
+export FX_SYNC_SECRET="${FX_SYNC_SECRET:-$PB_FX_SYNC_SECRET}"
 export OLLAMA_BASE_URL="${OLLAMA_BASE_URL:-$PB_OLLAMA_BASE_URL}"
-export SEED_USER_EMAIL="${PB_SEED_USER_EMAIL}"
-export SEED_USER_PASSWORD="${PB_SEED_USER_PASSWORD}"
+export SEED_USER_EMAIL="${SEED_USER_EMAIL:-$PB_SEED_USER_EMAIL}"
+export SEED_USER_PASSWORD="${SEED_USER_PASSWORD:-$PB_SEED_USER_PASSWORD}"
+export PB_POSTGRES_PASSWORD="${PB_POSTGRES_PASSWORD:-$POSTGRES_PASSWORD}"
 
 # Fail fast with one clear message listing every missing required var.
 STAGE="validate-env"
 missing=""
-[ -z "$AUTH_URL" ] && missing="$missing PB_AUTH_URL"
-[ -z "$AUTH_SECRET" ] && missing="$missing PB_AUTH_SECRET"
+[ -z "$AUTH_URL" ] && missing="$missing AUTH_URL/PB_AUTH_URL"
+[ -z "$AUTH_SECRET" ] && missing="$missing AUTH_SECRET/PB_AUTH_SECRET"
 [ -z "$PB_POSTGRES_PASSWORD" ] && missing="$missing PB_POSTGRES_PASSWORD"
-[ -z "$SEED_USER_EMAIL" ] && missing="$missing PB_SEED_USER_EMAIL"
-[ -z "$SEED_USER_PASSWORD" ] && missing="$missing PB_SEED_USER_PASSWORD"
+[ -z "$SEED_USER_EMAIL" ] && missing="$missing SEED_USER_EMAIL/PB_SEED_USER_EMAIL"
+[ -z "$SEED_USER_PASSWORD" ] && missing="$missing SEED_USER_PASSWORD/PB_SEED_USER_PASSWORD"
 if [ -n "$missing" ]; then
-  say "ERROR: missing required variables in the Portainer stack environment panel:"
+  say "ERROR: missing required variables (set them in the Portainer stack environment panel):"
   say "  $missing"
-  say "Use the PB_-prefixed names exactly (e.g. PB_AUTH_URL, not AUTH_URL). See DEPLOY.md."
+  say "Either name form works: pass the bare name via compose, or the PB_ name via the panel. See DEPLOY.md."
   exit 1
 fi
 
