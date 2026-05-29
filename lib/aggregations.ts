@@ -163,8 +163,13 @@ export const getCategoriesWithStats = cache(async () => {
   const countMap = new Map(txCounts.map((r) => [r.categoryId, r._count.id]));
   const sumMap = new Map<string, number>();
   for (const t of txSums) {
+    const converted = await toAnchor(
+      Math.abs(Number(t.amount)),
+      t.currency as 'HUF' | 'USD' | 'EUR' | 'GBP',
+    );
+    if (converted === null) continue;
     const prev = sumMap.get(t.categoryId) ?? 0;
-    sumMap.set(t.categoryId, prev + Math.abs(Number(t.amount)));
+    sumMap.set(t.categoryId, prev + converted);
   }
 
   return cats.map((c) => ({
