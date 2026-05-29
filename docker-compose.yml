@@ -8,7 +8,8 @@ services:
     environment:
       - POSTGRES_USER=pocketbook
       - POSTGRES_DB=pocketbook
-      - POSTGRES_PASSWORD=${PB_POSTGRES_PASSWORD}   # Portainer override: set PB_POSTGRES_PASSWORD in panel
+      # POSTGRES_PASSWORD comes from env_file (stack.env must include it alongside PB_POSTGRES_PASSWORD)
+      - PB_POSTGRES_PASSWORD  # Portainer override passthrough
     volumes:
       - ${PB_DOCKER_DIR:-/opt/docker}/pocketbook/postgres:/var/lib/postgresql/data
     healthcheck:
@@ -36,16 +37,17 @@ services:
       - PB_POSTGRES_DB=pocketbook
       - AUTH_TRUST_HOST=true
       - NODE_ENV=production
-      # Portainer overrides — use PB_-prefixed names in the panel to avoid collisions in shared stacks
-      - AUTH_URL=${PB_AUTH_URL}
-      - AUTH_SECRET=${PB_AUTH_SECRET}
+      # Portainer panel overrides (passthrough — only applied if set in the panel)
+      # entrypoint.sh maps PB_* → bare names at container startup
+      - PB_AUTH_URL
+      - PB_AUTH_SECRET
       - PB_POSTGRES_PASSWORD
-      - OLLAMA_BASE_URL=${PB_OLLAMA_BASE_URL}
-      - FX_SYNC_SECRET=${PB_FX_SYNC_SECRET}
+      - PB_OLLAMA_BASE_URL
+      - PB_FX_SYNC_SECRET
       - PB_USER_DISPLAY_NAME
       - PB_INSTANCE_NAME
-      - SEED_USER_EMAIL=${PB_SEED_USER_EMAIL}
-      - SEED_USER_PASSWORD=${PB_SEED_USER_PASSWORD}
+      - PB_SEED_USER_EMAIL
+      - PB_SEED_USER_PASSWORD
     volumes:
       - ${PB_DOCKER_DIR:-/opt/docker}/pocketbook/data:/data
     networks:
@@ -60,11 +62,11 @@ services:
     env_file:
       - /opt/docker/pocketbook/stack.env
     environment:
-      - FX_SYNC_SECRET=${PB_FX_SYNC_SECRET}   # Portainer override: set PB_FX_SYNC_SECRET in panel
+      - PB_FX_SYNC_SECRET  # Portainer override passthrough
     command:
       - sh
       - -c
-      - "{ echo \"0 3 * * * wget -qO- --header 'X-Sync-Secret: $$FX_SYNC_SECRET' --post-data='' http://pocketbook-web:3000/api/fx/sync || true\"; echo \"5 3 1 * * wget -qO- --header 'X-Sync-Secret: $$FX_SYNC_SECRET' --post-data='' http://pocketbook-web:3000/api/insights/monthly || true\"; } | crontab - && crond -f -l 8"
+      - "{ echo \"0 3 * * * wget -qO- --header 'X-Sync-Secret: $$PB_FX_SYNC_SECRET' --post-data='' http://pocketbook-web:3000/api/fx/sync || true\"; echo \"5 3 1 * * wget -qO- --header 'X-Sync-Secret: $$PB_FX_SYNC_SECRET' --post-data='' http://pocketbook-web:3000/api/insights/monthly || true\"; } | crontab - && crond -f -l 8"
     networks:
       - core_net
 

@@ -28,6 +28,7 @@ nano /opt/docker/pocketbook/stack.env   # fill in every value
 | `PB_SEED_USER_PASSWORD` | *(strong password)* |
 | `PB_FX_SYNC_SECRET` | *(output of `openssl rand -hex 32`)* |
 | `PB_POSTGRES_PASSWORD` | *(output of `openssl rand -hex 32`)* |
+| `POSTGRES_PASSWORD` | *(same value as `PB_POSTGRES_PASSWORD`)* |
 
 **Optional** (sensible defaults apply if omitted):
 
