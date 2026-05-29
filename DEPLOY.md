@@ -178,6 +178,7 @@ docker compose down -v                    # ⚠ DESTRUCTIVE — also removes the
 | --- | --- |
 | Login fails immediately | `PB_AUTH_SECRET` mismatch or `PB_AUTH_URL` not matching the actual URL |
 | `PrismaClientInitializationError` on first request | DB not yet healthy — check `docker compose ps` and wait for `pocketbook-db` to show `healthy` |
+| `stage=prisma-migrate` with `datasource.url property is required` | Stale/broken image missing `prisma.config.ts` in the runner — pull/redeploy `v1.0.7` or newer |
 | `auth url is needed` / boot loop | `AUTH_URL`/`AUTH_SECRET` not reaching the container — with the bundled compose, set `PB_AUTH_URL`/`PB_AUTH_SECRET` in the panel (a bare `AUTH_URL` in the panel is ignored, since that compose only interpolates `PB_*`) |
 | AI insights load forever | Ollama unreachable — verify `PB_OLLAMA_BASE_URL` in the panel and that Ollama is on `core_net` |
 | FX sync returns 401 | `PB_FX_SYNC_SECRET` in the panel doesn't match the header sent by the `fx-sync` sidecar |
