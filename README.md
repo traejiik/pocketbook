@@ -49,7 +49,7 @@ docker-compose up -d
 # 4. Open http://localhost:3000 and log in with your PB_SEED_USER_EMAIL / PB_SEED_USER_PASSWORD
 ```
 
-The `pocketbook-web` container builds `PB_DATABASE_URL` from the `PB_POSTGRES_*` variables at runtime, then runs `prisma migrate deploy` and the idempotent seed before starting Next.js.
+The `pocketbook-web` container builds `PB_DATABASE_URL` from the `PB_POSTGRES_*` variables at runtime, then runs `prisma migrate deploy` and the idempotent seed before starting Next.js. Prisma 7 reads that datasource URL from `prisma.config.ts`, so the Docker runner image must ship that root config file alongside `prisma/`.
 
 ---
 
@@ -101,6 +101,7 @@ components/           UI primitives and finance-specific components
 server-actions/       All mutations (Server Actions, no REST)
 lib/                  fx.ts, auth helpers, Prisma client
 prisma/               Schema, migrations, seed
+prisma.config.ts      Prisma 7 CLI config; required by runtime migrations
 seed/                 CSV bootstrap data (optional)
 scripts/              Ad-hoc import and maintenance scripts
 other/                Design reference, mockups, handoff notes
@@ -122,7 +123,7 @@ The stack is not frozen at old major versions. Upgrade when the ecosystem has mo
 - **Allow minor/patch drift through the lockfile:** React, Tailwind, Base UI, shadcn CLI, lucide, date-fns, Sonner, Recharts, zod, react-hook-form, and utility packages.
 - **Treat as upgrade projects:** Prisma major upgrades, Auth.js beta changes, React major upgrades, Tailwind major upgrades, and Recharts major upgrades. They touch generated clients, runtime contracts, or visual output, so they need a branch plus build/browser verification.
 
-Recent `pnpm outdated` notes worth considering: Prisma 7, Recharts 3, Sonner 2, zod 4, lucide-react 1, bcryptjs 3, and TypeScript 6 are available major upgrades. Do them deliberately; dependency roulette is still roulette, even if the chips are semver-shaped.
+Historical `pnpm outdated` notes worth considering after the Prisma 7 upgrade: Recharts 3 and other UI/runtime majors may still be available. Re-check before planning a dependency upgrade; dependency roulette is still roulette, even if the chips are semver-shaped.
 
 ## Stack additions to consider
 
