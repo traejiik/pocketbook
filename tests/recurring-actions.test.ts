@@ -30,10 +30,11 @@ vi.mock('@/lib/prisma', () => ({
 }))
 
 function dateStr(value: Date) {
+  // UTC getters — the action stores `@db.Date` at UTC midnight (timezone-independent).
   return [
-    value.getFullYear(),
-    String(value.getMonth() + 1).padStart(2, '0'),
-    String(value.getDate()).padStart(2, '0'),
+    value.getUTCFullYear(),
+    String(value.getUTCMonth() + 1).padStart(2, '0'),
+    String(value.getUTCDate()).padStart(2, '0'),
   ].join('-')
 }
 
@@ -57,7 +58,7 @@ function validRule(overrides = {}) {
 describe('upsertRecurringRule', () => {
   beforeEach(() => {
     vi.useFakeTimers()
-    vi.setSystemTime(new Date(2026, 4, 29, 9))
+    vi.setSystemTime(new Date(Date.UTC(2026, 4, 29, 9)))
     authMock.mockResolvedValue({ user: { id: 'user-1' } })
     findDuplicateRule.mockResolvedValue(null)
     createRule.mockResolvedValue({ id: 'rule-1' })
@@ -81,7 +82,7 @@ describe('upsertRecurringRule', () => {
       data: expect.objectContaining({
         name: 'Rent',
         amount: 210000,
-        nextDue: new Date(2026, 5, 5),
+        nextDue: new Date(Date.UTC(2026, 5, 5)),
         archived: false,
       }),
     })
