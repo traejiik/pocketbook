@@ -19,13 +19,15 @@ vi.mock('@/lib/prisma', () => ({
   },
 }))
 
-const today = new Date(2026, 4, 29)
+// Dates are constructed in UTC throughout — `@db.Date` stores the UTC calendar
+// day, and the engine now matches, so these assertions hold in any timezone.
+const today = new Date(Date.UTC(2026, 4, 29))
 
 function dateStr(value: Date) {
   return [
-    value.getFullYear(),
-    String(value.getMonth() + 1).padStart(2, '0'),
-    String(value.getDate()).padStart(2, '0'),
+    value.getUTCFullYear(),
+    String(value.getUTCMonth() + 1).padStart(2, '0'),
+    String(value.getUTCDate()).padStart(2, '0'),
   ].join('-')
 }
 
@@ -36,7 +38,7 @@ function rule(overrides = {}) {
     amount: 210000,
     currency: 'HUF',
     cycle: 'MONTHLY',
-    nextDue: new Date(2026, 2, 5),
+    nextDue: new Date(Date.UTC(2026, 2, 5)),
     kind: 'EXPENSE',
     categoryId: 'cat_rent',
     installmentPaid: null,
@@ -69,7 +71,7 @@ describe('planDueRecurringRule', () => {
   it('skips already-linked transactions while still advancing the rule', async () => {
     const { planDueRecurringRule } = await import('@/lib/recurring-sync')
     const plan = planDueRecurringRule(rule({
-      transactions: [{ date: new Date(2026, 3, 5) }],
+      transactions: [{ date: new Date(Date.UTC(2026, 3, 5)) }],
     }), today)
 
     expect(plan.nextDue).toBe('2026-06-05')
@@ -82,7 +84,7 @@ describe('planDueRecurringRule', () => {
       id: 'rule-phone',
       name: 'Phone plan',
       amount: 6500,
-      nextDue: new Date(2026, 4, 20),
+      nextDue: new Date(Date.UTC(2026, 4, 20)),
       installmentPaid: 14,
       installmentTotal: 15,
     }), today)
@@ -99,7 +101,7 @@ describe('planDueRecurringRule', () => {
       name: 'Bonus',
       amount: 1000,
       cycle: 'ANNUAL',
-      nextDue: new Date(2026, 4, 1),
+      nextDue: new Date(Date.UTC(2026, 4, 1)),
       kind: 'INCOME',
       categoryId: 'cat_salary',
     }), today)
@@ -113,7 +115,7 @@ describe('planDueRecurringRule', () => {
 describe('syncDueRecurringRules', () => {
   beforeEach(() => {
     vi.useFakeTimers()
-    vi.setSystemTime(new Date(2026, 4, 29, 9))
+    vi.setSystemTime(new Date(Date.UTC(2026, 4, 29, 9)))
     vi.resetModules()
     mocks.findDueRules.mockResolvedValue([rule()])
     mocks.createMany.mockResolvedValue({ count: 3 })
@@ -147,9 +149,12 @@ describe('syncDueRecurringRules', () => {
       '2026-04-05',
       '2026-05-05',
     ])
+    // Stored as UTC midnight so `@db.Date` persists the intended calendar day in
+    // any timezone — a local-midnight Date here would shift the day in UTC+N.
+    expect(data[0].date.toISOString()).toBe('2026-03-05T00:00:00.000Z')
     expect(mocks.updateRule).toHaveBeenCalledWith({
       where: { id: 'rule-rent' },
-      data: expect.objectContaining({ nextDue: new Date(2026, 5, 5), archived: false }),
+      data: expect.objectContaining({ nextDue: new Date(Date.UTC(2026, 5, 5)), archived: false }),
     })
     expect(result).toEqual({ rulesProcessed: 1, transactionsCreated: 3 })
   })

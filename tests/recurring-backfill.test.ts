@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { planRecurringCatchUp } from '@/lib/recurring-backfill'
+import { planRecurringCatchUp, resumeNextDue } from '@/lib/recurring-backfill'
 
-const today = new Date(2026, 4, 29)
+// UTC so the assertions hold regardless of the machine's local timezone.
+const today = new Date(Date.UTC(2026, 4, 29))
 
 function baseInput(overrides: Partial<Parameters<typeof planRecurringCatchUp>[0]> = {}) {
   return {
@@ -112,5 +113,19 @@ describe('planRecurringCatchUp', () => {
       installmentPaid: 16,
       installmentTotal: 15,
     }))).toThrow('Installment paid count cannot exceed total installments.')
+  })
+})
+
+describe('resumeNextDue', () => {
+  it('advances a past monthly date to the next occurrence after today', () => {
+    expect(resumeNextDue('MONTHLY', '2026-02-10', today)).toBe('2026-06-10')
+  })
+
+  it('keeps a still-future date unchanged', () => {
+    expect(resumeNextDue('MONTHLY', '2026-08-01', today)).toBe('2026-08-01')
+  })
+
+  it('advances a past annual date to next year', () => {
+    expect(resumeNextDue('ANNUAL', '2026-01-15', today)).toBe('2027-01-15')
   })
 })

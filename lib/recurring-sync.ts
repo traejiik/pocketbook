@@ -42,11 +42,11 @@ export type RecurringSyncResult = {
 }
 
 export function planDueRecurringRule(rule: DueRule, todayInput: Date = new Date()): PlannedRecurringRuleSync {
-  const today = startOfLocalDay(todayInput)
+  const today = startOfUtcDay(todayInput)
   const cycle = rule.cycle as RecurringCycle
   const kind = rule.kind as RuleKind
   const currency = rule.currency as Currency
-  const anchor = startOfLocalDay(rule.nextDue)
+  const anchor = startOfUtcDay(rule.nextDue)
   const existingDates = new Set(rule.transactions.map((tx) => formatDateOnly(tx.date)))
   const dueDates: Date[] = []
 
@@ -87,7 +87,7 @@ export function planDueRecurringRule(rule: DueRule, todayInput: Date = new Date(
 }
 
 export async function syncDueRecurringRules(today: Date = new Date()): Promise<RecurringSyncResult> {
-  const todayDate = startOfLocalDay(today)
+  const todayDate = startOfUtcDay(today)
   const dueRules = await prisma.recurringRule.findMany({
     where: {
       archived: false,
@@ -149,37 +149,42 @@ function signedAmount(amount: number, kind: RuleKind) {
   return kind === 'INCOME' ? amount : -amount
 }
 
+// All date maths runs in UTC. `@db.Date` columns store the UTC calendar day, so
+// building local-midnight Dates would shift the stored day in any positive-offset
+// timezone (e.g. Budapest). UTC throughout keeps storage timezone-independent.
 function nextOccurrence(cycle: RecurringCycle, date: Date, anchor: Date) {
   if (cycle === 'MONTHLY') {
-    return monthlyOccurrence(date.getFullYear(), date.getMonth() + 1, anchor.getDate())
+    return monthlyOccurrence(date.getUTCFullYear(), date.getUTCMonth() + 1, anchor.getUTCDate())
   }
-  return annualOccurrence(date.getFullYear() + 1, anchor.getMonth(), anchor.getDate())
+  return annualOccurrence(date.getUTCFullYear() + 1, anchor.getUTCMonth(), anchor.getUTCDate())
 }
 
 function monthlyOccurrence(year: number, month: number, day: number) {
-  const firstOfMonth = new Date(year, month, 1)
-  const lastDay = new Date(firstOfMonth.getFullYear(), firstOfMonth.getMonth() + 1, 0).getDate()
-  return new Date(firstOfMonth.getFullYear(), firstOfMonth.getMonth(), Math.min(day, lastDay))
+  const firstOfMonth = new Date(Date.UTC(year, month, 1))
+  const y = firstOfMonth.getUTCFullYear()
+  const m = firstOfMonth.getUTCMonth()
+  const lastDay = new Date(Date.UTC(y, m + 1, 0)).getUTCDate()
+  return new Date(Date.UTC(y, m, Math.min(day, lastDay)))
 }
 
 function annualOccurrence(year: number, month: number, day: number) {
-  const lastDay = new Date(year, month + 1, 0).getDate()
-  return new Date(year, month, Math.min(day, lastDay))
+  const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate()
+  return new Date(Date.UTC(year, month, Math.min(day, lastDay)))
 }
 
 function dateOnlyStringToDate(value: string) {
   const [year, month, day] = value.split('-').map(Number)
-  return new Date(year, month - 1, day)
+  return new Date(Date.UTC(year, month - 1, day))
 }
 
 function formatDateOnly(date: Date) {
   return [
-    date.getFullYear(),
-    String(date.getMonth() + 1).padStart(2, '0'),
-    String(date.getDate()).padStart(2, '0'),
+    date.getUTCFullYear(),
+    String(date.getUTCMonth() + 1).padStart(2, '0'),
+    String(date.getUTCDate()).padStart(2, '0'),
   ].join('-')
 }
 
-function startOfLocalDay(date: Date) {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate())
+function startOfUtcDay(date: Date) {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()))
 }
