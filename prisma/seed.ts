@@ -59,15 +59,21 @@ async function main() {
   console.log('  ✓ AppSettings: singleton');
 
   // ── Exchange Rates ────────────────────────────────────────────────────────
+  // Every declared currency (USD/EUR/GBP) needs a HUF pair so it is convertible
+  // to the anchor. Missing pairs make transactions in that currency drop out of
+  // every aggregation (toAnchor → null), so all three ship with defaults.
+  const fxData = [
+    { fromCurrency: 'HUF', toCurrency: 'USD', rate: 0.002791, mode: FxMode.AUTO, provider: 'frankfurter.app' },
+    { fromCurrency: 'USD', toCurrency: 'HUF', rate: 358.40,   mode: FxMode.AUTO, provider: 'frankfurter.app' },
+    { fromCurrency: 'HUF', toCurrency: 'EUR', rate: 0.002525, mode: FxMode.AUTO, provider: 'frankfurter.app' },
+    { fromCurrency: 'EUR', toCurrency: 'HUF', rate: 396.10,   mode: FxMode.AUTO, provider: 'frankfurter.app' },
+    { fromCurrency: 'HUF', toCurrency: 'GBP', rate: 0.002174, mode: FxMode.AUTO, provider: 'frankfurter.app' },
+    { fromCurrency: 'GBP', toCurrency: 'HUF', rate: 460.00,   mode: FxMode.AUTO, provider: 'frankfurter.app' },
+  ];
+
   const existingRateCount = await prisma.exchangeRate.count();
   if (existingRateCount === 0) {
-    const fxData = [
-      { fromCurrency: 'HUF', toCurrency: 'USD', rate: 0.002791, mode: FxMode.AUTO, provider: 'frankfurter.app' },
-      { fromCurrency: 'USD', toCurrency: 'HUF', rate: 358.40,   mode: FxMode.AUTO, provider: 'frankfurter.app' },
-      { fromCurrency: 'HUF', toCurrency: 'EUR', rate: 0.002525, mode: FxMode.AUTO, provider: 'frankfurter.app' },
-      { fromCurrency: 'EUR', toCurrency: 'HUF', rate: 396.10,   mode: FxMode.AUTO, provider: 'frankfurter.app' },
-    ];
-
+    // Fresh database: seed every pair with its starting rate.
     for (const fx of fxData) {
       await prisma.exchangeRate.upsert({
         where: { fromCurrency_toCurrency: { fromCurrency: fx.fromCurrency, toCurrency: fx.toCurrency } },
@@ -77,7 +83,16 @@ async function main() {
     }
     console.log('  ✓ Seeded default FX rates.');
   } else {
-    console.log(`  Skipped FX seed — ${existingRateCount} rate(s) already in DB.`);
+    // Existing database: backfill any missing pair (e.g. GBP on a pre-GBP DB)
+    // create-only, so a live synced or manually overridden rate is never clobbered.
+    for (const fx of fxData) {
+      await prisma.exchangeRate.upsert({
+        where: { fromCurrency_toCurrency: { fromCurrency: fx.fromCurrency, toCurrency: fx.toCurrency } },
+        update: {},
+        create: fx,
+      });
+    }
+    console.log(`  Kept ${existingRateCount} existing FX rate(s); backfilled any missing pairs.`);
   }
 
   // ── Savings category ──────────────────────────────────────────────────────
