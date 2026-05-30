@@ -72,7 +72,7 @@ services:
     command:
       - sh
       - -c
-      - "{ echo \"0 3 * * * wget -qO- --header 'X-Sync-Secret: $$PB_FX_SYNC_SECRET' --post-data='' http://pocketbook-web:3000/api/fx/sync || true\"; echo \"5 3 1 * * wget -qO- --header 'X-Sync-Secret: $$PB_FX_SYNC_SECRET' --post-data='' http://pocketbook-web:3000/api/insights/monthly || true\"; } | crontab - && crond -f -l 8"
+      - "{ echo \"0 3 * * * wget -qO- --header 'X-Sync-Secret: $$PB_FX_SYNC_SECRET' --post-data='' http://pocketbook-web:3000/api/fx/sync || true\"; echo \"5 3 1 * * wget -qO- --header 'X-Sync-Secret: $$PB_FX_SYNC_SECRET' --post-data='' http://pocketbook-web:3000/api/insights/monthly || true\"; echo \"10 3 * * * wget -qO- --header 'X-Sync-Secret: $$PB_FX_SYNC_SECRET' --post-data='' http://pocketbook-web:3000/api/recurring/sync || true\"; } | crontab - && crond -f -l 8"
     networks:
       - core_net
 

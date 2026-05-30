@@ -21,7 +21,7 @@ A self-hosted personal finance tracker for a single user. Replaces a manual spre
 
 - Dashboard with income/expense KPIs, savings gauge, upcoming renewals, and expense chart
 - Transactions list with filters, search, grouped by date, optimistic add/edit
-- Recurring rules with installment tracking and first-run catch-up seeding, so new installs can backfill recent due occurrences without enabling future transaction automation
+- Recurring rules with installment tracking, first-run catch-up seeding, and automatic due-date transaction logging
 - Renewals view with timeline strip and week/month grouping
 - Categories with CRUD and spend stats
 - AI Insights: real streaming from local Ollama, saved to DB, feedback buttons
@@ -107,7 +107,7 @@ scripts/              Ad-hoc import and maintenance scripts
 other/                Design reference, mockups, handoff notes
 ```
 
-Data flow: server components fetch from Prisma directly -> pass props -> Server Actions mutate -> `revalidatePath` refreshes. No client-side data fetching for initial renders.
+Data flow: server components fetch from Prisma directly -> pass props -> Server Actions mutate -> `revalidatePath` refreshes. Cron-callable API routes handle FX sync, monthly insights, and recurring rule reconciliation. No client-side data fetching for initial renders.
 
 Design-system authority:
 

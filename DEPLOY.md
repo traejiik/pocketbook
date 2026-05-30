@@ -145,6 +145,21 @@ sync) by the `fx-sync` sidecar. Generation can be disabled per-deployment via th
 
 ---
 
+## Verify recurring transaction sync
+
+```bash
+# Trigger manually to log all due recurring rules and advance their next due dates.
+docker compose exec pocketbook-web sh -lc \
+  'wget -qO- --header="X-Sync-Secret: $FX_SYNC_SECRET" --post-data="" http://localhost:3000/api/recurring/sync'
+# Expected response: {"rulesProcessed":N,"transactionsCreated":N}
+```
+
+Recurring transaction sync runs automatically every night at 03:10 by the `fx-sync` sidecar. The app
+also runs the same reconciliation once when an authenticated user opens Pocketbook, so missed cron
+runs are caught the next time the app is used.
+
+---
+
 ## Subsequent updates (CI/CD flow)
 
 After a push to `main` triggers a new GHCR build:
@@ -183,6 +198,7 @@ docker compose down -v                    # ⚠ DESTRUCTIVE — also removes the
 | AI insights load forever | Ollama unreachable — verify `PB_OLLAMA_BASE_URL` in the panel and that Ollama is on `core_net` |
 | FX sync returns 401 | `PB_FX_SYNC_SECRET` in the panel doesn't match the header sent by the `fx-sync` sidecar |
 | Monthly insights return 401 | Same secret — `PB_FX_SYNC_SECRET` is shared between FX sync and monthly insights |
+| Recurring sync returns 401 | Same secret — `PB_FX_SYNC_SECRET` is shared between FX sync, monthly insights, and recurring sync |
 | NPM can't reach the app | `pocketbook-web` not joined to `core_net` — verify with `docker inspect pocketbook-web` |
 
 ### Diagnosing a boot / restart loop
