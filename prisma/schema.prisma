@@ -64,6 +64,7 @@ model Transaction {
   @@index([date])
   @@index([categoryId])
   @@index([type])
+  @@unique([recurringRuleId, date])
 }
 
 model RecurringRule {

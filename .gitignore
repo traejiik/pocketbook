@@ -51,4 +51,5 @@ next-env.d.ts
 /other
 /graphify-out
 .graphifyignore
+.obsidian
 *.override.yml
