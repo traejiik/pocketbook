@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
 import { requireAuthenticatedUser } from '@/lib/require-auth';
-import { planRecurringCatchUp } from '@/lib/recurring-backfill';
+import { planRecurringCatchUp, resumeNextDue } from '@/lib/recurring-backfill';
 
 const ruleSchema = z.object({
   id: z.string().optional(),
@@ -144,7 +144,43 @@ export async function archiveRecurringRule(id: string) {
   revalidatePath('/dashboard');
 }
 
+export async function unarchiveRecurringRule(id: string): Promise<{ ok: true } | { error: string }> {
+  await requireAuthenticatedUser();
+
+  const rule = await prisma.recurringRule.findUnique({
+    where: { id },
+    select: { cycle: true, nextDue: true, installmentTotal: true, installmentPaid: true },
+  });
+  if (!rule) return { error: 'Rule not found.' };
+
+  // Completed installment plans are terminal — restoring one is pointless because
+  // it would immediately re-archive on the next sync (no installments left to log).
+  if (rule.installmentTotal != null && (rule.installmentPaid ?? 0) >= rule.installmentTotal) {
+    return { error: 'Completed installment plans can’t be restored.' };
+  }
+
+  // Resume going forward so a long-archived rule doesn’t backfill a gap of charges.
+  const nextDue = resumeNextDue(rule.cycle as 'MONTHLY' | 'ANNUAL', dateToDateOnly(rule.nextDue));
+
+  await prisma.recurringRule.update({
+    where: { id },
+    data: { archived: false, nextDue: dateOnlyStringToDate(nextDue) },
+  });
+
+  revalidatePath('/recurring');
+  revalidatePath('/renewals');
+  revalidatePath('/dashboard');
+  return { ok: true };
+}
+
 function dateOnlyStringToDate(value: string) {
+  // UTC midnight so the `@db.Date` column stores the intended calendar day
+  // regardless of server timezone (matches lib/recurring-* and new Date('YYYY-MM-DD')).
   const [year, month, day] = value.split('-').map(Number);
-  return new Date(year, month - 1, day);
+  return new Date(Date.UTC(year, month - 1, day));
+}
+
+function dateToDateOnly(value: Date) {
+  // `@db.Date` round-trips through UTC, so read the calendar day in UTC too.
+  return value.toISOString().split('T')[0];
 }

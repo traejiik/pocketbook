@@ -4,7 +4,8 @@ import { useState, useTransition, useEffect, useCallback } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Plus, ArrowUpDown, Check, RepeatIcon } from 'lucide-react'
+import { Plus, ArrowUpDown, Check, RepeatIcon, Calendar, Repeat2, RotateCcw, ChevronDown } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { Segmented } from '@/components/ui/segmented'
 import { KpiBig } from '@/components/finance/KpiBig'
 import { GaugeMeter } from '@/components/finance/GaugeMeter'
@@ -22,10 +23,10 @@ import { Empty } from '@/components/ui/empty'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { toast } from 'sonner'
-import { upsertRecurringRule, archiveRecurringRule, type RecurringRuleInput } from '@/server-actions/recurring'
+import { upsertRecurringRule, archiveRecurringRule, unarchiveRecurringRule, type RecurringRuleInput } from '@/server-actions/recurring'
 import { useFabContext } from '@/contexts/fab-context'
 import type { CardRule } from '@/components/finance/RecurringRuleCard'
-import { fmtDate } from '@/lib/format'
+import { fmtAnchor, fmtDate } from '@/lib/format'
 
 type Category = { id: string; name: string; color: string; kind: string }
 
@@ -48,9 +49,14 @@ export type SerialisedRule = {
 
 interface Props {
   rules: SerialisedRule[]
+  archivedRules: SerialisedRule[]
   categories: Category[]
   budget: RecurringBudgetSummary
   anchorCurrency: string
+}
+
+function isCompletedInstallment(r: SerialisedRule) {
+  return r.installmentTotal != null && (r.installmentPaid ?? 0) >= r.installmentTotal
 }
 
 const formSchema = z.object({
@@ -76,13 +82,17 @@ function daysUntil(dateStr: string) {
   return Math.round((new Date(dateStr).getTime() - today.getTime()) / 86_400_000)
 }
 
-export function RecurringView({ rules, categories, budget, anchorCurrency }: Props) {
+export function RecurringView({ rules, archivedRules, categories, budget, anchorCurrency }: Props) {
   type SortKey = 'nextDue' | 'amountDesc' | 'amountAsc' | 'name'
   const [tab, setTab] = useState<'EXPENSE' | 'INCOME' | 'SAVINGS'>('EXPENSE')
   const [sortKey, setSortKey] = useState<SortKey>('nextDue')
   const [sheetOpen, setSheetOpen] = useState(false)
   const [editing, setEditing] = useState<SerialisedRule | null>(null)
+  const [showArchived, setShowArchived] = useState(false)
   const [isPending, startTransition] = useTransition()
+
+  const restorable = archivedRules.filter((r) => !isCompletedInstallment(r))
+  const completed  = archivedRules.filter(isCompletedInstallment)
   const [isMobile, setIsMobile] = useState(() =>
     typeof window !== 'undefined' && window.innerWidth < 640)
   useEffect(() => {
@@ -184,6 +194,17 @@ export function RecurringView({ rules, categories, budget, anchorCurrency }: Pro
     startTransition(async () => {
       await archiveRecurringRule(editing.id)
       setSheetOpen(false)
+    })
+  }
+
+  function onRestore(id: string) {
+    startTransition(async () => {
+      const result = await unarchiveRecurringRule(id)
+      if (result && 'error' in result) {
+        toast.error(result.error)
+        return
+      }
+      toast.success('Rule restored.')
     })
   }
 
@@ -319,6 +340,44 @@ export function RecurringView({ rules, categories, budget, anchorCurrency }: Pro
         </div>
       )}
 
+      {/* Archived rules — paused/removed (restorable) and completed installments (terminal) */}
+      {archivedRules.length > 0 && (
+        <div className="pt-2 border-t border-border">
+          <button
+            type="button"
+            onClick={() => setShowArchived((v) => !v)}
+            aria-expanded={showArchived}
+            className="inline-flex items-center gap-2 text-[12.5px] text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 rounded-md py-1"
+          >
+            <ChevronDown className={cn('w-4 h-4 transition-transform', showArchived ? '' : '-rotate-90')} />
+            Archived · {archivedRules.length}
+          </button>
+
+          {showArchived && (
+            <div className="mt-3 space-y-5">
+              {restorable.length > 0 && (
+                <ArchivedGroup
+                  label="Paused or removed"
+                  rules={restorable}
+                  anchorCurrency={anchorCurrency}
+                  isPending={isPending}
+                  onRestore={onRestore}
+                />
+              )}
+              {completed.length > 0 && (
+                <ArchivedGroup
+                  label="Completed installments"
+                  rules={completed}
+                  anchorCurrency={anchorCurrency}
+                  isPending={isPending}
+                  onRestore={onRestore}
+                />
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Rule sheet */}
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
         <SheetContent side={isMobile ? 'bottom' : 'right'} className="w-full sm:w-105 sm:max-w-105 max-sm:h-[95dvh] flex flex-col gap-0 p-0">
@@ -444,6 +503,79 @@ export function RecurringView({ rules, categories, budget, anchorCurrency }: Pro
           </SheetFooter>
         </SheetContent>
       </Sheet>
+    </div>
+  )
+}
+
+function ArchivedGroup({
+  label,
+  rules,
+  anchorCurrency,
+  isPending,
+  onRestore,
+}: {
+  label: string
+  rules: SerialisedRule[]
+  anchorCurrency: string
+  isPending: boolean
+  onRestore: (id: string) => void
+}) {
+  return (
+    <div className="space-y-2.5">
+      <div className="text-[10.5px] uppercase tracking-[0.08em] text-muted-foreground">{label}</div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        {rules.map((r) => {
+          const completed = isCompletedInstallment(r)
+          return (
+            <div key={r.id} className="bg-card border border-border rounded-2xl p-4 flex flex-col gap-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div
+                    className="w-8 h-8 rounded-md border border-border flex items-center justify-center shrink-0"
+                    style={{ background: `${r.category.color}18`, color: r.category.color }}
+                  >
+                    {r.cycle === 'ANNUAL' ? <Calendar className="w-4 h-4" /> : <Repeat2 className="w-4 h-4" />}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-[13.5px] font-medium truncate">{r.name}</div>
+                    <div className="text-[11px] text-muted-foreground capitalize">
+                      {r.cycle.toLowerCase()} · {r.category.name}
+                    </div>
+                  </div>
+                </div>
+                {completed ? (
+                  <span className="shrink-0 text-[10px] mono uppercase tracking-wide text-muted-foreground border border-border rounded-full px-2 py-0.5">
+                    Completed
+                  </span>
+                ) : (
+                  <Button variant="outline" size="sm" type="button" className="shrink-0" disabled={isPending} onClick={() => onRestore(r.id)}>
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    Restore
+                  </Button>
+                )}
+              </div>
+
+              <div className="flex items-baseline justify-between">
+                <AmountDisplay
+                  value={r.amount}
+                  currency={r.currency as 'HUF' | 'USD' | 'EUR' | 'GBP'}
+                  tone={r.kind === 'INCOME' ? 'income' : 'expense'}
+                  size="md"
+                />
+                {r.currency !== anchorCurrency && r.anchorEquivalent !== null && (
+                  <div className="text-[10.5px] text-muted-foreground tabular">≈ {fmtAnchor(r.anchorEquivalent, anchorCurrency)}</div>
+                )}
+              </div>
+
+              {r.installmentTotal != null && (
+                <div className="text-[11px] mono text-muted-foreground">
+                  {r.installmentPaid ?? 0}/{r.installmentTotal} paid
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }
