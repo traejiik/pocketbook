@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import Link from 'next/link'
-import { ChevronRight, Plus, Sparkles, Settings } from 'lucide-react'
+import { ChevronRight, Plus, Sparkles, Settings, TriangleAlert } from 'lucide-react'
 import { DashboardActions } from './DashboardActions'
 import {
   getCurrentMonthKpis,
@@ -77,6 +77,21 @@ export default async function DashboardPage() {
         </div>
         <DashboardActions />
       </div>
+
+      {/* Unconvertible-currency notice — totals exclude rows with no FX path */}
+      {kpis.unconvertibleCount > 0 && (
+        <div className="rounded-2xl border border-border bg-card px-4 py-3 text-[12.5px] flex items-start gap-2.5">
+          <TriangleAlert className="w-4 h-4 shrink-0 text-expense mt-0.5" />
+          <span className="text-muted-foreground">
+            <span className="text-foreground font-medium">
+              {kpis.unconvertibleCount} transaction{kpis.unconvertibleCount === 1 ? '' : 's'} this month
+              {' '}couldn&apos;t be converted to {anchor}.
+            </span>{' '}
+            The totals below exclude {kpis.unconvertibleCount === 1 ? 'it' : 'them'} — add a rate in{' '}
+            <Link href="/settings#currencies" className="text-foreground underline underline-offset-2">Settings</Link>.
+          </span>
+        </div>
+      )}
 
       {/* Row 1 — KPI cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">

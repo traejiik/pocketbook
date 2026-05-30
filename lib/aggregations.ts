@@ -14,10 +14,10 @@ export const getCurrentMonthKpis = cache(async () => {
     where: { date: { gte: start, lt: end } },
   });
 
-  let income = 0, expense = 0, savings = 0;
+  let income = 0, expense = 0, savings = 0, unconvertibleCount = 0;
   for (const t of txs) {
     const amt = await toAnchor(Math.abs(Number(t.amount)), t.currency as 'HUF' | 'USD' | 'EUR' | 'GBP');
-    if (amt === null) continue;
+    if (amt === null) { unconvertibleCount++; continue; }   // no FX path — surfaced, not silently dropped
     if (t.type === 'INCOME')  income  += amt;
     if (t.type === 'EXPENSE') expense += amt;
     if (t.type === 'SAVINGS') savings += amt;
@@ -26,7 +26,7 @@ export const getCurrentMonthKpis = cache(async () => {
   const net = income - expense - savings;
   const incomeUsedPct = income > 0 ? Math.round(((expense + savings) / income) * 100) : 0;
 
-  return { income, expense, savings, net, incomeUsedPct };
+  return { income, expense, savings, net, incomeUsedPct, unconvertibleCount };
 });
 
 export const getLastMonthKpis = cache(async () => {
@@ -145,6 +145,14 @@ export const getRecurringRules = cache(async () => {
     where: { archived: false },
     include: { category: true },
     orderBy: { nextDue: 'asc' },
+  });
+});
+
+export const getArchivedRecurringRules = cache(async () => {
+  return prisma.recurringRule.findMany({
+    where: { archived: true },
+    include: { category: true },
+    orderBy: { name: 'asc' },
   });
 });
 
