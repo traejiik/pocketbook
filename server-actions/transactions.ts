@@ -2,6 +2,7 @@
 
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
+import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { requireAuthenticatedUser } from '@/lib/require-auth';
 
@@ -17,6 +18,28 @@ const txSchema = z.object({
 });
 
 export type TxInput = z.infer<typeof txSchema>;
+
+// For an installment rule, `installmentPaid` mirrors the number of linked
+// transactions and `archived` means "fully paid". Rather than increment/
+// decrement in each path (which drifts the moment one is missed), recompute
+// both from the live count after any create / edit / delete. This is
+// self-healing: it also corrects any rule whose counter drifted previously.
+async function reconcileInstallmentRule(client: Prisma.TransactionClient, ruleId: string) {
+  const rule = await client.recurringRule.findUnique({
+    where: { id: ruleId },
+    select: { installmentTotal: true },
+  });
+  if (!rule || rule.installmentTotal == null) return; // not an installment rule — nothing to track
+
+  const paid = await client.transaction.count({ where: { recurringRuleId: ruleId } });
+  await client.recurringRule.update({
+    where: { id: ruleId },
+    data: {
+      installmentPaid: Math.min(paid, rule.installmentTotal),
+      archived: paid >= rule.installmentTotal,
+    },
+  });
+}
 
 export async function upsertTransaction(input: TxInput) {
   await requireAuthenticatedUser();
@@ -37,42 +60,48 @@ export async function upsertTransaction(input: TxInput) {
   };
 
   if (id) {
-    await prisma.transaction.update({ where: { id }, data });
+    // The rule link can change on edit, so reconcile both the old and new rule.
+    const existing = await prisma.transaction.findUnique({
+      where: { id },
+      select: { recurringRuleId: true },
+    });
+    await prisma.$transaction(async (tx) => {
+      await tx.transaction.update({ where: { id }, data });
+      const affected = new Set<string>();
+      if (existing?.recurringRuleId) affected.add(existing.recurringRuleId);
+      if (data.recurringRuleId) affected.add(data.recurringRuleId);
+      for (const ruleId of affected) await reconcileInstallmentRule(tx, ruleId);
+    });
   } else {
-    const ruleId = data.recurringRuleId;
-    if (ruleId) {
-      const rule = await prisma.recurringRule.findUnique({ where: { id: ruleId } });
-      if (rule?.installmentTotal != null) {
-        const nextPaid = (rule.installmentPaid ?? 0) + 1;
-        await prisma.$transaction([
-          prisma.transaction.create({ data }),
-          prisma.recurringRule.update({
-            where: { id: ruleId },
-            data: {
-              installmentPaid: nextPaid,
-              archived: nextPaid >= rule.installmentTotal,
-            },
-          }),
-        ]);
-        revalidatePath('/transactions');
-        revalidatePath('/dashboard');
-        revalidatePath('/renewals');
-        revalidatePath('/recurring');
-        return;
-      }
-    }
-    await prisma.transaction.create({ data });
+    await prisma.$transaction(async (tx) => {
+      await tx.transaction.create({ data });
+      if (data.recurringRuleId) await reconcileInstallmentRule(tx, data.recurringRuleId);
+    });
   }
 
   revalidatePath('/transactions');
   revalidatePath('/dashboard');
   revalidatePath('/renewals');
+  revalidatePath('/recurring');
 }
 
 export async function deleteTransaction(id: string) {
   await requireAuthenticatedUser();
 
-  await prisma.transaction.delete({ where: { id } });
+  // Capture the rule link before deleting so we can roll back the installment
+  // counter (and un-archive a rule that is no longer fully paid).
+  const existing = await prisma.transaction.findUnique({
+    where: { id },
+    select: { recurringRuleId: true },
+  });
+
+  await prisma.$transaction(async (tx) => {
+    await tx.transaction.delete({ where: { id } });
+    if (existing?.recurringRuleId) await reconcileInstallmentRule(tx, existing.recurringRuleId);
+  });
+
   revalidatePath('/transactions');
   revalidatePath('/dashboard');
+  revalidatePath('/renewals');
+  revalidatePath('/recurring');
 }

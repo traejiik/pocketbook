@@ -11,7 +11,7 @@ Port them faithfully — class names, layout, component composition, unless aske
 
 1. **No hardcoded hex** — outside SVG illustrations (logo, gauge, login background), every colour comes from a CSS variable via a Tailwind class.
 2. **Tabular numerics on every monetary value** — use `.tabular` or the `AmountDisplay` component.
-3. **Server Actions for mutations, not REST routes** — REST only for the SSE streaming endpoint and cron-callable FX sync.
+3. **Server Actions for mutations, not REST routes** — REST only for SSE streaming and secret-authenticated cron endpoints (FX sync, monthly insights, recurring sync).
 4. **No client-side data fetching for initial render** — page-level data comes from server components calling Prisma directly.
 5. **Skeletons over spinners** — no "Loading…" text anywhere.
 6. **Optimistic writes on Add Transaction** — use `useOptimistic`. Roll back on server rejection.

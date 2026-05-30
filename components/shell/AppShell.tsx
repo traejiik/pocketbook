@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useState, useTransition } from 'react';
 import { usePathname } from 'next/navigation';
 import { toast } from 'sonner';
 import { Plus } from 'lucide-react';
@@ -12,6 +12,7 @@ import { FabProvider, useFabContext } from '@/contexts/fab-context';
 import { useGlobalKeys } from '@/hooks/use-global-keys';
 import { TransactionForm, type SerializedCategory, type SerializedRecurringRule } from '@/components/forms/TransactionForm';
 import { upsertTransaction, type TxInput } from '@/server-actions/transactions';
+import { syncDueRecurringRulesAction } from '@/server-actions/recurring-sync';
 
 function FabButton({ defaultAction, pathname }: { defaultAction: () => void; pathname: string }) {
   const { fabAction } = useFabContext();
@@ -44,6 +45,24 @@ export function AppShell({ children, upcomingRenewalsCount = 0, categories, recu
 
   const keyHandlers = useMemo(() => ({ n: openNew, N: openNew }), [openNew]);
   useGlobalKeys(keyHandlers);
+
+  useEffect(() => {
+    let cancelled = false;
+    startTransition(async () => {
+      try {
+        const result = await syncDueRecurringRulesAction();
+        if (!cancelled && result.transactionsCreated > 0) {
+          toast.success(`Logged ${result.transactionsCreated} recurring transaction${result.transactionsCreated === 1 ? '' : 's'}.`);
+        }
+      } catch {
+        // Cron also runs recurring sync; app-open sync is a quiet safety net.
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [startTransition]);
 
   function handleFormSubmit(input: TxInput, _category: SerializedCategory) {
     startTransition(async () => {

@@ -1,39 +1,27 @@
 export const dynamic = 'force-dynamic'
 
-import { getRecurringRules, getCategories, getRecurringBudgetSummary, getAnchorCurrency } from '@/lib/aggregations'
+import { getRecurringRules, getArchivedRecurringRules, getCategories, getRecurringBudgetSummary, getAnchorCurrency } from '@/lib/aggregations'
 import { RecurringView, type SerialisedRule } from './RecurringView'
-
-function toDateStr(d: Date) {
-  return d.toISOString().split('T')[0]
-}
+import { buildRecurringRuleViewModels } from '@/lib/recurring-view-model'
 
 export default async function RecurringPage() {
-  const [rules, categories, budget, anchorCurrency] = await Promise.all([
+  const [rules, archived, categories, budget, anchorCurrency] = await Promise.all([
     getRecurringRules(),
+    getArchivedRecurringRules(),
     getCategories(),
     getRecurringBudgetSummary(),
     getAnchorCurrency(),
   ])
 
-  const serialisedRules: SerialisedRule[] = rules.map((r: (typeof rules)[number]) => ({
-    id: r.id,
-    name: r.name,
-    amount: Number(r.amount),
-    currency: r.currency,
-    cycle: r.cycle,
-    nextDue: toDateStr(r.nextDue),
-    kind: r.kind,
-    categoryId: r.categoryId,
-    installmentPaid: r.installmentPaid,
-    installmentTotal: r.installmentTotal,
-    installmentEndsOn: r.installmentEndsOn ? toDateStr(r.installmentEndsOn) : null,
-    archived: r.archived,
-    category: r.category,
-  }))
+  const [serialisedRules, archivedRules]: [SerialisedRule[], SerialisedRule[]] = await Promise.all([
+    buildRecurringRuleViewModels(rules, anchorCurrency),
+    buildRecurringRuleViewModels(archived, anchorCurrency),
+  ])
 
   return (
     <RecurringView
       rules={serialisedRules}
+      archivedRules={archivedRules}
       categories={categories}
       budget={budget}
       anchorCurrency={anchorCurrency}

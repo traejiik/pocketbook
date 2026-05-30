@@ -7,6 +7,7 @@ const { auth } = NextAuth(authConfig);
 const SECRET_AUTHENTICATED_CRON_PATHS = new Set([
   '/api/fx/sync',
   '/api/insights/monthly',
+  '/api/recurring/sync',
 ])
 
 export default auth((req) => {
