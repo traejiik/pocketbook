@@ -148,7 +148,7 @@ export function CategoriesView({ categories, anchorCurrency = 'HUF' }: Props) {
               <h2 className="text-[12px] uppercase tracking-[0.08em] text-muted-foreground font-medium">
                 {KIND_LABELS[g]}
               </h2>
-              <span className="mono text-[11px] text-muted-foreground/70">{list.length}</span>
+              <span className="mono text-[11px] text-muted-foreground">{list.length}</span>
               <div className="flex-1 h-px bg-border ml-2" />
             </div>
             <div className="bg-card border border-border rounded-xl divide-y divide-border overflow-hidden">

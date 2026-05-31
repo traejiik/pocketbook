@@ -112,7 +112,7 @@ export function InsightCard({ ollamaUrl, ollamaModel, history }: Props) {
             {displayItem && `Viewing ${displayItem.monthCovered} · ${fmtDate(displayItem.generatedAt)}`}
           </span>
         </div>
-        <div className="mono text-muted-foreground/70 text-[11px]">
+        <div className="mono text-muted-foreground text-[11px]">
           {model}
         </div>
       </Card>
@@ -249,7 +249,7 @@ export function InsightCard({ ollamaUrl, ollamaModel, history }: Props) {
                 <div className="text-[12px] text-muted-foreground flex-1 truncate">
                   {item.content.slice(0, 100)}…
                 </div>
-                <div className="text-[11px] text-muted-foreground/70 mono shrink-0">
+                <div className="text-[11px] text-muted-foreground mono shrink-0">
                   {fmtDate(item.generatedAt)}
                 </div>
                 <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />

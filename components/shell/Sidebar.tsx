@@ -86,7 +86,7 @@ export function Sidebar({ upcomingRenewalsCount = 1, onQuickAdd }: SidebarProps)
 
       {/* Section label */}
       <div className="relative px-3 mt-2 mb-1.5">
-        <div className="text-[9.5px] font-mono uppercase tracking-[0.12em] text-muted-foreground/70 pl-2.5">
+        <div className="text-[11px] font-mono uppercase tracking-[0.12em] text-muted-foreground pl-2.5">
           Workspace
         </div>
       </div>
