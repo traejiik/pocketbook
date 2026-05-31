@@ -519,17 +519,17 @@ export function SettingsView({
           </div>
           <Card className="p-5 space-y-4">
             <div>
-              <Label>Current password</Label>
-              <Input type="password" placeholder="••••••••••••" value={currentPw} onChange={e => setCurrentPw(e.target.value)} />
+              <Label htmlFor="pw-current">Current password</Label>
+              <Input id="pw-current" type="password" autoComplete="current-password" placeholder="••••••••••••" value={currentPw} onChange={e => setCurrentPw(e.target.value)} />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>New password</Label>
-                <Input type="password" placeholder="At least 12 characters" value={newPw} onChange={e => setNewPw(e.target.value)} />
+                <Label htmlFor="pw-new">New password</Label>
+                <Input id="pw-new" type="password" autoComplete="new-password" placeholder="At least 12 characters" value={newPw} onChange={e => setNewPw(e.target.value)} />
               </div>
               <div>
-                <Label>Confirm</Label>
-                <Input type="password" placeholder="Repeat new password" value={confirmPw} onChange={e => setConfirmPw(e.target.value)} />
+                <Label htmlFor="pw-confirm">Confirm</Label>
+                <Input id="pw-confirm" type="password" autoComplete="new-password" placeholder="Repeat new password" value={confirmPw} onChange={e => setConfirmPw(e.target.value)} />
               </div>
             </div>
             {newPw.length > 0 && (

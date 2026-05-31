@@ -258,7 +258,7 @@ export function RecurringView({ rules, archivedRules, categories, budget, anchor
                 )
               })}
               {budget.expensesByCategory.length > 4 && (
-                <p className="text-[10.5px] text-muted-foreground/60 pl-4">
+                <p className="text-[10.5px] text-muted-foreground pl-4">
                   +{budget.expensesByCategory.length - 4} more
                 </p>
               )}
@@ -387,20 +387,20 @@ export function RecurringView({ rules, archivedRules, categories, budget, anchor
 
           <form onSubmit={handleSubmit(onSubmit)} className="px-5 space-y-4 py-5 flex-1 overflow-y-auto">
             <div className="space-y-1.5">
-              <Label>Name</Label>
-              <Input {...register('name')} placeholder="e.g. Spotify Family" />
-              {errors.name && <p className="text-[11px] text-destructive">{errors.name.message}</p>}
+              <Label htmlFor="rule-name">Name</Label>
+              <Input id="rule-name" {...register('name')} placeholder="e.g. Spotify Family" aria-invalid={!!errors.name} aria-describedby={errors.name ? 'rule-name-error' : undefined} />
+              {errors.name && <p id="rule-name-error" className="text-[11px] text-destructive">{errors.name.message}</p>}
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label>Amount</Label>
-                <Input type="number" step="0.01" {...register('amount')} placeholder="0" />
+                <Label htmlFor="rule-amount">Amount</Label>
+                <Input id="rule-amount" type="number" step="0.01" {...register('amount')} placeholder="0" />
               </div>
               <div className="space-y-1.5">
-                <Label>Currency</Label>
+                <Label id="rule-currency-label">Currency</Label>
                 <Select value={currency} onValueChange={(v) => v && setValue('currency', v as 'HUF' | 'USD' | 'EUR' | 'GBP')}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger aria-labelledby="rule-currency-label"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {['HUF', 'USD', 'EUR', 'GBP'].map((c) => (
                       <SelectItem key={c} value={c}>{c}</SelectItem>
@@ -412,9 +412,9 @@ export function RecurringView({ rules, archivedRules, categories, budget, anchor
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label>Cycle</Label>
+                <Label id="rule-cycle-label">Cycle</Label>
                 <Select value={cycle} onValueChange={(v) => v && setValue('cycle', v as 'MONTHLY' | 'ANNUAL')}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger aria-labelledby="rule-cycle-label"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="MONTHLY">Monthly</SelectItem>
                     <SelectItem value="ANNUAL">Annual</SelectItem>
@@ -422,9 +422,9 @@ export function RecurringView({ rules, archivedRules, categories, budget, anchor
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label>Kind</Label>
+                <Label id="rule-kind-label">Kind</Label>
                 <Select value={kind} onValueChange={(v) => v && setValue('kind', v as 'INCOME' | 'EXPENSE' | 'SAVINGS')}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger aria-labelledby="rule-kind-label"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="EXPENSE">Expense</SelectItem>
                     <SelectItem value="INCOME">Income</SelectItem>
@@ -435,14 +435,14 @@ export function RecurringView({ rules, archivedRules, categories, budget, anchor
             </div>
 
             <div className="space-y-1.5">
-              <Label>Next due</Label>
-              <Input type="date" {...register('nextDue')} />
+              <Label htmlFor="rule-nextdue">Next due</Label>
+              <Input id="rule-nextdue" type="date" {...register('nextDue')} />
             </div>
 
             <div className="space-y-1.5">
-              <Label>Category</Label>
+              <Label id="rule-category-label">Category</Label>
               <Select value={categoryId} onValueChange={(v: string | null) => { if (v) setValue('categoryId', v) }}>
-                <SelectTrigger>
+                <SelectTrigger aria-labelledby="rule-category-label" aria-describedby={errors.categoryId ? 'rule-category-error' : undefined}>
                   <SelectValue placeholder="Select category">
                     {categoryId
                       ? (categories.find(c => c.id === categoryId)?.name ?? undefined)
@@ -456,33 +456,34 @@ export function RecurringView({ rules, archivedRules, categories, budget, anchor
                 </SelectContent>
               </Select>
               {errors.categoryId && (
-                <p className="text-[11px] text-destructive">{errors.categoryId.message}</p>
+                <p id="rule-category-error" className="text-[11px] text-destructive">{errors.categoryId.message}</p>
               )}
             </div>
 
             <div className="flex items-center gap-3 pt-1">
               <Switch
+                id="rule-installment"
                 checked={hasInstallment}
                 onCheckedChange={(v) => setValue('hasInstallment', v)}
               />
-              <Label>Installment plan</Label>
+              <Label htmlFor="rule-installment">Installment plan</Label>
             </div>
 
             {hasInstallment && (
               <div className="space-y-3 p-3 rounded-lg bg-secondary/50 border border-border">
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
-                    <Label>Paid</Label>
-                    <Input type="number" {...register('installmentPaid')} placeholder="0" />
+                    <Label htmlFor="rule-paid">Paid</Label>
+                    <Input id="rule-paid" type="number" {...register('installmentPaid')} placeholder="0" />
                   </div>
                   <div className="space-y-1.5">
-                    <Label>Total</Label>
-                    <Input type="number" {...register('installmentTotal')} placeholder="12" />
+                    <Label htmlFor="rule-total">Total</Label>
+                    <Input id="rule-total" type="number" {...register('installmentTotal')} placeholder="12" />
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Ends on</Label>
-                  <Input type="date" {...register('installmentEndsOn')} />
+                  <Label htmlFor="rule-endson">Ends on</Label>
+                  <Input id="rule-endson" type="date" {...register('installmentEndsOn')} />
                 </div>
               </div>
             )}

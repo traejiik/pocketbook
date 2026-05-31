@@ -128,7 +128,10 @@ export function Header({ upcomingRenewalsCount = 0, displayName = 'User' }: Head
 
         {/* User chip with dropdown */}
         <DropdownMenu>
-          <DropdownMenuTrigger className="flex items-center gap-2.5 pr-1 hover:opacity-90 transition outline-hidden">
+          <DropdownMenuTrigger
+            aria-label="Account menu"
+            className="flex items-center gap-2.5 pr-1 rounded-full hover:opacity-90 transition outline-hidden focus-visible:ring-2 focus-visible:ring-ring/60"
+          >
             <div className="w-9 h-9 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-[12px] font-semibold text-primary">
               {initial || 'U'}
             </div>
