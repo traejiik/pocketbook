@@ -13,7 +13,9 @@
     "test:coverage": "vitest run --coverage",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
-    "db:seed": "tsx prisma/seed.ts"
+    "db:seed": "tsx prisma/seed.ts",
+    "graph:update": "sh scripts/graphify-update.sh",
+    "graph:labels": "sh scripts/graphify-update.sh --labels-only"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.7.2",
