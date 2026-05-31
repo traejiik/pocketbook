@@ -87,10 +87,6 @@
   --warning: 38 90% 47%;
   --warning-foreground: 0 0% 100%;
 
-  --ai-card-from: 220 40% 14%;
-  --ai-card-mid: 220 40% 20%;
-  --ai-card-to: 220 38% 16%;
-
   --radius: 0.625rem;
   --shadow-1: 0 1px 0 rgba(15, 18, 23, 0.04), 0 1px 2px rgba(15, 18, 23, 0.06);
   --shadow-2: 0 4px 14px rgba(15, 18, 23, 0.08);
@@ -127,10 +123,6 @@
   --neutral: 232 6% 60%;
   --warning: 38 90% 60%;
   --warning-foreground: 24 9% 10%;
-
-  --ai-card-from: 217 65% 10%;
-  --ai-card-mid: 218 60% 17%;
-  --ai-card-to: 217 62% 12%;
 
   --shadow-1: 0 1px 0 rgba(0, 0, 0, 0.5), 0 1px 2px rgba(0, 0, 0, 0.45);
   --shadow-2: 0 6px 16px rgba(0, 0, 0, 0.45);

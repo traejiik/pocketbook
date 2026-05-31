@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import Link from 'next/link'
-import { ChevronRight, Plus, Sparkles, Settings, TriangleAlert } from 'lucide-react'
+import { ChevronRight, Plus, Settings, TriangleAlert } from 'lucide-react'
 import { DashboardActions } from './DashboardActions'
 import {
   getCurrentMonthKpis,
@@ -300,65 +300,46 @@ export default async function DashboardPage() {
             </div>
           )}
 
-          {/* AI Insights dark card */}
-          <div
-            className="rounded-2xl p-5 relative overflow-hidden flex flex-col text-white flex-1"
-            style={{ background: 'linear-gradient(150deg, hsl(var(--ai-card-from)) 0%, hsl(var(--ai-card-mid)) 50%, hsl(var(--ai-card-to)) 100%)' }}
-          >
-            <svg
-              className="absolute inset-0 w-full h-full opacity-55 pointer-events-none"
-              viewBox="0 0 280 280"
-              preserveAspectRatio="xMidYMid slice"
-            >
-              <defs>
-                <radialGradient id="ai-glow" cx="70%" cy="20%" r="80%">
-                  <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="0.75" />
-                  <stop offset="60%" stopColor="hsl(var(--primary))" stopOpacity="0.05" />
-                  <stop offset="100%" stopColor="transparent" />
-                </radialGradient>
-              </defs>
-              <rect width="280" height="280" fill="url(#ai-glow)" />
-            </svg>
-            <div className="relative flex-1 flex flex-col">
-              <div className="flex items-start justify-between">
-                <div>
-                  <div className="text-[13.5px] font-medium text-white/85">AI Insights</div>
-                  <div className="text-[10.5px] mono text-white/55 mt-0.5">{settings?.ollamaModel ?? 'No model picked'}</div>
-                </div>
-                <div className="flex gap-2">
-                  {ollamaReachable ? (
-                    <Link
-                      href="/insights?generate=1"
-                      title="Generate insights"
-                      className="w-9 h-9 rounded-full bg-white flex items-center justify-center hover:scale-105 transition" style={{ color: 'hsl(var(--ai-card-from))' }}
-                    >
-                      <Sparkles className="w-4 h-4" />
-                    </Link>
-                  ) : (
-                    <span
-                      title="Ollama endpoint unreachable"
-                      className="w-9 h-9 rounded-full bg-white/15 text-white/30 flex items-center justify-center cursor-not-allowed"
-                    >
-                      <Sparkles className="w-4 h-4" />
-                    </span>
-                  )}
-                  <Link
-                    href="/settings#ai-insights"
-                    title="AI settings"
-                    className="w-9 h-9 rounded-full bg-destructive text-white flex items-center justify-center hover:scale-105 transition"
-                  >
-                    <Settings className="w-4 h-4" />
-                  </Link>
-                </div>
+          {/* AI Insights card */}
+          <div className="bg-card border border-border rounded-2xl p-5 flex flex-col flex-1">
+            <div className="flex items-start justify-between">
+              <div>
+                <div className="text-[12.5px] text-muted-foreground">AI Insights</div>
+                <div className="text-[10.5px] mono text-muted-foreground mt-0.5">{settings?.ollamaModel ?? 'No model picked'}</div>
               </div>
-              <div className="mt-auto">
-                <div className="text-[24px] font-semibold tabular tracking-tight leading-none">
-                  {!ollamaReachable ? 'Unreachable' : insightCount > 0 ? insightCount : '~12s'}
-                </div>
-                <div className="text-[10.5px] text-white/60 mt-1">
-                  {lastInsightDate ? `Last · ${lastInsightDate}` : 'No insights yet'}
-                </div>
+              <Link
+                href="/settings#ai-insights"
+                title="AI settings"
+                aria-label="AI settings"
+                className="-mr-1 -mt-1 w-8 h-8 rounded-full text-muted-foreground hover:text-foreground hover:bg-accent flex items-center justify-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+              >
+                <Settings className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+            <div className="mt-auto">
+              <div className="text-[24px] font-semibold tabular tracking-tight leading-none">
+                {!ollamaReachable ? 'Unreachable' : insightCount > 0 ? insightCount : '~12s'}
               </div>
+              <div className="text-[11px] text-muted-foreground mt-1">
+                {!ollamaReachable
+                  ? 'Ollama endpoint unreachable'
+                  : lastInsightDate ? `Last · ${lastInsightDate}` : 'No insights yet'}
+              </div>
+              {ollamaReachable ? (
+                <Link
+                  href="/insights?generate=1"
+                  className="mt-3.5 w-full inline-flex items-center justify-center gap-2 h-9 rounded-full bg-primary text-primary-foreground font-medium text-[12px] hover:opacity-90 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                >
+                  Generate insight
+                </Link>
+              ) : (
+                <Link
+                  href="/settings#ai-insights"
+                  className="mt-3.5 w-full inline-flex items-center justify-center gap-2 h-9 rounded-full border border-border font-medium text-[12px] hover:bg-accent transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                >
+                  Configure Ollama
+                </Link>
+              )}
             </div>
           </div>
         </div>
