@@ -240,15 +240,16 @@ export function TransactionForm({
 
               {/* Type segmented */}
               <div className="space-y-1.5">
-                <Label>Type</Label>
-                <div className="grid grid-cols-3 gap-1 p-0.5 bg-secondary border border-border rounded-md">
+                <Label id="tx-type-label">Type</Label>
+                <div role="group" aria-labelledby="tx-type-label" className="grid grid-cols-3 gap-1 p-0.5 bg-secondary border border-border rounded-md">
                   {TYPE_OPTIONS.map(o => (
                     <button
                       key={o.value}
                       type="button"
+                      aria-pressed={type === o.value}
                       onClick={() => setValue('type', o.value)}
                       className={cn(
-                        'h-8 text-[12.5px] font-medium rounded-[5px] transition-colors flex items-center justify-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
+                        'h-11 sm:h-8 text-[12.5px] font-medium rounded-[5px] transition-colors flex items-center justify-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
                         type === o.value
                           ? `bg-card shadow-pb-1 ${TONE_TEXT[o.tone]}`
                           : 'text-muted-foreground hover:text-foreground',
@@ -263,12 +264,15 @@ export function TransactionForm({
 
               {/* Amount + currency */}
               <div className="space-y-1.5">
-                <Label hint="HUF equivalent shown below">Amount</Label>
+                <Label htmlFor="tx-amount" hint="HUF equivalent shown below">Amount</Label>
                 <div className="grid grid-cols-[1fr_88px] gap-2">
                   <Input
+                    id="tx-amount"
                     type="text"
                     inputMode="decimal"
                     placeholder="0"
+                    aria-invalid={!!errors.amount}
+                    aria-describedby={errors.amount ? 'tx-amount-error' : undefined}
                     className={cn('text-right', errors.amount && 'border-destructive')}
                     {...register('amount')}
                     value={amtStr}
@@ -277,7 +281,8 @@ export function TransactionForm({
                   <div className="relative">
                     <select
                       {...register('currency')}
-                      className="appearance-none h-9 w-full pl-3 pr-7 bg-transparent border border-input rounded-md text-base sm:text-[13px] focus:outline-hidden focus:ring-2 focus:ring-ring/60"
+                      aria-label="Currency"
+                      className="appearance-none h-11 sm:h-9 w-full pl-3 pr-7 bg-transparent border border-input rounded-md text-base sm:text-[13px] focus:outline-hidden focus:ring-2 focus:ring-ring/60"
                     >
                       <option>HUF</option>
                       <option>EUR</option>
@@ -293,14 +298,15 @@ export function TransactionForm({
                   </div>
                 )}
                 {errors.amount && (
-                  <p className="text-[11px] text-destructive">{errors.amount.message}</p>
+                  <p id="tx-amount-error" className="text-[11px] text-destructive">{errors.amount.message}</p>
                 )}
               </div>
 
               {/* Date */}
               <div className="space-y-1.5">
-                <Label>Date</Label>
+                <Label htmlFor="tx-date">Date</Label>
                 <Input
+                  id="tx-date"
                   type="date"
                   icon={<CalendarIcon className="w-4 h-4" />}
                   {...register('date')}
@@ -311,29 +317,38 @@ export function TransactionForm({
 
               {/* Description */}
               <div className="space-y-1.5">
-                <Label>Description</Label>
+                <Label htmlFor="tx-description">Description</Label>
                 <Input
+                  id="tx-description"
                   placeholder="e.g. Spar weekly groceries"
+                  aria-invalid={!!errors.description}
+                  aria-describedby={errors.description ? 'tx-description-error' : undefined}
                   className={errors.description ? 'border-destructive' : ''}
                   {...register('description')}
                   value={descVal}
                   onChange={e => setValue('description', e.target.value)}
                 />
                 {errors.description && (
-                  <p className="text-[11px] text-destructive">{errors.description.message}</p>
+                  <p id="tx-description-error" className="text-[11px] text-destructive">{errors.description.message}</p>
                 )}
               </div>
 
               {/* Category pills */}
               <div className="space-y-1.5">
-                <Label hint={`${eligibleCategories.length} ${type.toLowerCase()} categories`}>
+                <Label id="tx-category-label" hint={`${eligibleCategories.length} ${type.toLowerCase()} categories`}>
                   Category
                 </Label>
-                <div className="flex flex-wrap gap-1.5">
+                <div
+                  role="group"
+                  aria-labelledby="tx-category-label"
+                  aria-describedby={errors.categoryId ? 'tx-category-error' : undefined}
+                  className="flex flex-wrap gap-1.5"
+                >
                   {eligibleCategories.map(c => (
                     <button
                       key={c.id}
                       type="button"
+                      aria-pressed={categoryId === c.id}
                       onClick={() => setValue('categoryId', c.id)}
                       className={cn(
                         'inline-flex items-center gap-1.5 px-3 py-2 sm:py-1 rounded-full border text-[12px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
@@ -351,17 +366,18 @@ export function TransactionForm({
                   ))}
                 </div>
                 {errors.categoryId && (
-                  <p className="text-[11px] text-destructive">{errors.categoryId.message}</p>
+                  <p id="tx-category-error" className="text-[11px] text-destructive">{errors.categoryId.message}</p>
                 )}
               </div>
 
               {/* Link to recurring rule */}
               <div className="space-y-1.5">
-                <Label hint="Optional">Link to recurring rule</Label>
+                <Label htmlFor="tx-recurring" hint="Optional">Link to recurring rule</Label>
                 <div className="relative">
                   <select
+                    id="tx-recurring"
                     {...register('recurringRuleId')}
-                    className="appearance-none h-9 w-full pl-3 pr-7 bg-transparent border border-input rounded-md text-base sm:text-[13px] focus:outline-hidden focus:ring-2 focus:ring-ring/60"
+                    className="appearance-none h-11 sm:h-9 w-full pl-3 pr-7 bg-transparent border border-input rounded-md text-base sm:text-[13px] focus:outline-hidden focus:ring-2 focus:ring-ring/60"
                   >
                     <option value="">— None —</option>
                     {eligibleRules.map(r => (

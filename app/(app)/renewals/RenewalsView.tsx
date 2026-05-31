@@ -118,7 +118,7 @@ export function RenewalsView({ renewals, anchorCurrency = 'HUF' }: Props) {
             <div key={key}>
               <div className="flex items-center justify-between mb-2.5">
                 <div className="flex items-center gap-2">
-                  <h3 className="text-[13px] font-semibold tracking-tight">{key}</h3>
+                  <h2 className="text-[13px] font-semibold tracking-tight">{key}</h2>
                   <span className="text-[11px] text-muted-foreground">· {list.length} renewals</span>
                 </div>
                 <div className="text-[12px] tabular text-foreground/85">{fmtAnchor(subTotal, anchorCurrency)}</div>
@@ -160,7 +160,7 @@ export function RenewalsView({ renewals, anchorCurrency = 'HUF' }: Props) {
                         tone="expense"
                         size="sm"
                       />
-                      <div className={`sm:hidden text-[10px] mt-0.5 ${daysAway < 0 ? 'text-destructive font-medium' : 'text-muted-foreground/70'}`}>
+                      <div className={`sm:hidden text-[10px] mt-0.5 ${daysAway < 0 ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
                         {daysAway < 0 ? `${Math.abs(daysAway)}d overdue` : daysAway === 0 ? 'today' : `in ${daysAway}d`}
                       </div>
                     </div>
@@ -171,7 +171,7 @@ export function RenewalsView({ renewals, anchorCurrency = 'HUF' }: Props) {
                           ≈ {fmtAnchor(hufEquivalent, anchorCurrency)}
                         </div>
                       )}
-                      <div className={`text-[10.5px] ${daysAway < 0 ? 'text-destructive font-medium' : 'text-muted-foreground/70'}`}>
+                      <div className={`text-[10.5px] ${daysAway < 0 ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
                         {daysAway < 0 ? `${Math.abs(daysAway)}d overdue` : daysAway === 0 ? 'today' : `in ${daysAway}d`}
                       </div>
                     </div>

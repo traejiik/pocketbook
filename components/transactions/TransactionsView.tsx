@@ -231,7 +231,7 @@ export function TransactionsView({
             <select
               value={catFilter}
               onChange={e => setCatFilter(e.target.value)}
-              className="appearance-none h-8 pl-3 pr-7 bg-secondary border border-border rounded-md text-base sm:text-[12px] text-foreground focus:outline-hidden focus:ring-2 focus:ring-ring/60"
+              className="appearance-none h-10 sm:h-8 pl-3 pr-7 bg-secondary border border-border rounded-md text-base sm:text-[12px] text-foreground focus:outline-hidden focus:ring-2 focus:ring-ring/60"
             >
               {catOptions.map(c => (
                 <option key={c.id} value={c.id}>{c.name}</option>
@@ -243,7 +243,7 @@ export function TransactionsView({
             <Button
               variant="ghost"
               size="sm"
-              className="h-9 w-9 p-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+              className="h-11 w-11 sm:h-9 sm:w-9 p-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
               onClick={() => navigateMonth('prev')}
               aria-label="Previous month"
             >
@@ -255,7 +255,7 @@ export function TransactionsView({
             <Button
               variant="ghost"
               size="sm"
-              className="h-9 w-9 p-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+              className="h-11 w-11 sm:h-9 sm:w-9 p-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
               onClick={() => navigateMonth('next')}
               disabled={isCurrentMonth}
               aria-label="Next month"
@@ -274,7 +274,7 @@ export function TransactionsView({
 
       {/* Table */}
       <Card className="overflow-hidden p-0 rounded-xl">
-        <div className="hidden sm:grid grid-cols-[100px_1fr_180px_120px_140px_40px] px-5 py-2.5 text-[10.5px] uppercase tracking-[0.08em] text-muted-foreground font-medium border-b border-border bg-secondary/30">
+        <div aria-hidden="true" className="hidden sm:grid grid-cols-[100px_1fr_180px_120px_140px_40px] px-5 py-2.5 text-[10.5px] uppercase tracking-[0.08em] text-muted-foreground font-medium border-b border-border bg-secondary/30">
           <div>Date</div>
           <div>Description</div>
           <div>Category</div>
@@ -306,11 +306,14 @@ export function TransactionsView({
                 const huf = toHUF(tx, fxRates);
                 const tone = tx.type === 'INCOME' ? 'income' : tx.type === 'SAVINGS' ? 'savings' : 'expense';
                 const isOptimistic = tx.id.startsWith('optimistic-');
+                const typeLabel = tx.type.charAt(0) + tx.type.slice(1).toLowerCase();
+                const rowLabel = `${isOptimistic ? 'Saving ' : 'Edit '}transaction: ${fmtDate(tx.date)}, ${tx.description}, ${tx.category.name}, ${typeLabel} ${fmtAnchor(Math.abs(tx.amount), tx.currency)}`;
 
                 return (
                   <button
                     key={tx.id}
                     type="button"
+                    aria-label={rowLabel}
                     onClick={() => handleRowClick(tx)}
                     disabled={isOptimistic}
                     className={cn(
