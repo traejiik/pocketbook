@@ -123,7 +123,7 @@ NPM resolves `pocketbook-web` by container name over `core_net` — no IP addres
 ```bash
 # Trigger manually to confirm it can reach frankfurter.app
 docker compose exec pocketbook-web sh -lc \
-  'wget -qO- --header="X-Sync-Secret: $FX_SYNC_SECRET" --post-data="" http://localhost:3000/api/fx/sync'
+  'wget -qO- --header="X-Sync-Secret: $FX_SYNC_SECRET" --post-data="" http://pocketbook-web:3000/api/fx/sync'
 # Expected response: {"synced": N}
 ```
 
@@ -137,14 +137,14 @@ through its `pb-job` wrapper, which posts to `PB_DISCORD_WEBHOOK` (if set) when 
 ```bash
 # Trigger manually (idempotent — safe to re-run; covers the month that just ended)
 docker compose exec pocketbook-web sh -lc \
-  'wget -qO- --header="X-Sync-Secret: $FX_SYNC_SECRET" --post-data="" http://localhost:3000/api/insights/monthly'
+  'wget -qO- --header="X-Sync-Secret: $FX_SYNC_SECRET" --post-data="" http://pocketbook-web:3000/api/insights/monthly'
 # Expected response: {"generated":true,"id":"...","monthCovered":"YYYY-MM"} or {"generated":false,"skipped":true}
 ```
 
 Monthly insights are generated automatically on the 1st of each month at 03:05 (5 minutes after FX
 sync) by the `fx-sync` sidecar, and cover the **previous** month — the run on 1 July summarises
 June's complete data. (Generating for the current month would summarise a few hours of an empty
-month, which is what happened before v1.1.2.) Generation can be disabled per-deployment via the
+month, which is what happened before v1.2.0.) Generation can be disabled per-deployment via the
 **Auto Monthly Insights** toggle in Settings → Insights. The secret is shared with FX sync
 (`PB_FX_SYNC_SECRET`). If `PB_DISCORD_WEBHOOK` is set, a Discord message confirms each generation.
 
@@ -155,7 +155,7 @@ month, which is what happened before v1.1.2.) Generation can be disabled per-dep
 ```bash
 # Trigger manually to log all due recurring rules and advance their next due dates.
 docker compose exec pocketbook-web sh -lc \
-  'wget -qO- --header="X-Sync-Secret: $FX_SYNC_SECRET" --post-data="" http://localhost:3000/api/recurring/sync'
+  'wget -qO- --header="X-Sync-Secret: $FX_SYNC_SECRET" --post-data="" http://pocketbook-web:3000/api/recurring/sync'
 # Expected response: {"rulesProcessed":N,"transactionsCreated":N,"created":[...]}
 ```
 
@@ -228,7 +228,7 @@ docker compose down -v                    # ⚠ DESTRUCTIVE — also removes the
 | Monthly insights return 401 | Same secret — `PB_FX_SYNC_SECRET` is shared between FX sync and monthly insights |
 | Recurring sync returns 401 | Same secret — `PB_FX_SYNC_SECRET` is shared between FX sync, monthly insights, and recurring sync |
 | NPM can't reach the app | `pocketbook-web` not joined to `core_net` — verify with `docker inspect pocketbook-web` |
-| `P2028: Transaction not found` on writes | Image older than v1.1.2 — the Prisma client wasn't memoized in production, so `$transaction` spanned two client instances. Pull/redeploy v1.1.2+ |
+| `P2028: Transaction not found` on writes | Image older than v1.2.0 — the Prisma client wasn't memoized in production, so `$transaction` spanned two client instances. Pull/redeploy v1.2.0+ |
 | DB logs `FATAL: role "-d" does not exist` every 10s | Stale db container running an old healthcheck whose `$POSTGRES_USER` expands empty. Harmless (health stays green) but noisy — redeploy the stack so the db container picks up the hardcoded `pg_isready -U pocketbook -d pocketbook` |
 
 ### Diagnosing a boot / restart loop
