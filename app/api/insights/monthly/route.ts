@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { generateAndSaveInsight } from '@/lib/insights-generation'
+import { notifyDiscord } from '@/lib/notify'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,7 +17,13 @@ export async function POST(request: Request) {
     return Response.json({ generated: false, skipped: true })
   }
 
-  const monthCovered = new Date().toISOString().slice(0, 7)
+  // The cron fires at 03:05 on the 1st, so the month to summarise is the one
+  // that just ended — generating for the current month here would produce an
+  // insight over a day's worth (or less) of data.
+  const now = new Date()
+  const monthCovered = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1))
+    .toISOString()
+    .slice(0, 7)
   const existing = await prisma.aiInsight.findFirst({ where: { monthCovered } })
   if (existing) {
     return Response.json({ generated: false, skipped: true })
@@ -28,5 +35,12 @@ export async function POST(request: Request) {
     ollamaModel: settings.ollamaModel,
   })
 
-  return Response.json({ generated: true, id: insight.id })
+  const monthName = new Date(`${monthCovered}-01T00:00:00Z`).toLocaleDateString('en-GB', {
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  })
+  await notifyDiscord(`🤖 Pocketbook: monthly AI insight for ${monthName} generated (model: ${settings.ollamaModel})`)
+
+  return Response.json({ generated: true, id: insight.id, monthCovered })
 }
