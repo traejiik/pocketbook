@@ -45,6 +45,8 @@ the lines from `stack.env.example` and fill in every value.
 | `PB_INSTANCE_NAME` | *(empty — no label shown)* |
 | `PB_OLLAMA_BASE_URL` | `http://ollama:11434` |
 | `PB_DOCKER_DIR` | `/opt/docker` *(host base path for bind-mount volumes)* |
+| `PB_ALERT_WEBHOOK` | *(empty — plain-text POST on startup failure, e.g. an ntfy topic)* |
+| `PB_DISCORD_WEBHOOK` | *(empty — Discord webhook URL; alerts on startup failure and failed nightly cron calls)* |
 
 > **Shared Postgres stacks**: only `PB_POSTGRES_PASSWORD` is used — there is no unprefixed
 > `POSTGRES_PASSWORD` to collide with another postgres service sharing the same stack environment.
@@ -74,7 +76,7 @@ docker compose up -d
 
 # 3. Verify containers are healthy
 docker compose ps
-# Expected: pocketbook-db → healthy, pocketbook-web → Up, pocketbook-fx-sync → Up
+# Expected: pocketbook-db → healthy, pocketbook-web → Up, pocketbook-fx-sync → Up, pocketbook-db-backup → Up
 ```
 
 ## Run migrations (required on first deploy and after any schema change)
@@ -125,23 +127,26 @@ docker compose exec pocketbook-web sh -lc \
 # Expected response: {"synced": N}
 ```
 
-The `fx-sync` sidecar runs the same command automatically at 03:00 every night via crond.
+The `fx-sync` sidecar makes the same call automatically at 03:00 every night via crond,
+through its `pb-job` wrapper, which posts to `PB_DISCORD_WEBHOOK` (if set) when a call fails.
 
 ---
 
 ## Verify monthly insights
 
 ```bash
-# Trigger manually for the current month (idempotent — safe to re-run)
+# Trigger manually (idempotent — safe to re-run; covers the month that just ended)
 docker compose exec pocketbook-web sh -lc \
   'wget -qO- --header="X-Sync-Secret: $FX_SYNC_SECRET" --post-data="" http://localhost:3000/api/insights/monthly'
-# Expected response: {"status":"generated","month":"YYYY-MM"} or {"status":"skipped","reason":"..."}
+# Expected response: {"generated":true,"id":"...","monthCovered":"YYYY-MM"} or {"generated":false,"skipped":true}
 ```
 
 Monthly insights are generated automatically on the 1st of each month at 03:05 (5 minutes after FX
-sync) by the `fx-sync` sidecar. Generation can be disabled per-deployment via the
+sync) by the `fx-sync` sidecar, and cover the **previous** month — the run on 1 July summarises
+June's complete data. (Generating for the current month would summarise a few hours of an empty
+month, which is what happened before v1.1.2.) Generation can be disabled per-deployment via the
 **Auto Monthly Insights** toggle in Settings → Insights. The secret is shared with FX sync
-(`PB_FX_SYNC_SECRET`).
+(`PB_FX_SYNC_SECRET`). If `PB_DISCORD_WEBHOOK` is set, a Discord message confirms each generation.
 
 ---
 
@@ -151,12 +156,35 @@ sync) by the `fx-sync` sidecar. Generation can be disabled per-deployment via th
 # Trigger manually to log all due recurring rules and advance their next due dates.
 docker compose exec pocketbook-web sh -lc \
   'wget -qO- --header="X-Sync-Secret: $FX_SYNC_SECRET" --post-data="" http://localhost:3000/api/recurring/sync'
-# Expected response: {"rulesProcessed":N,"transactionsCreated":N}
+# Expected response: {"rulesProcessed":N,"transactionsCreated":N,"created":[...]}
 ```
 
 Recurring transaction sync runs automatically every night at 03:10 by the `fx-sync` sidecar. The app
 also runs the same reconciliation once when an authenticated user opens Pocketbook, so missed cron
-runs are caught the next time the app is used.
+runs are caught the next time the app is used. Whenever a sync creates at least one transaction
+(from either trigger), a Discord message lists the logged transactions if `PB_DISCORD_WEBHOOK` is set.
+
+---
+
+## Database backups
+
+The `db-backup` sidecar runs a custom-format `pg_dump` every night at 02:30 UTC (before the
+03:00 cron jobs), verifies the dump with `pg_restore --list`, and keeps the newest 14 dumps in
+`${PB_DOCKER_DIR:-/opt/docker}/pocketbook/backups/`. After a verified dump it records the
+timestamp in `/data/last-backup` (shown as "Last backup" in Settings) and, if
+`PB_DISCORD_WEBHOOK` is set, posts a success message — failures post an error message instead.
+
+```bash
+# Run a backup on demand
+docker compose exec db-backup /usr/local/bin/pb-backup
+
+# Restore a dump into the running database (DESTRUCTIVE — overwrites current data)
+docker compose exec pocketbook-db sh -lc \
+  'pg_restore -U pocketbook -d pocketbook --clean --if-exists /path/to/pocketbook-YYYYMMDD-HHMMSS.dump'
+```
+
+To restore, first copy the dump into the db container
+(`docker cp ${PB_DOCKER_DIR:-/opt/docker}/pocketbook/backups/<file>.dump pocketbook-db:/tmp/`).
 
 ---
 
@@ -200,6 +228,8 @@ docker compose down -v                    # ⚠ DESTRUCTIVE — also removes the
 | Monthly insights return 401 | Same secret — `PB_FX_SYNC_SECRET` is shared between FX sync and monthly insights |
 | Recurring sync returns 401 | Same secret — `PB_FX_SYNC_SECRET` is shared between FX sync, monthly insights, and recurring sync |
 | NPM can't reach the app | `pocketbook-web` not joined to `core_net` — verify with `docker inspect pocketbook-web` |
+| `P2028: Transaction not found` on writes | Image older than v1.1.2 — the Prisma client wasn't memoized in production, so `$transaction` spanned two client instances. Pull/redeploy v1.1.2+ |
+| DB logs `FATAL: role "-d" does not exist` every 10s | Stale db container running an old healthcheck whose `$POSTGRES_USER` expands empty. Harmless (health stays green) but noisy — redeploy the stack so the db container picks up the hardcoded `pg_isready -U pocketbook -d pocketbook` |
 
 ### Diagnosing a boot / restart loop
 
@@ -225,3 +255,24 @@ listed by its resolved name), `wait-for-db` (DB never became reachable — check
 **Optional push alert:** set `PB_ALERT_WEBHOOK` in the panel to a URL that accepts a POSTed
 text body (e.g. an ntfy topic `https://ntfy.sh/your-private-topic`) to be notified on each
 startup failure. The log file is written regardless of whether this is set.
+
+### Discord failure alerts
+
+Set `PB_DISCORD_WEBHOOK` in the panel to a Discord webhook URL
+(Discord → Server Settings → Integrations → Webhooks → New Webhook → Copy URL). When set:
+
+- **`pocketbook-web`** posts a message if startup fails (same trigger as `PB_ALERT_WEBHOOK`,
+  but with the JSON payload Discord requires).
+- **`fx-sync` sidecar** posts a message whenever a nightly cron call fails (non-2xx or
+  unreachable): FX sync (03:00), monthly insights (03:05 on the 1st), and recurring
+  sync (03:10). The message includes the job name and the response body, so an HTTP 500
+  from a failing sync shows up in Discord instead of only in `docker logs pocketbook-fx-sync`.
+- **Recurring auto-log** — when a sync creates transactions (nightly cron or the app-open
+  reconciliation), the app posts the list of logged transactions.
+- **Monthly AI insight** — the app posts a confirmation when the scheduled insight for the
+  previous month is generated.
+- **`db-backup` sidecar** — posts after every nightly `pg_dump` (02:30): success with file
+  name and size, or failure with the error.
+
+Both variables can be set together; they are independent. Redeploy the stack after changing
+either so the sidecar re-reads its configuration.
