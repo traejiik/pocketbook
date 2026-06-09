@@ -9,16 +9,23 @@ function buildPrismaClient(): PrismaClient {
     throw new Error('PB_DATABASE_URL is not set')
   }
   const adapter = new PrismaPg({ connectionString })
-  const client = new PrismaClient({
+  return new PrismaClient({
     adapter,
     log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
   })
-  if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = client
-  return client
 }
 
+// The client MUST be memoized in every environment. The Proxy below re-resolves
+// the client on each property access — including Prisma-internal `this.x`
+// accesses inside $transaction — so without a cache an interactive transaction
+// opens on one client and its queries run on another, failing with P2028
+// ("Transaction not found"). The Proxy exists only to defer construction past
+// `next build`, where PB_DATABASE_URL is not set.
 function getPrismaClient(): PrismaClient {
-  return globalForPrisma.prisma ?? buildPrismaClient()
+  if (!globalForPrisma.prisma) {
+    globalForPrisma.prisma = buildPrismaClient()
+  }
+  return globalForPrisma.prisma
 }
 
 export const prisma = new Proxy({} as PrismaClient, {
