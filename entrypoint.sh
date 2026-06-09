@@ -61,7 +61,7 @@ on_exit() {
   # Optional Discord notification: set PB_DISCORD_WEBHOOK to a Discord webhook
   # URL. Discord requires a JSON body, hence the separate variable and payload.
   if [ -n "$PB_DISCORD_WEBHOOK" ]; then
-    node -e "const u=process.env.PB_DISCORD_WEBHOOK,h=require(u.indexOf('https')===0?'https':'http'),b=JSON.stringify({content:'🛑 pocketbook-web startup FAILED: stage=$STAGE exit=$code'});const r=h.request(u,{method:'POST',headers:{'Content-Type':'application/json','Content-Length':Buffer.byteLength(b)}},()=>process.exit(0));r.setTimeout(3000,()=>process.exit(0));r.on('error',()=>process.exit(0));r.end(b);" 2>/dev/null || true
+    node -e "const u=process.env.PB_DISCORD_WEBHOOK,h=require(u.indexOf('https')===0?'https':'http'),b=JSON.stringify({username:'Pocketbook',embeds:[{title:'🛑 pocketbook-web startup FAILED',description:'stage=\`$STAGE\` · exit $code',color:15158332,footer:{text:'Pocketbook · entrypoint'}}]});const r=h.request(u,{method:'POST',headers:{'Content-Type':'application/json','Content-Length':Buffer.byteLength(b)}},()=>process.exit(0));r.setTimeout(3000,()=>process.exit(0));r.on('error',()=>process.exit(0));r.end(b);" 2>/dev/null || true
   fi
 }
 trap on_exit EXIT

@@ -40,7 +40,10 @@ export async function POST(request: Request) {
     year: 'numeric',
     timeZone: 'UTC',
   })
-  await notifyDiscord(`🤖 Pocketbook: monthly AI insight for ${monthName} generated (model: ${settings.ollamaModel})`)
+  await notifyDiscord({
+    title: '🤖 Monthly AI insight generated',
+    description: `**${monthName}** · model \`${settings.ollamaModel}\``,
+  })
 
   return Response.json({ generated: true, id: insight.id, monthCovered })
 }

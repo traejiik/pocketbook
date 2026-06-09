@@ -101,7 +101,7 @@ services:
         [ -n "$$webhook" ] || exit 0
         msg="$$(printf '%s' "$$out" | tr '\n' ' ' | head -c 1200 | sed 's/\\/\\\\/g; s/"/\\"/g')"
         wget -qO- --header 'Content-Type: application/json' \
-          --post-data="{\"content\":\"⚠️ pocketbook cron $$name failed (exit $$rc): $$msg\"}" \
+          --post-data="{\"username\":\"Pocketbook\",\"embeds\":[{\"title\":\"⚠️ Cron job failed: $$name\",\"description\":\"exit $$rc — $$msg\",\"color\":15158332,\"footer\":{\"text\":\"Pocketbook · fx-sync\"}}]}" \
           "$$webhook" >/dev/null 2>&1 || echo "$$name: discord notify failed"
         exit 0
         PBJOB
@@ -145,9 +145,10 @@ services:
         webhook="$$(cat /etc/pb-discord-webhook 2>/dev/null)"
         notify() {
           [ -n "$$webhook" ] || return 0
-          msg="$$(printf '%s' "$$1" | head -c 1500 | sed 's/\\/\\\\/g; s/"/\\"/g' | tr '\n' ' ')"
+          msg="$$(printf '%s' "$$2" | head -c 1500 | sed 's/\\/\\\\/g; s/"/\\"/g' | tr '\n' ' ')"
           wget -qO- --header 'Content-Type: application/json' \
-            --post-data="{\"content\":\"$$msg\"}" "$$webhook" >/dev/null 2>&1 || echo 'discord notify failed'
+            --post-data="{\"username\":\"Pocketbook\",\"embeds\":[{\"title\":\"$$1\",\"description\":\"$$msg\",\"color\":$$3,\"footer\":{\"text\":\"Pocketbook · db-backup\"}}]}" \
+            "$$webhook" >/dev/null 2>&1 || echo 'discord notify failed'
         }
         f="/backups/pocketbook-$$(date -u +%Y%m%d-%H%M%S).dump"
         if pg_dump -h pocketbook-db -U pocketbook -d pocketbook -Fc -f "$$f" 2>/tmp/pb-backup-err \
@@ -157,12 +158,12 @@ services:
           for old in $$(ls -1t /backups/pocketbook-*.dump 2>/dev/null | tail -n +15); do rm -f "$$old"; done
           kept="$$(ls -1 /backups/pocketbook-*.dump 2>/dev/null | wc -l | tr -d ' ')"
           echo "backup OK: $$f ($$size, $$kept kept)"
-          notify "💾 Pocketbook: database backup OK — $$(basename "$$f") ($$size, $$kept kept)"
+          notify "💾 Database backup OK" "$$(basename "$$f") · $$size · $$kept kept" 3066993
         else
           err="$$(cat /tmp/pb-backup-err 2>/dev/null)"
           rm -f "$$f"
           echo "backup FAILED: $$err"
-          notify "🛑 Pocketbook: database backup FAILED — $$err"
+          notify "🛑 Database backup FAILED" "$$err" 15158332
         fi
         PBBACKUP
         chmod +x /usr/local/bin/pb-backup
