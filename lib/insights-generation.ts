@@ -1,23 +1,32 @@
 import { prisma } from './prisma'
 import { fmtHUF } from './format'
 import {
-  getCurrentMonthKpis,
-  getExpensesByCategory,
+  getMonthKpis,
+  getMonthExpensesByCategory,
   getUpcomingRenewals,
   getRecurringRules,
 } from './aggregations'
 import { streamGenerate } from './ollama'
 
-export async function buildInsightPrompt(): Promise<string> {
+// `monthCovered` is a `YYYY-MM` key. The financial data in the prompt comes
+// from that month, so a cron run on the 1st can summarise the month that just
+// ended instead of the (empty) month that just started. Defaults to the
+// current month for on-demand generation from the insights stream.
+export async function buildInsightPrompt(monthCovered?: string): Promise<string> {
+  const monthKey = monthCovered ?? new Date().toISOString().slice(0, 7)
   const [kpis, byCategory, upcoming, rules] = await Promise.all([
-    getCurrentMonthKpis(),
-    getExpensesByCategory(),
+    getMonthKpis(monthKey),
+    getMonthExpensesByCategory(monthKey),
     getUpcomingRenewals(30),
     getRecurringRules(),
   ])
 
-  const now = new Date()
-  const monthName = now.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
+  const [year, month] = monthKey.split('-').map(Number)
+  const monthName = new Date(Date.UTC(year, month - 1, 1)).toLocaleDateString('en-GB', {
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  })
 
   const savingsRate = kpis.income > 0
     ? Math.round(((kpis.savings) / kpis.income) * 100)
@@ -71,7 +80,7 @@ export async function generateAndSaveInsight(options: {
   ollamaUrl: string
   ollamaModel: string
 }): Promise<{ id: string }> {
-  const prompt = await buildInsightPrompt()
+  const prompt = await buildInsightPrompt(options.monthCovered)
   let content = ''
 
   for await (const chunk of streamGenerate({

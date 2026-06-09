@@ -5,11 +5,7 @@ import type { Category, RecurringRule } from '@prisma/client';
 
 export type RuleWithCategory = RecurringRule & { category: Category };
 
-export const getCurrentMonthKpis = cache(async () => {
-  const now = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth(), 1);
-  const end   = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-
+async function kpisForRange(start: Date, end: Date) {
   const txs = await prisma.transaction.findMany({
     where: { date: { gte: start, lt: end } },
   });
@@ -27,35 +23,38 @@ export const getCurrentMonthKpis = cache(async () => {
   const incomeUsedPct = income > 0 ? Math.round(((expense + savings) / income) * 100) : 0;
 
   return { income, expense, savings, net, incomeUsedPct, unconvertibleCount };
+}
+
+// `monthKey` is a `YYYY-MM` string (e.g. AiInsight.monthCovered). Boundaries are
+// UTC midnight to match how `@db.Date` columns store calendar days.
+function monthKeyRange(monthKey: string): { start: Date; end: Date } {
+  const [year, month] = monthKey.split('-').map(Number);
+  return {
+    start: new Date(Date.UTC(year, month - 1, 1)),
+    end: new Date(Date.UTC(year, month, 1)),
+  };
+}
+
+export const getCurrentMonthKpis = cache(async () => {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), 1);
+  const end   = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  return kpisForRange(start, end);
 });
 
 export const getLastMonthKpis = cache(async () => {
   const now = new Date();
   const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
   const end   = new Date(now.getFullYear(), now.getMonth(), 1);
-
-  const txs = await prisma.transaction.findMany({
-    where: { date: { gte: start, lt: end } },
-  });
-
-  let income = 0, expense = 0, savings = 0;
-  for (const t of txs) {
-    const amt = await toAnchor(Math.abs(Number(t.amount)), t.currency as 'HUF' | 'USD' | 'EUR' | 'GBP');
-    if (amt === null) continue;
-    if (t.type === 'INCOME')  income  += amt;
-    if (t.type === 'EXPENSE') expense += amt;
-    if (t.type === 'SAVINGS') savings += amt;
-  }
-
-  const net = income - expense - savings;
-  return { income, expense, savings, net };
+  return kpisForRange(start, end);
 });
 
-export const getExpensesByCategory = cache(async () => {
-  const now = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth(), 1);
-  const end   = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+export const getMonthKpis = cache(async (monthKey: string) => {
+  const { start, end } = monthKeyRange(monthKey);
+  return kpisForRange(start, end);
+});
 
+async function expensesByCategoryForRange(start: Date, end: Date) {
   const txs = await prisma.transaction.findMany({
     where: { type: 'EXPENSE', date: { gte: start, lt: end } },
     include: { category: true },
@@ -73,6 +72,18 @@ export const getExpensesByCategory = cache(async () => {
   return [...map.entries()]
     .map(([categoryId, d]) => ({ categoryId, ...d, value: Math.round(d.value) }))
     .sort((a, b) => b.value - a.value);
+}
+
+export const getExpensesByCategory = cache(async () => {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), 1);
+  const end   = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  return expensesByCategoryForRange(start, end);
+});
+
+export const getMonthExpensesByCategory = cache(async (monthKey: string) => {
+  const { start, end } = monthKeyRange(monthKey);
+  return expensesByCategoryForRange(start, end);
 });
 
 export const getUpcomingRenewals = cache(async (daysAhead: number) => {

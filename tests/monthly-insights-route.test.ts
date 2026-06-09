@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
   findSettings: vi.fn(),
@@ -19,9 +19,17 @@ vi.mock('@/lib/insights-generation', () => ({
 describe('POST /api/insights/monthly', () => {
   beforeEach(() => {
     process.env.FX_SYNC_SECRET = 'test-secret'
+    vi.useFakeTimers()
+    // The cron fires at 03:05 UTC on the 1st — the insight must cover the
+    // month that just ended, not the day-old current month.
+    vi.setSystemTime(new Date(Date.UTC(2026, 5, 1, 3, 5)))
     vi.resetModules()
     mocks.findInsight.mockResolvedValue(null)
     mocks.generate.mockResolvedValue({ id: 'new-insight-id' })
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   async function request(secret?: string) {
@@ -45,7 +53,7 @@ describe('POST /api/insights/monthly', () => {
     expect(mocks.generate).not.toHaveBeenCalled()
   })
 
-  it('returns skipped when the current month already has a saved insight', async () => {
+  it('returns skipped when the previous month already has a saved insight', async () => {
     mocks.findSettings.mockResolvedValue({ autoInsightsMonthly: true, ollamaUrl: 'http://ollama:11434', ollamaModel: 'llama3.1:8b' })
     mocks.findInsight.mockResolvedValue({ id: 'existing-insight' })
     const res = await request('test-secret')
@@ -53,10 +61,12 @@ describe('POST /api/insights/monthly', () => {
     expect(mocks.generate).not.toHaveBeenCalled()
   })
 
-  it('generates exactly one insight for an enabled missing month', async () => {
+  it('generates exactly one insight covering the month that just ended', async () => {
     mocks.findSettings.mockResolvedValue({ autoInsightsMonthly: true, ollamaUrl: 'http://ollama:11434', ollamaModel: 'llama3.1:8b' })
     const res = await request('test-secret')
-    expect(await res.json()).toEqual({ generated: true, id: 'new-insight-id' })
+    expect(await res.json()).toEqual({ generated: true, id: 'new-insight-id', monthCovered: '2026-05' })
+    expect(mocks.findInsight).toHaveBeenCalledWith({ where: { monthCovered: '2026-05' } })
     expect(mocks.generate).toHaveBeenCalledOnce()
+    expect(mocks.generate).toHaveBeenCalledWith(expect.objectContaining({ monthCovered: '2026-05' }))
   })
 })
