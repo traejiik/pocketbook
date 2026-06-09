@@ -130,7 +130,6 @@ Historical `pnpm outdated` notes worth considering after the Prisma 7 upgrade: R
 - **Playwright:** browser smoke tests for login, dashboard, transaction add/edit, and Settings. This is the highest-value addition because the app is UI-heavy.
 - **Vitest:** focused tests for `lib/format.ts`, `lib/fx.ts`, aggregation helpers, and server-action validation.
 - **pino or structured logging:** cleaner production logs around auth, FX sync, Ollama streaming, and migrations.
-- **pg_dump backup sidecar:** a real homelab backup job for Postgres, replacing the current backup sentinel placeholder.
 - **Sentry or OpenTelemetry, self-hosted if preferred:** optional, but useful once this runs unattended.
 - **Dependabot or Renovate:** scheduled dependency PRs with grouping rules for low-risk packages and manual approval for major framework/runtime upgrades.
 
