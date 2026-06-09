@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma'
-import { notifyDiscord } from '@/lib/notify'
+import { notifyDiscord, DISCORD_GREEN } from '@/lib/notify'
 
 type RecurringCycle = 'MONTHLY' | 'ANNUAL'
 type RuleKind = 'INCOME' | 'EXPENSE' | 'SAVINGS'
@@ -148,11 +148,13 @@ export async function syncDueRecurringRules(today: Date = new Date()): Promise<R
   if (transactionsCreated > 0) {
     const lines = created
       .slice(0, 15)
-      .map((tx) => `• ${tx.date} · ${tx.description} · ${formatSignedAmount(tx.amount, tx.currency)}`)
+      .map((tx) => `**${tx.description}** · ${formatSignedAmount(tx.amount, tx.currency)} · ${tx.date}`)
     if (created.length > 15) lines.push(`… and ${created.length - 15} more`)
-    await notifyDiscord(
-      `🔁 Pocketbook: logged ${transactionsCreated} recurring transaction(s)\n${lines.join('\n')}`,
-    )
+    await notifyDiscord({
+      title: `🔁 Logged ${transactionsCreated} recurring transaction${transactionsCreated === 1 ? '' : 's'}`,
+      description: lines.join('\n'),
+      color: DISCORD_GREEN,
+    })
   }
 
   return {
