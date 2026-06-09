@@ -20,11 +20,14 @@ export default async function SettingsPage() {
     listOllamaModels(ollamaUrl),
   ]);
 
-  // Read last-backup mtime from /data/last-backup if it exists
+  // /data/last-backup holds an ISO timestamp written by the db-backup sidecar
+  // after each verified pg_dump. Missing or unparseable → no backup recorded.
   let lastBackup = '—';
   try {
-    const stat = readFileSync('/data/last-backup');
-    lastBackup = stat ? new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+    const recorded = new Date(readFileSync('/data/last-backup', 'utf8').trim());
+    if (!Number.isNaN(recorded.getTime())) {
+      lastBackup = recorded.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    }
   } catch {
     // file not found — placeholder
   }
