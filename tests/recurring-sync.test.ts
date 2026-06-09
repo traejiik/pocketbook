@@ -156,6 +156,8 @@ describe('syncDueRecurringRules', () => {
       where: { id: 'rule-rent' },
       data: expect.objectContaining({ nextDue: new Date(Date.UTC(2026, 5, 5)), archived: false }),
     })
-    expect(result).toEqual({ rulesProcessed: 1, transactionsCreated: 3 })
+    expect(result.rulesProcessed).toBe(1)
+    expect(result.transactionsCreated).toBe(3)
+    expect(result.created.map((tx) => tx.date)).toEqual(['2026-03-05', '2026-04-05', '2026-05-05'])
   })
 })
