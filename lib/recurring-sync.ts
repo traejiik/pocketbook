@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma'
+import { notifyDiscord } from '@/lib/notify'
 
 type RecurringCycle = 'MONTHLY' | 'ANNUAL'
 type RuleKind = 'INCOME' | 'EXPENSE' | 'SAVINGS'
@@ -39,6 +40,7 @@ export type PlannedRecurringRuleSync = {
 export type RecurringSyncResult = {
   rulesProcessed: number
   transactionsCreated: number
+  created: PlannedRecurringSyncTransaction[]
 }
 
 export function planDueRecurringRule(rule: DueRule, todayInput: Date = new Date()): PlannedRecurringRuleSync {
@@ -103,7 +105,7 @@ export async function syncDueRecurringRules(today: Date = new Date()): Promise<R
   })
 
   if (dueRules.length === 0) {
-    return { rulesProcessed: 0, transactionsCreated: 0 }
+    return { rulesProcessed: 0, transactionsCreated: 0, created: [] }
   }
 
   const plans = dueRules.map((rule) => planDueRecurringRule(rule, todayDate))
@@ -139,10 +141,31 @@ export async function syncDueRecurringRules(today: Date = new Date()): Promise<R
     }
   })
 
+  const created = plans.flatMap((plan) => plan.transactions)
+
+  // Notify after the transaction commits, never before — and never let a
+  // webhook failure fail the sync itself (notifyDiscord does not throw).
+  if (transactionsCreated > 0) {
+    const lines = created
+      .slice(0, 15)
+      .map((tx) => `• ${tx.date} · ${tx.description} · ${formatSignedAmount(tx.amount, tx.currency)}`)
+    if (created.length > 15) lines.push(`… and ${created.length - 15} more`)
+    await notifyDiscord(
+      `🔁 Pocketbook: logged ${transactionsCreated} recurring transaction(s)\n${lines.join('\n')}`,
+    )
+  }
+
   return {
     rulesProcessed: plans.length,
     transactionsCreated,
+    created,
   }
+}
+
+// The minus sign is `−` (U+2212), matching the in-app display convention.
+function formatSignedAmount(amount: number, currency: Currency) {
+  const sign = amount < 0 ? '−' : '+'
+  return `${sign}${Math.abs(amount).toLocaleString('en-GB')} ${currency}`
 }
 
 function signedAmount(amount: number, kind: RuleKind) {
