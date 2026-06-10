@@ -67,6 +67,28 @@ on_exit() {
 trap on_exit EXIT
 
 # ---------------------------------------------------------------------------
+# Optional host-side fallback: bind-mount a KEY=value file (no quotes, no
+# `export`) at /run/pb-stack.env, e.g.
+#   - ${PB_DOCKER_DIR:-/opt/docker}/pocketbook/stack.env:/run/pb-stack.env:ro
+# Each key is applied ONLY if the container environment did not already provide
+# a non-empty value, so panel/compose env always wins. This keeps the app
+# booting through stack redeploys that fail to re-apply panel variables.
+# ---------------------------------------------------------------------------
+STAGE="load-fallback-env"
+if [ -f /run/pb-stack.env ]; then
+  loaded=""
+  while IFS='=' read -r key value; do
+    case "$key" in ''|\#*) continue ;; esac
+    eval "current=\${$key:-}"
+    if [ -z "$current" ] && [ -n "$value" ]; then
+      export "$key=$value"
+      loaded="$loaded $key"
+    fi
+  done < /run/pb-stack.env
+  [ -n "$loaded" ] && say "Loaded fallback values from /run/pb-stack.env for:$loaded"
+fi
+
+# ---------------------------------------------------------------------------
 # Resolve config to the bare names the app + Auth.js read (AUTH_URL, AUTH_SECRET,
 # SEED_USER_*, FX_SYNC_SECRET, OLLAMA_BASE_URL). Accept either form:
 #   - a bare name passed straight through by compose (e.g. AUTH_URL=...), or
