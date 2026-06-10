@@ -51,6 +51,16 @@ the lines from `stack.env.example` and fill in every value.
 > **Shared Postgres stacks**: only `PB_POSTGRES_PASSWORD` is used — there is no unprefixed
 > `POSTGRES_PASSWORD` to collide with another postgres service sharing the same stack environment.
 
+### Optional: host-side fallback env file
+
+If your Portainer setup ever redeploys the stack without re-applying the panel variables
+(some versions do this on GitOps auto-updates), the container boot-loops at `validate-env`.
+To make boots survive that: copy `stack.env.example` to
+`${PB_DOCKER_DIR:-/opt/docker}/pocketbook/stack.env` on the host, fill in the values, and
+uncomment the `/run/pb-stack.env` volume line in the compose. `entrypoint.sh` sources the
+file only for variables the environment did **not** deliver — panel values always win, the
+file is just a safety net. Keep it `chmod 600`.
+
 ---
 
 ## Pre-deploy checklist

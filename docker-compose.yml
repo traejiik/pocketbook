@@ -65,6 +65,11 @@ services:
       - PB_DISCORD_WEBHOOK=${PB_DISCORD_WEBHOOK:-}
     volumes:
       - ${PB_DOCKER_DIR:-/opt/docker}/pocketbook/data:/data
+      # Optional: host-side fallback for the panel variables. entrypoint.sh
+      # sources this file for any variable the environment did not deliver, so
+      # a stack redeploy that loses the panel env doesn't boot-loop the app.
+      # Create the file from stack.env.example, then uncomment:
+      # - ${PB_DOCKER_DIR:-/opt/docker}/pocketbook/stack.env:/run/pb-stack.env:ro
     networks:
       - core_net
 
