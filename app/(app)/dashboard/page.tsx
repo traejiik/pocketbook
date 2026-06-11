@@ -94,7 +94,7 @@ export default async function DashboardPage() {
       )}
 
       {/* Row 1 — KPI cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
         <KpiBig label="Income"   value={kpis.income}  tone="income"  deltaPct={incomeDelta?.label  ?? '—'} footnote={deltaFootnote(incomeDelta)}  href="/transactions?type=INCOME"  currency={anchor} />
         <KpiBig label="Expenses" value={kpis.expense} tone="expense" deltaPct={expenseDelta?.label ?? '—'} footnote={deltaFootnote(expenseDelta)} href="/transactions?type=EXPENSE" currency={anchor} />
         <KpiBig label="Net"      value={kpis.net}     tone="income"  deltaPct={netDelta?.label     ?? '—'} footnote={deltaFootnote(netDelta)}     href="/transactions"              currency={anchor} />
@@ -112,7 +112,7 @@ export default async function DashboardPage() {
         />
 
         {/* Upcoming renewals */}
-        <div className="col-span-12 sm:col-span-5 bg-card border border-border rounded-2xl p-5">
+        <div className="col-span-12 md:col-span-6 lg:col-span-5 bg-card border border-border rounded-2xl p-5">
           <div className="flex items-center justify-between mb-3">
             <div>
               <div className="text-[15px] font-semibold tracking-tight">Upcoming renewals</div>
@@ -172,7 +172,7 @@ export default async function DashboardPage() {
         </div>
 
         {/* Recent activity */}
-        <div className="col-span-12 sm:col-span-5 bg-card border border-border rounded-2xl p-5">
+        <div className="col-span-12 md:col-span-6 lg:col-span-5 bg-card border border-border rounded-2xl p-5">
           <div className="flex items-center justify-between mb-2">
             <div>
               <div className="text-[15px] font-semibold tracking-tight">Recent activity</div>
@@ -240,7 +240,7 @@ export default async function DashboardPage() {
         </div>
 
         {/* Income used — Gauge */}
-        <div className="col-span-12 sm:col-span-4 bg-card border border-border rounded-2xl p-5 flex flex-col">
+        <div className="col-span-12 md:col-span-6 lg:col-span-4 bg-card border border-border rounded-2xl p-5 flex flex-col">
           <div className="flex items-start justify-between">
             <div>
               <div className="text-[15px] font-semibold tracking-tight">Income used</div>
@@ -274,7 +274,7 @@ export default async function DashboardPage() {
         </div>
 
         {/* Right stack: Reminder + AI Insights */}
-        <div className="col-span-12 sm:col-span-3 flex flex-col gap-4">
+        <div className="col-span-12 md:col-span-6 lg:col-span-3 flex flex-col gap-4">
           {nextRenewal ? (
             <div className="bg-card border border-border rounded-2xl p-5 flex flex-col">
               <div className="text-[12.5px] text-muted-foreground">Reminder</div>

@@ -209,7 +209,7 @@ export function RecurringView({ rules, archivedRules, categories, budget, anchor
   }
 
   return (
-    <div className="px-4 sm:px-8 py-4 sm:py-6 space-y-4 sm:space-y-5 max-w-[1240px] mx-auto">
+    <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4 sm:space-y-5 max-w-[1240px] mx-auto">
       <div className="flex items-end justify-between">
         <div>
           <h1 className="text-[22px] font-semibold tracking-tight">Recurring rules</h1>
@@ -224,7 +224,7 @@ export function RecurringView({ rules, archivedRules, categories, budget, anchor
       </div>
 
       {/* Budget summary — gauge left, 2×2 KPI grid right */}
-      <div className="grid grid-cols-1 sm:grid-cols-[auto_1fr] gap-3 sm:gap-4 items-stretch">
+      <div className="grid grid-cols-1 lg:grid-cols-[auto_1fr] gap-3 sm:gap-4 items-stretch">
         <div className="bg-card border border-border rounded-2xl p-5 flex flex-col items-center justify-center gap-3">
           <GaugeMeter percent={Math.round(budget.expenseRatio * 100)} />
           <div className="flex items-center gap-4">

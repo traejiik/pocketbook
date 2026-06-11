@@ -16,6 +16,7 @@ import {
   Plus,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { LogoMark } from '@/components/shell/LogoMark';
 
 const NAV = [
   { id: 'dashboard',    label: 'Dashboard',   icon: LayoutDashboard },
@@ -40,7 +41,7 @@ export function Sidebar({ upcomingRenewalsCount = 1, onQuickAdd }: SidebarProps)
   const wordmark = mounted && resolvedTheme === 'light' ? '/wordmark-light.svg' : '/wordmark-dark.svg';
 
   return (
-    <aside className="hidden sm:flex w-[220px] shrink-0 bg-card border border-border rounded-2xl flex-col overflow-hidden relative">
+    <aside className="hidden sm:flex w-16 lg:w-[220px] shrink-0 bg-card border border-border rounded-2xl flex-col overflow-hidden relative">
       {/* Decorative radial gradient */}
       <svg
         className="absolute inset-0 w-full h-full pointer-events-none"
@@ -71,7 +72,7 @@ export function Sidebar({ upcomingRenewalsCount = 1, onQuickAdd }: SidebarProps)
       </svg>
 
       {/* Logo / branding */}
-      <div className="relative px-3 pt-5 pb-3 flex items-center">
+      <div className="relative px-3 pt-5 pb-3 flex items-center justify-center lg:justify-start">
         <Image
             src={wordmark}
             alt="Pocketbook"
@@ -79,13 +80,14 @@ export function Sidebar({ upcomingRenewalsCount = 1, onQuickAdd }: SidebarProps)
             height={0}
             sizes="100vw"
             priority
-            className="h-9 w-auto"
+            className="hidden lg:block h-9 w-auto"
             style={{ minWidth: '90%' }}
           />
+        <LogoMark size={24} className="lg:hidden text-primary" />
       </div>
 
       {/* Section label */}
-      <div className="relative px-3 mt-2 mb-1.5">
+      <div className="hidden lg:block relative px-3 mt-2 mb-1.5">
         <div className="text-[11px] font-mono uppercase tracking-[0.12em] text-muted-foreground pl-2.5">
           Workspace
         </div>
@@ -101,8 +103,10 @@ export function Sidebar({ upcomingRenewalsCount = 1, onQuickAdd }: SidebarProps)
               key={item.id}
               href={`/${item.id}`}
               aria-current={active ? 'page' : undefined}
+              title={item.label}
+              aria-label={item.label}
               className={cn(
-                'group w-full flex items-center gap-2.5 pl-2.5 pr-2 py-2 rounded-full text-[12.5px] transition-all relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
+                'group w-full flex items-center justify-center p-2 lg:justify-start lg:gap-2.5 lg:pl-2.5 lg:pr-2 lg:py-2 rounded-full text-[12.5px] transition-all relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
                 active
                   ? 'bg-primary text-primary-foreground font-medium shadow-pb-1'
                   : 'text-foreground/70 hover:text-foreground hover:bg-accent/60',
@@ -110,19 +114,22 @@ export function Sidebar({ upcomingRenewalsCount = 1, onQuickAdd }: SidebarProps)
             >
               <span
                 className={cn(
-                  'w-7 h-7 rounded-full flex items-center justify-center transition-colors shrink-0',
+                  'relative w-7 h-7 rounded-full flex items-center justify-center transition-colors shrink-0',
                   active
                     ? 'bg-white/15'
                     : 'bg-secondary/60 border border-border group-hover:border-ring/30',
                 )}
               >
                 <Icon className="w-3.5 h-3.5" />
+                {item.id === 'renewals' && upcomingRenewalsCount > 0 && (
+                  <span className="lg:hidden absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-warning" />
+                )}
               </span>
-              <span className="flex-1 text-left">{item.label}</span>
+              <span className="hidden lg:block flex-1 text-left">{item.label}</span>
               {item.id === 'renewals' && upcomingRenewalsCount > 0 && (
                 <span
                   className={cn(
-                    'font-mono text-[10px] rounded-full px-1.5 py-0.5 leading-none',
+                    'hidden lg:inline-flex font-mono text-[10px] rounded-full px-1.5 py-0.5 leading-none',
                     active
                       ? 'bg-white/20 text-white'
                       : 'bg-warning/15 text-warning border border-warning/30',
@@ -141,13 +148,15 @@ export function Sidebar({ upcomingRenewalsCount = 1, onQuickAdd }: SidebarProps)
         <button
           type="button"
           onClick={onQuickAdd}
-          className="w-full flex items-center gap-2 px-3 py-2 rounded-full bg-secondary/80 border border-border hover:border-ring/40 text-[12px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+          title="Quick add"
+          aria-label="Quick add (N)"
+          className="w-full flex items-center justify-center lg:justify-start lg:gap-2 px-0 lg:px-3 py-2 min-h-11 lg:min-h-0 rounded-full bg-secondary/80 border border-border hover:border-ring/40 text-[12px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
         >
           <span className="w-5 h-5 rounded-full bg-primary/15 border border-primary/30 flex items-center justify-center text-primary shrink-0">
             <Plus className="w-3 h-3" />
           </span>
-          <span className="text-foreground/80">Quick add</span>
-          <span className="ml-auto font-mono text-[10px] text-muted-foreground border border-border rounded px-1">
+          <span className="hidden lg:block text-foreground/80">Quick add</span>
+          <span className="hidden lg:inline ml-auto font-mono text-[10px] text-muted-foreground border border-border rounded px-1">
             N
           </span>
         </button>

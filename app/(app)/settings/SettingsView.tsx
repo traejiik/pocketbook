@@ -374,7 +374,7 @@ export function SettingsView({
                 return (
                 <div key={r.id}>
                   {/* Main row */}
-                  <div className="px-1 py-3.5 grid grid-cols-[auto_1fr_auto] sm:grid-cols-[auto_1fr_auto_auto_auto] items-center gap-3">
+                  <div className="px-1 py-3.5 grid grid-cols-[auto_1fr_auto] lg:grid-cols-[auto_1fr_auto_auto_auto] items-center gap-3">
                     {/* Code chip */}
                     <div className="w-12 h-12 rounded-lg border border-border bg-secondary/40 flex flex-col items-center justify-center shrink-0">
                       <div className="text-[14px] font-bold mono leading-none">{r.from}</div>
@@ -390,7 +390,7 @@ export function SettingsView({
                       </div>
                     </div>
                     {/* Mode toggle — desktop */}
-                    <div className="hidden sm:flex items-center gap-0.5 p-0.5 bg-secondary border border-border rounded-md">
+                    <div className="hidden lg:flex items-center gap-0.5 p-0.5 bg-secondary border border-border rounded-md">
                       {(['AUTO', 'MANUAL'] as const).map(opt => (
                         <button
                           key={opt}
@@ -406,7 +406,7 @@ export function SettingsView({
                       ))}
                     </div>
                     {/* Rate value / live indicator — desktop */}
-                    <div className="hidden sm:block w-[150px]">
+                    <div className="hidden lg:block w-[150px]">
                       {r.mode === 'MANUAL' ? (
                         <div className="flex gap-1">
                           <Input
@@ -435,7 +435,7 @@ export function SettingsView({
                     </Button>
                   </div>
                   {/* Mobile-only mode + rate row */}
-                  <div className="sm:hidden px-1 pb-3.5 flex flex-col gap-2">
+                  <div className="lg:hidden px-1 pb-3.5 flex flex-col gap-2">
                     <div className="flex items-center gap-0.5 p-0.5 bg-secondary border border-border rounded-md self-start">
                       {(['AUTO', 'MANUAL'] as const).map(opt => (
                         <button
