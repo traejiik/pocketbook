@@ -249,7 +249,7 @@ export function TransactionForm({
                       aria-pressed={type === o.value}
                       onClick={() => setValue('type', o.value)}
                       className={cn(
-                        'h-11 sm:h-8 text-[12.5px] font-medium rounded-[5px] transition-colors flex items-center justify-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
+                        'h-11 xl:h-8 text-[12.5px] font-medium rounded-[5px] transition-colors flex items-center justify-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
                         type === o.value
                           ? `bg-card shadow-pb-1 ${TONE_TEXT[o.tone]}`
                           : 'text-muted-foreground hover:text-foreground',
@@ -282,7 +282,7 @@ export function TransactionForm({
                     <select
                       {...register('currency')}
                       aria-label="Currency"
-                      className="appearance-none h-11 sm:h-9 w-full pl-3 pr-7 bg-transparent border border-input rounded-md text-base sm:text-[13px] focus:outline-hidden focus:ring-2 focus:ring-ring/60"
+                      className="appearance-none h-11 xl:h-9 w-full pl-3 pr-7 bg-transparent border border-input rounded-md text-base xl:text-[13px] focus:outline-hidden focus:ring-2 focus:ring-ring/60"
                     >
                       <option>HUF</option>
                       <option>EUR</option>
@@ -351,7 +351,7 @@ export function TransactionForm({
                       aria-pressed={categoryId === c.id}
                       onClick={() => setValue('categoryId', c.id)}
                       className={cn(
-                        'inline-flex items-center gap-1.5 px-3 py-2 sm:py-1 rounded-full border text-[12px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
+                        'inline-flex items-center gap-1.5 px-3 py-2 xl:py-1 rounded-full border text-[12px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
                         categoryId === c.id
                           ? 'border-ring/60 bg-accent text-foreground'
                           : 'border-border bg-transparent text-muted-foreground hover:text-foreground',
@@ -377,7 +377,7 @@ export function TransactionForm({
                   <select
                     id="tx-recurring"
                     {...register('recurringRuleId')}
-                    className="appearance-none h-11 sm:h-9 w-full pl-3 pr-7 bg-transparent border border-input rounded-md text-base sm:text-[13px] focus:outline-hidden focus:ring-2 focus:ring-ring/60"
+                    className="appearance-none h-11 xl:h-9 w-full pl-3 pr-7 bg-transparent border border-input rounded-md text-base xl:text-[13px] focus:outline-hidden focus:ring-2 focus:ring-ring/60"
                   >
                     <option value="">— None —</option>
                     {eligibleRules.map(r => (

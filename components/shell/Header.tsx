@@ -62,13 +62,13 @@ export function Header({ upcomingRenewalsCount = 0, displayName = 'User' }: Head
   return (
     <header className="shrink-0 bg-card border border-border rounded-none sm:rounded-2xl px-3 sm:px-4 h-14 sm:h-[68px] flex items-center gap-2 sm:gap-4">
       {/* Date eyebrow — desktop only */}
-      <div className="hidden sm:block pl-1 pr-2">
+      <div className="hidden lg:block pl-1 pr-2">
         <div className="text-[10.5px] font-mono uppercase tracking-wider text-muted-foreground leading-none">
           {dateLabel}
         </div>
       </div>
 
-      <div className="hidden sm:block w-px h-7 bg-border" />
+      <div className="hidden lg:block w-px h-7 bg-border" />
 
       {/* Search — desktop only */}
       <div className="hidden sm:flex flex-1 max-w-[420px] relative">
@@ -104,7 +104,7 @@ export function Header({ upcomingRenewalsCount = 0, displayName = 'User' }: Head
         <Link
           href="/renewals"
           aria-label={upcomingRenewalsCount > 0 ? `${upcomingRenewalsCount} renewal${upcomingRenewalsCount !== 1 ? 's' : ''} due soon` : 'Renewals'}
-          className="w-11 h-11 sm:w-9 sm:h-9 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 relative"
+          className="w-11 h-11 xl:w-9 xl:h-9 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 relative"
         >
           <Bell className="w-4 h-4" />
           {upcomingRenewalsCount > 0 && (
@@ -117,7 +117,7 @@ export function Header({ upcomingRenewalsCount = 0, displayName = 'User' }: Head
           type="button"
           onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
           aria-label={mounted ? `Switch to ${theme === 'dark' ? 'light' : 'dark'} mode` : 'Toggle theme'}
-          className="w-11 h-11 sm:w-9 sm:h-9 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+          className="w-11 h-11 xl:w-9 xl:h-9 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
         >
           {mounted
             ? theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />
