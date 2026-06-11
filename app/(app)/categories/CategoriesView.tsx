@@ -122,7 +122,7 @@ export function CategoriesView({ categories, anchorCurrency = 'HUF' }: Props) {
   }
 
   return (
-    <div className="px-4 sm:px-8 py-4 sm:py-6 max-w-[960px] mx-auto space-y-5 sm:space-y-6">
+    <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 max-w-[960px] mx-auto space-y-5 sm:space-y-6">
       <div className="flex items-end justify-between">
         <div>
           <h1 className="text-[22px] font-semibold tracking-tight">Categories</h1>

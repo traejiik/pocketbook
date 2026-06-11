@@ -109,6 +109,8 @@ other/                Design reference, mockups, handoff notes
 
 Data flow: server components fetch from Prisma directly -> pass props -> Server Actions mutate -> `revalidatePath` refreshes. Cron-callable API routes handle FX sync, monthly insights, and recurring rule reconciliation. No client-side data fetching for initial renders.
 
+Responsive layout: mobile stays on the bottom nav + FAB. The `sm` and `md` tablet bands use a 64px icon-rail sidebar, touch-sized header/form controls, and tablet-specific grid/table layouts. The full 220px sidebar and dense desktop tables return at `lg`, while `xl` preserves the mockup-derived desktop density.
+
 Design-system authority:
 
 - `other/design-reference/` is the canonical design contract. Its screen JSX remains the structural source of truth for layout, class intent, and component composition.

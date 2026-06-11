@@ -26,6 +26,7 @@ Port them faithfully — class names, layout, component composition, unless aske
 13. **Recurring generation is idempotent** — `Transaction` has `@@unique([recurringRuleId, date])`; generated recurring writes must use that invariant and skip duplicates.
 14. **Installment counters are reconciled, not manually bumped** — after transaction create/edit/delete, recompute `installmentPaid` from linked transactions and archive only when the count reaches `installmentTotal`.
 15. **One-way CSV import is supported** — CSV upload/import is a Server Action workflow, not a REST mutation. Two-way Google Sheets sync remains out of scope.
+16. **Responsive tiers are width-based** — base `<640px` uses bottom nav + FAB, `sm`/`md` use the 64px icon rail and tablet layouts, `lg` restores the 220px sidebar and most desktop grid/table spans, and `xl` restores dense desktop control sizing plus the widest grids (`KpiBig` rows go four-up only at `xl`; its 44px numerals need ~190px of column width). Do not add orientation queries, JS viewport detection, or container queries unless explicitly requested.
 
 ## Do not build (v1)
 
@@ -45,7 +46,7 @@ The stack is not locked to old major versions. Major upgrades are allowed when t
 
 ## Current verification baseline
 
-- `pnpm test` passes: 55 tests across 14 files.
+- `pnpm test` passes: 60 tests across 15 files.
 - `pnpm lint` currently has 0 errors and 2 known React Compiler warnings from React Hook Form `watch()` usage in `components/forms/TransactionForm.tsx` and `app/(app)/recurring/RecurringView.tsx`. Do not treat those warnings as a new regression unless you are refactoring those forms.
 
 ## Documentation drift prevention

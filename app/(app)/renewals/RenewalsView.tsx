@@ -80,7 +80,7 @@ export function RenewalsView({ renewals, anchorCurrency = 'HUF' }: Props) {
   }))
 
   return (
-    <div className="px-4 sm:px-8 py-4 sm:py-6 space-y-4 sm:space-y-5 max-w-[1240px] mx-auto">
+    <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4 sm:space-y-5 max-w-[1240px] mx-auto">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-[22px] font-semibold tracking-tight">Upcoming renewals</h1>
