@@ -186,7 +186,7 @@ export function TransactionsView({
   }
 
   return (
-    <div className="px-4 sm:px-8 py-4 sm:py-6 space-y-4 sm:space-y-5 max-w-[1240px] mx-auto">
+    <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4 sm:space-y-5 max-w-[1240px] mx-auto">
       {/* Page header */}
       <div className="flex items-end justify-between">
         <div>
@@ -208,16 +208,18 @@ export function TransactionsView({
       </div>
 
       {/* Filter bar */}
-      <Card className="p-3 flex flex-col sm:flex-row sm:items-center gap-2 rounded-xl">
-        <Input
-          placeholder="Search transactions…"
-          icon={<SearchIcon className="w-4 h-4" />}
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          className="w-full sm:flex-1 sm:max-w-[260px]"
-        />
-        <div className="flex items-center gap-2 flex-wrap">
+      <Card className="p-3 flex flex-col xl:flex-row xl:items-center gap-2 rounded-xl">
+        <div className="flex flex-col md:flex-row md:items-center gap-2">
+          <div className="w-full md:flex-1 xl:flex-none xl:w-[260px]">
+            <Input
+              placeholder="Search transactions…"
+              icon={<SearchIcon className="w-4 h-4" />}
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+          </div>
           <Segmented
+            className="self-start md:self-auto shrink-0"
             options={[
               { label: 'All', value: 'all' as TypeFilter },
               { label: 'Income', value: 'INCOME' as TypeFilter },
@@ -227,11 +229,13 @@ export function TransactionsView({
             value={typeFilter}
             onChange={setTypeFilter}
           />
+        </div>
+        <div className="flex items-center gap-2 flex-wrap xl:flex-1">
           <div className="relative">
             <select
               value={catFilter}
               onChange={e => setCatFilter(e.target.value)}
-              className="appearance-none h-10 sm:h-8 pl-3 pr-7 bg-secondary border border-border rounded-md text-base sm:text-[12px] text-foreground focus:outline-hidden focus:ring-2 focus:ring-ring/60"
+              className="appearance-none h-10 xl:h-8 pl-3 pr-7 bg-secondary border border-border rounded-md text-base xl:text-[12px] text-foreground focus:outline-hidden focus:ring-2 focus:ring-ring/60"
             >
               {catOptions.map(c => (
                 <option key={c.id} value={c.id}>{c.name}</option>
@@ -243,7 +247,7 @@ export function TransactionsView({
             <Button
               variant="ghost"
               size="sm"
-              className="h-11 w-11 sm:h-9 sm:w-9 p-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+              className="h-11 w-11 xl:h-9 xl:w-9 p-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
               onClick={() => navigateMonth('prev')}
               aria-label="Previous month"
             >
@@ -255,7 +259,7 @@ export function TransactionsView({
             <Button
               variant="ghost"
               size="sm"
-              className="h-11 w-11 sm:h-9 sm:w-9 p-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+              className="h-11 w-11 xl:h-9 xl:w-9 p-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
               onClick={() => navigateMonth('next')}
               disabled={isCurrentMonth}
               aria-label="Next month"
@@ -274,12 +278,12 @@ export function TransactionsView({
 
       {/* Table */}
       <Card className="overflow-hidden p-0 rounded-xl">
-        <div aria-hidden="true" className="hidden sm:grid grid-cols-[100px_1fr_180px_120px_140px_40px] px-5 py-2.5 text-[10.5px] uppercase tracking-[0.08em] text-muted-foreground font-medium border-b border-border bg-secondary/30">
+        <div aria-hidden="true" className="hidden sm:grid grid-cols-[90px_1fr_130px_32px] lg:grid-cols-[100px_1fr_180px_120px_140px_40px] px-5 py-2.5 text-[10.5px] uppercase tracking-[0.08em] text-muted-foreground font-medium border-b border-border bg-secondary/30">
           <div>Date</div>
           <div>Description</div>
-          <div>Category</div>
+          <div className="hidden lg:block">Category</div>
           <div className="text-right">Amount</div>
-          <div className="text-right">In HUF</div>
+          <div className="hidden lg:block text-right">In HUF</div>
           <div />
         </div>
 
@@ -318,7 +322,7 @@ export function TransactionsView({
                     disabled={isOptimistic}
                     className={cn(
                       'w-full grid items-center px-4 sm:px-5 py-3 border-b border-border last:border-b-0 hover:bg-accent/50 text-left transition-colors',
-                      'grid-cols-[1fr_auto_auto] sm:grid-cols-[100px_1fr_180px_120px_140px_40px]',
+                      'grid-cols-[1fr_auto_auto] sm:grid-cols-[90px_1fr_130px_32px] lg:grid-cols-[100px_1fr_180px_120px_140px_40px]',
                       isOptimistic && 'opacity-60 pointer-events-none',
                     )}
                   >
@@ -327,10 +331,10 @@ export function TransactionsView({
                       {fmtDate(tx.date, { short: true })}
                     </div>
                     {/* Description — always; mobile shows date+category as subtext */}
-                    <div className="min-w-0 flex flex-col sm:flex-row sm:items-center gap-0.5 sm:gap-2 text-[13px]">
+                    <div className="min-w-0 flex flex-col lg:flex-row lg:items-center gap-0.5 lg:gap-2 text-[13px]">
                       <div className="flex items-center gap-1.5 min-w-0">
                         <span
-                          className="sm:hidden w-2 h-2 rounded-full shrink-0"
+                          className="lg:hidden w-2 h-2 rounded-full shrink-0"
                           style={{ background: tx.category.color }}
                         />
                         <span className="truncate">{tx.description}</span>
@@ -338,14 +342,14 @@ export function TransactionsView({
                           <RepeatIcon className="w-3 h-3 text-muted-foreground shrink-0" />
                         )}
                       </div>
-                      <div className="sm:hidden text-[11px] text-muted-foreground flex items-center gap-1 pl-3.5">
-                        <span className="mono">{fmtDate(tx.date, { short: true })}</span>
-                        <span className="text-border">·</span>
+                      <div className="lg:hidden text-[11px] text-muted-foreground flex items-center gap-1 pl-3.5">
+                        <span className="sm:hidden mono">{fmtDate(tx.date, { short: true })}</span>
+                        <span className="sm:hidden text-border">·</span>
                         <span className="truncate">{tx.category.name}</span>
                       </div>
                     </div>
                     {/* Category pill — desktop only */}
-                    <div className="hidden sm:flex">
+                    <div className="hidden lg:flex">
                       <span
                         className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium border border-border/60"
                         style={{ color: tx.category.color }}
@@ -365,12 +369,12 @@ export function TransactionsView({
                         tone={tone}
                         size="sm"
                       />
-                      <div className="sm:hidden text-[10.5px] text-muted-foreground tabular mt-0.5">
+                      <div className="lg:hidden text-[10.5px] text-muted-foreground tabular mt-0.5">
                         {Math.round(Math.abs(huf)).toLocaleString('hu-HU').replace(/,/g, ' ')} Ft
                       </div>
                     </div>
                     {/* HUF — desktop only */}
-                    <div className="hidden sm:block text-right tabular text-[12px] text-muted-foreground">
+                    <div className="hidden lg:block text-right tabular text-[12px] text-muted-foreground">
                       {Math.round(Math.abs(huf)).toLocaleString('hu-HU').replace(/,/g, ' ')} Ft
                     </div>
                     {/* Chevron — always */}
