@@ -122,18 +122,15 @@ export function CategoriesView({ categories, anchorCurrency = 'HUF' }: Props) {
   }
 
   return (
-    <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 max-w-[960px] mx-auto space-y-5 sm:space-y-6">
-      <div className="flex items-end justify-between">
-        <div>
-          <h1 className="text-[22px] font-semibold tracking-tight">Categories</h1>
-          <div className="text-[12.5px] text-muted-foreground mt-1">
-            {categories.length} categories · 3 kinds
-          </div>
+    <div className="px-4 lg:px-7 pb-9 pt-1 max-w-[960px] mx-auto space-y-5">
+      <div className="flex items-center justify-between">
+        <div className="text-[12.5px] text-muted-foreground">
+          {categories.length} categories · 3 kinds
         </div>
         <button
           type="button"
           onClick={() => openNew('EXPENSE')}
-          className="inline-flex items-center gap-2 h-9 px-4 rounded-full bg-primary text-primary-foreground font-medium text-[13px] hover:opacity-90 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+          className="inline-flex items-center gap-2 h-9 px-4 rounded-[10px] bg-primary text-primary-foreground font-medium text-[12.5px] hover:opacity-90 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
         >
           <Plus className="w-3.5 h-3.5" /> New category
         </button>
@@ -151,7 +148,7 @@ export function CategoriesView({ categories, anchorCurrency = 'HUF' }: Props) {
               <span className="mono text-[11px] text-muted-foreground">{list.length}</span>
               <div className="flex-1 h-px bg-border ml-2" />
             </div>
-            <div className="bg-card border border-border rounded-xl divide-y divide-border overflow-hidden">
+            <div className="calm-card divide-y divide-border/40 overflow-hidden">
               {list.map((c) => (
                 <div
                   key={c.id}
