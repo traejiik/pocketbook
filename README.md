@@ -109,7 +109,7 @@ other/                Design reference, mockups, handoff notes
 
 Data flow: server components fetch from Prisma directly -> pass props -> Server Actions mutate -> `revalidatePath` refreshes. Cron-callable API routes handle FX sync, monthly insights, and recurring rule reconciliation. No client-side data fetching for initial renders.
 
-Responsive layout: mobile stays on the bottom nav + FAB. The `sm` and `md` tablet bands use a 64px icon-rail sidebar, touch-sized header/form controls, and tablet-specific grid/table layouts. The full 220px sidebar and dense desktop tables return at `lg`, while `xl` preserves the mockup-derived desktop density.
+Responsive layout: mobile `<768px` uses a sticky top bar, bottom nav, More sheet, and FAB. Tablet `768–1023px` uses a collapsible 76px/232px rail with touch-sized controls. The full 224px sidebar and desktop header/content spans return at `lg`, while `xl` preserves the mockup-derived desktop density.
 
 Design-system authority:
 

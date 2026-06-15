@@ -15,7 +15,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${sans.variable} ${mono.variable} dark`} suppressHydrationWarning>
+    <html lang="en" className={`${sans.variable} ${mono.variable} dark shell-twotone`} suppressHydrationWarning>
       <body className="font-sans bg-background text-foreground">
         <ThemeProvider attribute="class" defaultTheme="dark">
           <a

@@ -13,27 +13,47 @@ function occurrences(haystack: string, needle: string) {
 }
 
 describe('tablet breakpoint contract', () => {
-  test('shell uses an icon rail until the full desktop breakpoint', () => {
+  test('shell swaps mobile, tablet rail, and desktop sidebar at v5 breakpoints', () => {
+    const appShell = source('components/shell/AppShell.tsx');
     const sidebar = source('components/shell/Sidebar.tsx');
+    const tabletRail = source('components/shell/TabletRail.tsx');
+    const mobileNav = source('components/shell/MobileNav.tsx');
+    const mobileTopBar = source('components/shell/MobileTopBar.tsx');
     const header = source('components/shell/Header.tsx');
 
-    expect(sidebar).toContain('hidden sm:flex w-16 lg:w-[220px]');
-    expect(sidebar).toContain("import { LogoMark } from '@/components/shell/LogoMark';");
-    expect(sidebar).toContain('hidden lg:block h-9 w-auto');
-    expect(sidebar).toContain('<LogoMark size={24} className="lg:hidden text-primary" />');
-    expect(sidebar).toContain('hidden lg:block flex-1 text-left');
-    expect(sidebar).toContain('hidden lg:inline-flex');
-    expect(sidebar).toContain('lg:hidden absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-warning');
-    expect(sidebar).toContain('title={item.label}');
-    expect(sidebar).toContain('aria-label={item.label}');
-    expect(sidebar).toContain('justify-center p-2 lg:justify-start lg:gap-2.5 lg:pl-2.5 lg:pr-2 lg:py-2');
-    expect(sidebar).toContain('justify-center lg:justify-start lg:gap-2 px-0 lg:px-3');
-    expect(sidebar).toContain('min-h-11 lg:min-h-0');
-    expect(sidebar).toContain('title="Quick add"');
-    expect(sidebar).toContain('aria-label="Quick add (N)"');
+    expect(appShell).toContain('w-full h-dvh flex flex-col md:flex-row');
+    expect(appShell).toContain('className="hidden md:flex lg:hidden"');
+    expect(appShell).toContain('className="hidden lg:flex"');
+    expect(appShell).toContain('<Header displayName={displayName} className="hidden md:flex" />');
+    expect(appShell).toContain('<MobileTopBar displayName={displayName} />');
+    expect(appShell).toContain('pb-24 md:pb-0');
 
-    expect(occurrences(header, 'hidden lg:block')).toBeGreaterThanOrEqual(2);
-    expect(header).toContain('w-11 h-11 xl:w-9 xl:h-9');
+    expect(tabletRail).toContain("const STORAGE_KEY = 'pb-rail-collapsed';");
+    expect(tabletRail).toContain("collapsed ? 'w-[76px]' : 'w-[232px]'");
+    expect(tabletRail).toContain("collapsed ? 'justify-center' : 'gap-2.5 px-3'");
+    expect(tabletRail).toContain('aria-label={collapsed ? \'Expand sidebar\' : \'Collapse sidebar\'}');
+    expect(tabletRail).toContain('absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-warning');
+
+    expect(sidebar).toContain("'w-[224px] shrink-0 flex flex-col pt-5 pb-4 px-3 bg-card border-r border-border/55'");
+    expect(sidebar).toContain("import { LogoMark } from '@/components/shell/LogoMark';");
+    expect(sidebar).toContain('text-[15px] font-semibold tracking-tight');
+    expect(sidebar).toContain('renewal-badge mono text-[10.5px] tabular');
+    expect(sidebar).toContain('aria-label="Add transaction (N)"');
+
+    expect(mobileNav).toContain('md:hidden fixed bottom-0 inset-x-0');
+    expect(mobileNav).toContain('Home');
+    expect(mobileNav).toContain('Txns');
+    expect(mobileNav).toContain('Recurring');
+    expect(mobileNav).toContain('More');
+    expect(mobileNav).toContain('side="bottom"');
+    expect(mobileNav).toContain('max-w-[402px]');
+
+    expect(mobileTopBar).toContain('md:hidden sticky top-0');
+    expect(header).toContain('h-[68px] shrink-0 items-center gap-4 pl-7 pr-6');
+    expect(header).toContain('w-[148px] shrink-0');
+    expect(header).toContain('max-w-[400px]');
+    expect(header).toContain('<NotificationsBell />');
+    expect(header).toContain('<ProfileMenu displayName={displayName} />');
   });
 
   test('dashboard restores desktop spans at lg while keeping tablet rows balanced', () => {

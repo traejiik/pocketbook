@@ -1,6 +1,7 @@
 import { SessionProvider } from 'next-auth/react';
 import { AppShell } from '@/components/shell/AppShell';
 import { TransactionSheetProvider } from '@/contexts/sheet-context';
+import { NotificationsProvider } from '@/contexts/notifications-context';
 import { getUpcomingRenewals } from '@/lib/aggregations';
 import { prisma } from '@/lib/prisma';
 import type { SerializedCategory, SerializedRecurringRule } from '@/components/forms/TransactionForm';
@@ -28,17 +29,19 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <SessionProvider>
-      <TransactionSheetProvider>
-        <AppShell
-          upcomingRenewalsCount={renewals.length}
-          categories={serialisedCategories}
-          recurringRules={serialisedRules}
-          fxRates={fxRates}
-          displayName={process.env.PB_USER_DISPLAY_NAME ?? 'User'}
-        >
-          {children}
-        </AppShell>
-      </TransactionSheetProvider>
+      <NotificationsProvider renewalsCount={renewals.length}>
+        <TransactionSheetProvider>
+          <AppShell
+            upcomingRenewalsCount={renewals.length}
+            categories={serialisedCategories}
+            recurringRules={serialisedRules}
+            fxRates={fxRates}
+            displayName={process.env.PB_USER_DISPLAY_NAME ?? 'User'}
+          >
+            {children}
+          </AppShell>
+        </TransactionSheetProvider>
+      </NotificationsProvider>
     </SessionProvider>
   );
 }

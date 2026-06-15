@@ -3,30 +3,19 @@
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import { usePathname } from 'next/navigation';
 import { toast } from 'sonner';
-import { Plus } from 'lucide-react';
+import { Repeat2 } from 'lucide-react';
 import { Sidebar } from './Sidebar';
+import { TabletRail } from './TabletRail';
 import { Header } from './Header';
+import { MobileTopBar } from './MobileTopBar';
 import { MobileNav } from './MobileNav';
 import { useTransactionSheet } from '@/contexts/sheet-context';
-import { FabProvider, useFabContext } from '@/contexts/fab-context';
+import { FabProvider } from '@/contexts/fab-context';
+import { useNotifications } from '@/contexts/notifications-context';
 import { useGlobalKeys } from '@/hooks/use-global-keys';
 import { TransactionForm, type SerializedCategory, type SerializedRecurringRule } from '@/components/forms/TransactionForm';
 import { upsertTransaction, type TxInput } from '@/server-actions/transactions';
 import { syncDueRecurringRulesAction } from '@/server-actions/recurring-sync';
-
-function FabButton({ defaultAction, pathname }: { defaultAction: () => void; pathname: string }) {
-  const { fabAction } = useFabContext();
-  if (pathname.startsWith('/settings')) return null;
-  return (
-    <button
-      onClick={fabAction ?? defaultAction}
-      aria-label="Add"
-      className="sm:hidden fixed bottom-21 right-4 z-40 w-14 h-14 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-xl transition hover:opacity-90 active:scale-95"
-    >
-      <Plus className="w-6 h-6" />
-    </button>
-  );
-}
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -37,8 +26,16 @@ interface AppShellProps {
   displayName?: string;
 }
 
-export function AppShell({ children, upcomingRenewalsCount = 0, categories, recurringRules, fxRates, displayName }: AppShellProps) {
+export function AppShell({
+  children,
+  upcomingRenewalsCount = 0,
+  categories,
+  recurringRules,
+  fxRates,
+  displayName,
+}: AppShellProps) {
   const { openNew, close } = useTransactionSheet();
+  const { push } = useNotifications();
   const pathname = usePathname();
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [, startTransition] = useTransition();
@@ -52,7 +49,9 @@ export function AppShell({ children, upcomingRenewalsCount = 0, categories, recu
       try {
         const result = await syncDueRecurringRulesAction();
         if (!cancelled && result.transactionsCreated > 0) {
-          toast.success(`Logged ${result.transactionsCreated} recurring transaction${result.transactionsCreated === 1 ? '' : 's'}.`);
+          const msg = `Logged ${result.transactionsCreated} recurring transaction${result.transactionsCreated === 1 ? '' : 's'}.`;
+          toast.success(msg);
+          push(msg, Repeat2);
         }
       } catch {
         // Cron also runs recurring sync; app-open sync is a quiet safety net.
@@ -62,7 +61,7 @@ export function AppShell({ children, upcomingRenewalsCount = 0, categories, recu
     return () => {
       cancelled = true;
     };
-  }, [startTransition]);
+  }, [startTransition, push]);
 
   function handleFormSubmit(input: TxInput, _category: SerializedCategory) {
     startTransition(async () => {
@@ -81,14 +80,28 @@ export function AppShell({ children, upcomingRenewalsCount = 0, categories, recu
 
   return (
     <FabProvider>
-      <div className="w-full h-dvh bg-background text-foreground flex flex-col sm:flex-row overflow-hidden sm:p-3 sm:gap-3">
-        <Sidebar upcomingRenewalsCount={upcomingRenewalsCount} onQuickAdd={openNew} />
-        <div className="flex-1 flex flex-col sm:gap-3 overflow-hidden min-h-0">
-          <Header upcomingRenewalsCount={upcomingRenewalsCount} displayName={displayName} />
-          <main id="main-content" className="flex-1 overflow-auto relative pb-16 sm:pb-0">{children}</main>
+      <div className="w-full h-dvh flex flex-col md:flex-row overflow-hidden bg-background text-foreground">
+        <TabletRail
+          upcomingRenewalsCount={upcomingRenewalsCount}
+          onQuickAdd={openNew}
+          className="hidden md:flex lg:hidden"
+        />
+        <Sidebar
+          upcomingRenewalsCount={upcomingRenewalsCount}
+          onQuickAdd={openNew}
+          className="hidden lg:flex"
+        />
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-background">
+          <Header displayName={displayName} className="hidden md:flex" />
+          <MobileTopBar displayName={displayName} />
+          <main
+            id="main-content"
+            className="flex-1 overflow-auto pt-2 pb-24 md:pb-0"
+          >
+            {children}
+          </main>
         </div>
-        <MobileNav />
-        <FabButton defaultAction={openNew} pathname={pathname} />
+        <MobileNav onAdd={openNew} upcomingRenewalsCount={upcomingRenewalsCount} />
         {showGlobalSheet && (
           <TransactionForm
             categories={categories}

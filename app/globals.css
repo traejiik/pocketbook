@@ -56,77 +56,89 @@
   --shadow-pb-3: var(--shadow-3);
 }
 
-/* ── Light theme ── */
+/* ── Light theme (v5) ── */
 :root {
-  --background: 30 14% 97%;
-  --foreground: 240 8% 10%;
+  --background: 240 12% 97%;
+  --foreground: 240 9% 12%;
   --card: 0 0% 100%;
-  --card-foreground: 240 8% 10%;
+  --card-foreground: 240 9% 12%;
   --popover: 0 0% 100%;
-  --popover-foreground: 240 8% 10%;
-  --primary: 220 90% 56%;
+  --popover-foreground: 240 9% 12%;
+  --primary: 224 70% 52%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 240 5% 94%;
-  --secondary-foreground: 240 8% 14%;
-  --muted: 240 5% 94%;
-  --muted-foreground: 240 4% 42%;
-  --accent: 240 5% 92%;
-  --accent-foreground: 240 8% 14%;
+  --secondary: 240 8% 93.5%;
+  --secondary-foreground: 240 9% 14%;
+  --muted: 240 8% 93.5%;
+  --muted-foreground: 240 5% 46%;
+  --accent: 240 8% 92%;
+  --accent-foreground: 240 9% 14%;
   --destructive: 6 78% 50%;
   --destructive-foreground: 0 0% 100%;
-  --success: 145 55% 38%;
+  --success: 152 45% 36%;
   --success-foreground: 0 0% 100%;
-  --border: 240 6% 88%;
-  --input: 240 6% 88%;
-  --ring: 220 90% 56%;
+  --border: 240 8% 87%;
+  --input: 240 8% 87%;
+  --ring: 224 70% 52%;
 
-  --income: 152 55% 38%;
-  --expense: 14 80% 50%;
-  --savings: 265 55% 50%;
-  --neutral: 240 4% 42%;
+  --income: 152 45% 36%;
+  --expense: 14 72% 48%;
+  --savings: 252 52% 56%;
+  --neutral: 240 5% 46%;
   --warning: 38 90% 47%;
   --warning-foreground: 0 0% 100%;
 
   --radius: 0.625rem;
-  --shadow-1: 0 1px 0 rgba(15, 18, 23, 0.04), 0 1px 2px rgba(15, 18, 23, 0.06);
-  --shadow-2: 0 4px 14px rgba(15, 18, 23, 0.08);
-  --shadow-3: 0 18px 50px rgba(15, 18, 23, 0.18);
+  --shadow-1: 0 1px 2px rgba(20, 22, 28, 0.06);
+  --shadow-2: 0 8px 28px rgba(20, 22, 28, 0.14);
+  --shadow-3: 0 18px 50px rgba(20, 22, 28, 0.16);
 }
 
-/* ── Dark theme ── */
+/* ── Dark theme (v5, default) ── */
 .dark {
-  --background: 230 10% 6%;
-  --foreground: 0 0% 96%;
-  --card: 232 9% 8.5%;
-  --card-foreground: 0 0% 96%;
-  --popover: 232 9% 9%;
-  --popover-foreground: 0 0% 96%;
-  --primary: 220 95% 66%;
-  --primary-foreground: 230 30% 8%;
-  --secondary: 232 8% 13%;
-  --secondary-foreground: 0 0% 96%;
-  --muted: 232 8% 13%;
-  --muted-foreground: 232 6% 60%;
-  --accent: 232 8% 14%;
-  --accent-foreground: 0 0% 96%;
+  --background: 228 9% 7%;
+  --foreground: 40 8% 96%;
+  --card: 228 8% 10%;
+  --card-foreground: 40 8% 96%;
+  --popover: 228 8% 11%;
+  --popover-foreground: 40 8% 96%;
+  --primary: 224 78% 71%;
+  --primary-foreground: 230 25% 10%;
+  --secondary: 228 7% 13.5%;
+  --secondary-foreground: 40 8% 96%;
+  --muted: 228 7% 13.5%;
+  --muted-foreground: 228 6% 60%;
+  --accent: 228 7% 12%;
+  --accent-foreground: 40 8% 96%;
   --destructive: 6 80% 60%;
   --destructive-foreground: 0 0% 100%;
-  --success: 152 60% 50%;
+  --success: 152 42% 55%;
   --success-foreground: 0 0% 8%;
-  --border: 232 8% 16%;
-  --input: 232 8% 16%;
-  --ring: 220 95% 66%;
+  --border: 228 7% 17%;
+  --input: 228 7% 17%;
+  --ring: 224 78% 71%;
 
-  --income: 152 60% 52%;
-  --expense: 14 85% 64%;
-  --savings: 265 65% 68%;
-  --neutral: 232 6% 60%;
+  --income: 152 42% 55%;
+  --expense: 14 70% 66%;
+  --savings: 252 60% 75%;
+  --neutral: 228 6% 60%;
   --warning: 38 90% 60%;
   --warning-foreground: 24 9% 10%;
 
-  --shadow-1: 0 1px 0 rgba(0, 0, 0, 0.5), 0 1px 2px rgba(0, 0, 0, 0.45);
-  --shadow-2: 0 6px 16px rgba(0, 0, 0, 0.45);
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-2: 0 10px 32px rgba(0, 0, 0, 0.5);
   --shadow-3: 0 22px 60px rgba(0, 0, 0, 0.55);
+}
+
+/* ── Two-tone shell: sidebar/cards on one tone, header+content well on another.
+   Applied on <html> alongside `dark`; overrides only --background and --card so
+   portaled popovers/dialogs/toasts inherit the same card tone. ── */
+.shell-twotone {
+  --background: 240 10% 95%;
+  --card: 0 0% 100%;
+}
+.dark.shell-twotone {
+  --background: 228 10% 6%;
+  --card: 228 9% 9%;
 }
 
 @layer base {
@@ -184,6 +196,19 @@
 
   .pb-card-hover:hover {
     border-color: hsl(var(--ring) / 0.5);
+  }
+
+  /* v5 card: 16px radius, hairline border at ~50% opacity instead of heavy shadow. */
+  .calm-card {
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--border) / 0.5);
+    border-radius: 16px;
+  }
+
+  /* Shared renewal/installment badge styling using the warning semantic token. */
+  .renewal-badge {
+    background: hsl(var(--warning) / 0.13);
+    color: hsl(var(--warning));
   }
 }
 

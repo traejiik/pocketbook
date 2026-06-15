@@ -1,140 +1,65 @@
 'use client';
 
-import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useTheme } from 'next-themes';
-import { useState, useEffect } from 'react';
-import {
-  LayoutDashboard,
-  List,
-  Repeat2,
-  CalendarDays,
-  Tag,
-  Sparkles,
-  Settings,
-  Plus,
-} from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { LogoMark } from '@/components/shell/LogoMark';
-
-const NAV = [
-  { id: 'dashboard',    label: 'Dashboard',   icon: LayoutDashboard },
-  { id: 'transactions', label: 'Transactions', icon: List },
-  { id: 'recurring',    label: 'Recurring',    icon: Repeat2 },
-  { id: 'renewals',     label: 'Renewals',     icon: CalendarDays },
-  { id: 'categories',   label: 'Categories',   icon: Tag },
-  { id: 'insights',     label: 'AI Insights',  icon: Sparkles },
-  { id: 'settings',     label: 'Settings',     icon: Settings },
-];
+import { NAV, navIdForPath } from '@/components/shell/nav';
 
 interface SidebarProps {
   upcomingRenewalsCount?: number;
   onQuickAdd?: () => void;
+  className?: string;
 }
 
-export function Sidebar({ upcomingRenewalsCount = 1, onQuickAdd }: SidebarProps) {
+// Desktop sidebar (lg+): 224px, two-tone (card tone) with hairline right edge.
+export function Sidebar({ upcomingRenewalsCount = 0, onQuickAdd, className }: SidebarProps) {
   const pathname = usePathname();
-  const { resolvedTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-  const wordmark = mounted && resolvedTheme === 'light' ? '/wordmark-light.svg' : '/wordmark-dark.svg';
+  const activeId = navIdForPath(pathname);
 
   return (
-    <aside className="hidden sm:flex w-16 lg:w-[220px] shrink-0 bg-card border border-border rounded-2xl flex-col overflow-hidden relative">
-      {/* Decorative radial gradient */}
-      <svg
-        className="absolute inset-0 w-full h-full pointer-events-none"
-        preserveAspectRatio="none"
-        viewBox="0 0 220 800"
-        aria-hidden
-      >
-        <defs>
-          <radialGradient id="sb-glow-top" cx="20%" cy="0%" r="80%">
-            <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="0.09" />
-            <stop offset="60%" stopColor="hsl(var(--primary))" stopOpacity="0" />
-          </radialGradient>
-          <radialGradient id="sb-glow-bot" cx="100%" cy="100%" r="70%">
-            <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="0.05" />
-            <stop offset="70%" stopColor="hsl(var(--primary))" stopOpacity="0" />
-          </radialGradient>
-        </defs>
-        <rect width="220" height="800" fill="url(#sb-glow-top)" />
-        <rect width="220" height="800" fill="url(#sb-glow-bot)" />
-        <path
-          d="M -20 380 Q 80 360, 120 420 T 260 480"
-          fill="none"
-          stroke="hsl(var(--primary))"
-          strokeOpacity="0.06"
-          strokeWidth="40"
-          strokeLinecap="round"
-        />
-      </svg>
-
-      {/* Logo / branding */}
-      <div className="relative px-3 pt-5 pb-3 flex items-center justify-center lg:justify-start">
-        <Image
-            src={wordmark}
-            alt="Pocketbook"
-            width={0}
-            height={0}
-            sizes="100vw"
-            priority
-            className="hidden lg:block h-9 w-auto"
-            style={{ minWidth: '90%' }}
-          />
-        <LogoMark size={24} className="lg:hidden text-primary" />
+    <aside
+      className={cn(
+        'w-[224px] shrink-0 flex flex-col pt-5 pb-4 px-3 bg-card border-r border-border/55',
+        className,
+      )}
+    >
+      {/* Brand */}
+      <div className="flex items-center gap-2.5 px-2.5">
+        <LogoMark size={24} className="text-primary h-[22px] w-[22px]" />
+        <span className="text-[15px] font-semibold tracking-tight">Pocketbook</span>
       </div>
 
-      {/* Section label */}
-      <div className="hidden lg:block relative px-3 mt-2 mb-1.5">
-        <div className="text-[11px] font-mono uppercase tracking-[0.12em] text-muted-foreground pl-2.5">
-          Workspace
-        </div>
-      </div>
-
-      {/* Nav items */}
-      <nav className="relative px-2 flex-1 space-y-0.5">
+      {/* Nav */}
+      <nav className="mt-8 flex-1 flex flex-col gap-0.5">
         {NAV.map((item) => {
-          const active = pathname.startsWith(`/${item.id}`);
+          const active = activeId === item.id;
           const Icon = item.icon;
+          const showBadge = item.id === 'renewals' && upcomingRenewalsCount > 0;
           return (
             <Link
               key={item.id}
               href={`/${item.id}`}
               aria-current={active ? 'page' : undefined}
-              title={item.label}
-              aria-label={item.label}
               className={cn(
-                'group w-full flex items-center justify-center p-2 lg:justify-start lg:gap-2.5 lg:pl-2.5 lg:pr-2 lg:py-2 rounded-full text-[12.5px] transition-all relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
+                'group w-full flex items-center gap-2.5 px-3 py-[8.5px] rounded-[10px] text-[13px] transition-colors text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
                 active
-                  ? 'bg-primary text-primary-foreground font-medium shadow-pb-1'
-                  : 'text-foreground/70 hover:text-foreground hover:bg-accent/60',
+                  ? 'bg-primary/15 text-foreground font-medium'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-accent/70',
               )}
             >
               <span
                 className={cn(
-                  'relative w-7 h-7 rounded-full flex items-center justify-center transition-colors shrink-0',
-                  active
-                    ? 'bg-white/15'
-                    : 'bg-secondary/60 border border-border group-hover:border-ring/30',
+                  'w-[18px] h-[18px] flex items-center justify-center shrink-0',
+                  active && 'text-primary',
                 )}
               >
-                <Icon className="w-3.5 h-3.5" />
-                {item.id === 'renewals' && upcomingRenewalsCount > 0 && (
-                  <span className="lg:hidden absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-warning" />
-                )}
+                <Icon className="w-4 h-4" />
               </span>
-              <span className="hidden lg:block flex-1 text-left">{item.label}</span>
-              {item.id === 'renewals' && upcomingRenewalsCount > 0 && (
-                <span
-                  className={cn(
-                    'hidden lg:inline-flex font-mono text-[10px] rounded-full px-1.5 py-0.5 leading-none',
-                    active
-                      ? 'bg-white/20 text-white'
-                      : 'bg-warning/15 text-warning border border-warning/30',
-                  )}
-                >
+              <span className="flex-1">{item.label}</span>
+              {showBadge && (
+                <span className="renewal-badge mono text-[10.5px] tabular rounded-full px-[7px] py-[2.5px] leading-none">
                   {upcomingRenewalsCount}
                 </span>
               )}
@@ -143,24 +68,19 @@ export function Sidebar({ upcomingRenewalsCount = 1, onQuickAdd }: SidebarProps)
         })}
       </nav>
 
-      {/* Quick add footer */}
-      <div className="relative px-3 pb-3 mt-2">
-        <button
-          type="button"
-          onClick={onQuickAdd}
-          title="Quick add"
-          aria-label="Quick add (N)"
-          className="w-full flex items-center justify-center lg:justify-start lg:gap-2 px-0 lg:px-3 py-2 min-h-11 lg:min-h-0 rounded-full bg-secondary/80 border border-border hover:border-ring/40 text-[12px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-        >
-          <span className="w-5 h-5 rounded-full bg-primary/15 border border-primary/30 flex items-center justify-center text-primary shrink-0">
-            <Plus className="w-3 h-3" />
-          </span>
-          <span className="hidden lg:block text-foreground/80">Quick add</span>
-          <span className="hidden lg:inline ml-auto font-mono text-[10px] text-muted-foreground border border-border rounded px-1">
-            N
-          </span>
-        </button>
-      </div>
+      {/* Add transaction — shell-owned primary action with N hint */}
+      <button
+        type="button"
+        onClick={onQuickAdd}
+        aria-label="Add transaction (N)"
+        className="w-full flex items-center justify-center gap-2 h-9 rounded-[10px] bg-primary text-primary-foreground text-[12.5px] font-medium hover:opacity-90 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+      >
+        <Plus className="w-3.5 h-3.5" />
+        <span>Add transaction</span>
+        <span className="mono text-[10px] rounded px-[5px] py-px ml-0.5 border border-primary-foreground/35 opacity-85">
+          N
+        </span>
+      </button>
     </aside>
   );
 }
