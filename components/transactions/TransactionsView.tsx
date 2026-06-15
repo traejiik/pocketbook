@@ -3,19 +3,15 @@
 import { useState, useOptimistic, startTransition, useMemo, useCallback, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { format, subMonths, addMonths } from 'date-fns';
-import { SearchIcon, ChevronRightIcon, ChevronLeftIcon, ChevronDownIcon, RepeatIcon, DownloadIcon, PlusIcon } from 'lucide-react';
+import { SearchIcon, ChevronRightIcon, ChevronLeftIcon, ChevronDownIcon, RepeatIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { upsertTransaction, type TxInput } from '@/server-actions/transactions';
 import { useTransactionSheet, type EditingTx } from '@/contexts/sheet-context';
-import { fmtAnchor, fmtDate, dayOfWeek } from '@/lib/format';
+import { fmtAnchor, fmtCur, fmtDate, dayOfWeek } from '@/lib/format';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card } from '@/components/ui/card';
 import { Segmented } from '@/components/ui/segmented';
-import { Empty } from '@/components/ui/empty';
-import { AmountDisplay } from '@/components/finance/AmountDisplay';
+import { CalmCard } from '@/components/finance/CalmCard';
 import { TransactionForm, type SerializedCategory, type SerializedRecurringRule } from '@/components/forms/TransactionForm';
 
 export interface SerializedTx {
@@ -51,6 +47,8 @@ function toHUF(tx: SerializedTx, rates: { USD: number; EUR: number; GBP: number 
   return tx.amount * rate;
 }
 
+const ROW_GRID = 'lg:grid-cols-[100px_1fr_190px_130px_120px_32px]';
+
 export function TransactionsView({
   transactions,
   categories,
@@ -60,7 +58,7 @@ export function TransactionsView({
   currentMonthISO,
   anchorCurrency = 'HUF',
 }: TransactionsViewProps) {
-  const { openNew, openEdit } = useTransactionSheet();
+  const { openEdit } = useTransactionSheet();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -75,6 +73,7 @@ export function TransactionsView({
     params.set('month', format(target, 'yyyy-MM'));
     router.push(`/transactions?${params.toString()}`);
   }
+
   const [search, setSearch] = useState(() => searchParams.get('q') ?? '');
   const [typeFilter, setTypeFilter] = useState<TypeFilter>(() => {
     const t = searchParams.get('type');
@@ -88,6 +87,7 @@ export function TransactionsView({
     if (t === 'INCOME' || t === 'EXPENSE' || t === 'SAVINGS') setTypeFilter(t);
     else setTypeFilter('all');
   }, [searchParams]);
+
   const [catFilter, setCatFilter] = useState('all');
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
@@ -102,9 +102,6 @@ export function TransactionsView({
     },
   );
 
-  // Receives validated form data from TransactionForm; dispatches optimistic row
-  // and fires the server action inside a single startTransition so React treats
-  // them as part of the same update.
   const handleFormSubmit = useCallback(
     (input: TxInput, category: SerializedCategory) => {
       const signedAmount = input.type === 'INCOME' ? input.amount : -input.amount;
@@ -138,12 +135,11 @@ export function TransactionsView({
     return optimisticTxs.filter(t => {
       if (typeFilter !== 'all' && t.type !== typeFilter) return false;
       if (catFilter !== 'all' && t.categoryId !== catFilter) return false;
-      if (q && !t.description.toLowerCase().includes(q)) return false;
+      if (q && !t.description.toLowerCase().includes(q) && !t.category.name.toLowerCase().includes(q)) return false;
       return true;
     });
   }, [optimisticTxs, search, typeFilter, catFilter]);
 
-  // Group by date, preserving sort order from the optimistic array
   const groups = useMemo(() => {
     const map = new Map<string, SerializedTx[]>();
     for (const t of filtered) {
@@ -186,129 +182,121 @@ export function TransactionsView({
   }
 
   return (
-    <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4 sm:space-y-5 max-w-[1240px] mx-auto">
-      {/* Page header */}
-      <div className="flex items-end justify-between">
-        <div>
-          <h1 className="text-[22px] font-semibold tracking-tight">Transactions</h1>
-          <div className="text-[12.5px] text-muted-foreground mt-1">
-            {filtered.length} transactions · {monthLabel}
-          </div>
+    <div className="px-4 lg:px-7 pb-9 pt-1 max-w-[1320px] mx-auto">
+      {/* Filter row — blends with the page, no island */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <label className="flex items-center gap-2.5 h-9 px-3.5 rounded-[10px] bg-card border border-border/50 focus-within:border-ring/50 transition-colors w-full sm:w-[240px] cursor-text">
+          <SearchIcon className="w-[15px] h-[15px] text-muted-foreground shrink-0" />
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="flex-1 bg-transparent outline-none text-[12.5px] placeholder:text-muted-foreground/80 min-w-0"
+            placeholder="Search transactions…"
+          />
+        </label>
+
+        <Segmented
+          options={[
+            { label: 'All', value: 'all' as TypeFilter },
+            { label: 'Income', value: 'INCOME' as TypeFilter },
+            { label: 'Expense', value: 'EXPENSE' as TypeFilter },
+            { label: 'Savings', value: 'SAVINGS' as TypeFilter },
+          ]}
+          value={typeFilter}
+          onChange={setTypeFilter}
+        />
+
+        <div className="relative">
+          <select
+            value={catFilter}
+            onChange={e => setCatFilter(e.target.value)}
+            aria-label="Filter by category"
+            className="appearance-none h-9 pl-3.5 pr-8 rounded-[10px] bg-card border border-border/50 hover:border-border text-[12.5px] text-muted-foreground focus:outline-hidden focus:ring-2 focus:ring-ring/60 transition-colors"
+          >
+            {catOptions.map(c => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+          <ChevronDownIcon className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" disabled title="Coming soon" className="hidden sm:inline-flex">
-            <DownloadIcon className="w-3.5 h-3.5" />
-            Export CSV
-          </Button>
-          <Button size="sm" onClick={openNew}>
-            <PlusIcon className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Add transaction</span>
-          </Button>
+
+        <div className="flex items-center gap-1 ml-1">
+          <button
+            type="button"
+            onClick={() => navigateMonth('prev')}
+            aria-label="Previous month"
+            className="w-7 h-7 rounded-[8px] flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent/70 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+          >
+            <ChevronLeftIcon className="w-3.5 h-3.5" />
+          </button>
+          <span className="text-[13px] font-medium tabular px-1 min-w-[88px] text-center">{monthLabel}</span>
+          <button
+            type="button"
+            onClick={() => navigateMonth('next')}
+            disabled={isCurrentMonth}
+            aria-label="Next month"
+            className="w-7 h-7 rounded-[8px] flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent/70 transition-colors disabled:opacity-40 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+          >
+            <ChevronRightIcon className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        <div className="ml-auto mono text-[12px] text-muted-foreground">
+          Net:{' '}
+          <span className={cn('font-medium', net >= 0 ? 'text-income' : 'text-expense')}>
+            {fmtAnchor(net, anchorCurrency, { signed: true })}
+          </span>
         </div>
       </div>
 
-      {/* Filter bar */}
-      <Card className="p-3 flex flex-col xl:flex-row xl:items-center gap-2 rounded-xl">
-        <div className="flex flex-col md:flex-row md:items-center gap-2">
-          <div className="w-full md:flex-1 xl:flex-none xl:w-[260px]">
-            <Input
-              placeholder="Search transactions…"
-              icon={<SearchIcon className="w-4 h-4" />}
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-            />
-          </div>
-          <Segmented
-            className="self-start md:self-auto shrink-0"
-            options={[
-              { label: 'All', value: 'all' as TypeFilter },
-              { label: 'Income', value: 'INCOME' as TypeFilter },
-              { label: 'Expense', value: 'EXPENSE' as TypeFilter },
-              { label: 'Savings', value: 'SAVINGS' as TypeFilter },
-            ]}
-            value={typeFilter}
-            onChange={setTypeFilter}
-          />
-        </div>
-        <div className="flex items-center gap-2 flex-wrap xl:flex-1">
-          <div className="relative">
-            <select
-              value={catFilter}
-              onChange={e => setCatFilter(e.target.value)}
-              className="appearance-none h-10 xl:h-8 pl-3 pr-7 bg-secondary border border-border rounded-md text-base xl:text-[12px] text-foreground focus:outline-hidden focus:ring-2 focus:ring-ring/60"
-            >
-              {catOptions.map(c => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
-            <ChevronDownIcon className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
-          </div>
-          <div className="flex items-center gap-0.5">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-11 w-11 xl:h-9 xl:w-9 p-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-              onClick={() => navigateMonth('prev')}
-              aria-label="Previous month"
-            >
-              <ChevronLeftIcon className="w-4 h-4" />
-            </Button>
-            <span className="text-[12.5px] font-medium px-1 min-w-[88px] text-center tabular-nums">
-              {monthLabel}
-            </span>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-11 w-11 xl:h-9 xl:w-9 p-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-              onClick={() => navigateMonth('next')}
-              disabled={isCurrentMonth}
-              aria-label="Next month"
-            >
-              <ChevronRightIcon className="w-4 h-4" />
-            </Button>
-          </div>
-          <div className="hidden sm:flex ml-auto text-[11.5px] text-muted-foreground mono whitespace-nowrap">
-            Net:{' '}
-            <span className={cn('font-medium ml-1', net >= 0 ? 'text-income' : 'text-expense')}>
-              {fmtAnchor(net, anchorCurrency, { signed: true })}
-            </span>
-          </div>
-        </div>
-      </Card>
-
-      {/* Table */}
-      <Card className="overflow-hidden p-0 rounded-xl">
-        <div aria-hidden="true" className="hidden sm:grid grid-cols-[90px_1fr_130px_32px] lg:grid-cols-[100px_1fr_180px_120px_140px_40px] px-5 py-2.5 text-[10.5px] uppercase tracking-[0.08em] text-muted-foreground font-medium border-b border-border bg-secondary/30">
-          <div>Date</div>
-          <div>Description</div>
-          <div className="hidden lg:block">Category</div>
-          <div className="text-right">Amount</div>
-          <div className="hidden lg:block text-right">In HUF</div>
-          <div />
+      {/* Ledger */}
+      <CalmCard className="mt-4 overflow-hidden">
+        {/* Column header — desktop only */}
+        <div
+          aria-hidden="true"
+          className={cn(
+            'hidden lg:grid gap-3 items-center px-6 h-11 text-[10px] mono uppercase tracking-[0.12em] text-muted-foreground border-b border-border/45',
+            ROW_GRID,
+          )}
+        >
+          <span>Date</span>
+          <span>Description</span>
+          <span>Category</span>
+          <span className="text-right">Amount</span>
+          <span className="text-right">In HUF</span>
+          <span />
         </div>
 
         {filtered.length === 0 ? (
-          <Empty
-            icon={SearchIcon}
-            title="No transactions match"
-            body="Try adjusting filters or clearing the search."
-            action={
-              <Button variant="outline" size="sm" onClick={resetFilters}>
-                Reset filters
-              </Button>
-            }
-          />
+          <div className="px-6 py-12 text-center text-[12.5px] text-muted-foreground">
+            No transactions match.
+            <button
+              type="button"
+              onClick={resetFilters}
+              className="block mx-auto mt-3 text-[12px] text-foreground/80 hover:text-foreground underline underline-offset-2"
+            >
+              Reset filters
+            </button>
+          </div>
         ) : (
           Array.from(groups.entries()).map(([date, list]) => (
             <div key={date}>
-              <div className="px-4 sm:px-5 py-2 text-[11px] uppercase tracking-[0.08em] text-muted-foreground bg-secondary/15 border-b border-border flex items-center justify-between">
-                <span>{fmtDate(date)} · {dayOfWeek(date)}</span>
-                <span className="mono">{list.length} {list.length === 1 ? 'item' : 'items'}</span>
+              <div className="flex items-center justify-between px-4 lg:px-6 py-2 bg-secondary/35">
+                <span className="mono text-[10.5px] tracking-[0.1em] text-muted-foreground uppercase">
+                  {fmtDate(date)} · {dayOfWeek(date)}
+                </span>
+                <span className="mono text-[10.5px] tracking-[0.1em] text-muted-foreground uppercase">
+                  {list.length} item{list.length === 1 ? '' : 's'}
+                </span>
               </div>
 
               {list.map(tx => {
                 const huf = toHUF(tx, fxRates);
-                const tone = tx.type === 'INCOME' ? 'income' : tx.type === 'SAVINGS' ? 'savings' : 'expense';
+                const amtColor =
+                  tx.type === 'INCOME' ? 'hsl(var(--income))'
+                  : tx.type === 'SAVINGS' ? 'hsl(var(--savings))'
+                  : 'hsl(var(--expense))';
+                const sign = tx.type === 'INCOME' ? '+' : tx.type === 'SAVINGS' ? '↓' : '−';
                 const isOptimistic = tx.id.startsWith('optimistic-');
                 const typeLabel = tx.type.charAt(0) + tx.type.slice(1).toLowerCase();
                 const rowLabel = `${isOptimistic ? 'Saving ' : 'Edit '}transaction: ${fmtDate(tx.date)}, ${tx.description}, ${tx.category.name}, ${typeLabel} ${fmtAnchor(Math.abs(tx.amount), tx.currency)}`;
@@ -321,79 +309,66 @@ export function TransactionsView({
                     onClick={() => handleRowClick(tx)}
                     disabled={isOptimistic}
                     className={cn(
-                      'w-full grid items-center px-4 sm:px-5 py-3 border-b border-border last:border-b-0 hover:bg-accent/50 text-left transition-colors',
-                      'grid-cols-[1fr_auto_auto] sm:grid-cols-[90px_1fr_130px_32px] lg:grid-cols-[100px_1fr_180px_120px_140px_40px]',
+                      'w-full grid items-center gap-3 px-4 lg:px-6 py-3 lg:py-[13px] border-t border-border/35 hover:bg-accent/40 text-left transition-colors',
+                      'grid-cols-[1fr_auto]',
+                      ROW_GRID,
                       isOptimistic && 'opacity-60 pointer-events-none',
                     )}
                   >
                     {/* Date — desktop only */}
-                    <div className="hidden sm:block mono text-[12px] text-muted-foreground">
+                    <span className="hidden lg:block mono text-[12px] text-muted-foreground tabular">
                       {fmtDate(tx.date, { short: true })}
-                    </div>
-                    {/* Description — always; mobile shows date+category as subtext */}
-                    <div className="min-w-0 flex flex-col lg:flex-row lg:items-center gap-0.5 lg:gap-2 text-[13px]">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <span
-                          className="lg:hidden w-2 h-2 rounded-full shrink-0"
-                          style={{ background: tx.category.color }}
-                        />
-                        <span className="truncate">{tx.description}</span>
+                    </span>
+                    {/* Description (+ mobile subtext) */}
+                    <span className="min-w-0 flex flex-col gap-0.5">
+                      <span className="flex items-center gap-1.5 min-w-0">
+                        <span className="text-[13.5px] font-medium truncate">{tx.description}</span>
                         {tx.recurringRuleId && (
-                          <RepeatIcon className="w-3 h-3 text-muted-foreground shrink-0" />
+                          <RepeatIcon className="w-3 h-3 text-muted-foreground/70 shrink-0" />
                         )}
-                      </div>
-                      <div className="lg:hidden text-[11px] text-muted-foreground flex items-center gap-1 pl-3.5">
-                        <span className="sm:hidden mono">{fmtDate(tx.date, { short: true })}</span>
-                        <span className="sm:hidden text-border">·</span>
-                        <span className="truncate">{tx.category.name}</span>
-                      </div>
-                    </div>
-                    {/* Category pill — desktop only */}
-                    <div className="hidden lg:flex">
-                      <span
-                        className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium border border-border/60"
-                        style={{ color: tx.category.color }}
-                      >
-                        <span
-                          className="w-1.5 h-1.5 rounded-full shrink-0"
-                          style={{ background: tx.category.color }}
-                        />
-                        {tx.category.name}
                       </span>
-                    </div>
-                    {/* Amount — always; mobile shows HUF below */}
-                    <div className="text-right">
-                      <AmountDisplay
-                        value={Math.abs(tx.amount)}
-                        currency={tx.currency as 'HUF' | 'USD' | 'EUR' | 'GBP'}
-                        tone={tone}
-                        size="sm"
-                      />
-                      <div className="lg:hidden text-[10.5px] text-muted-foreground tabular mt-0.5">
+                      <span className="lg:hidden text-[11px] text-muted-foreground flex items-center gap-1.5 min-w-0">
+                        <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: tx.category.color }} />
+                        <span className="truncate">{tx.category.name}</span>
+                        <span className="opacity-50">·</span>
+                        <span className="mono shrink-0">{fmtDate(tx.date, { short: true })}</span>
+                      </span>
+                    </span>
+                    {/* Category — desktop only */}
+                    <span className="hidden lg:flex items-center gap-1.5 text-[12px] text-muted-foreground min-w-0">
+                      <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: tx.category.color }} />
+                      <span className="truncate">{tx.category.name}</span>
+                    </span>
+                    {/* Amount (+ mobile HUF subtext) */}
+                    <span className="text-right">
+                      <span className="tabular text-[13.5px] font-medium" style={{ color: amtColor }}>
+                        {sign}{fmtCur(Math.abs(Number(tx.amount)), tx.currency as 'HUF' | 'USD' | 'EUR' | 'GBP').replace('−', '')}
+                      </span>
+                      <span className="lg:hidden block text-[10.5px] text-muted-foreground tabular mt-0.5">
                         {Math.round(Math.abs(huf)).toLocaleString('hu-HU').replace(/,/g, ' ')} Ft
-                      </div>
-                    </div>
-                    {/* HUF — desktop only */}
-                    <div className="hidden lg:block text-right tabular text-[12px] text-muted-foreground">
+                      </span>
+                    </span>
+                    {/* In HUF — desktop only */}
+                    <span className="hidden lg:block text-right tabular text-[12px] text-muted-foreground">
                       {Math.round(Math.abs(huf)).toLocaleString('hu-HU').replace(/,/g, ' ')} Ft
-                    </div>
-                    {/* Chevron — always */}
-                    <div className="text-muted-foreground/60 flex justify-center">
+                    </span>
+                    {/* Chevron — desktop only */}
+                    <span className="hidden lg:flex justify-end text-muted-foreground/60">
                       <ChevronRightIcon className="w-3.5 h-3.5" />
-                    </div>
+                    </span>
                   </button>
                 );
               })}
             </div>
           ))
         )}
-      </Card>
+      </CalmCard>
 
-      <div className="text-[12px] text-muted-foreground">
-        {filtered.length} transaction{filtered.length !== 1 ? 's' : ''}
+      <div className="mt-3 text-[11.5px] text-muted-foreground">
+        {filtered.length} transaction{filtered.length === 1 ? '' : 's'}
       </div>
 
-      {/* Sheet + delete dialog — lives here to access handleFormSubmit and categories */}
+      {/* Sheet + delete dialog */}
       <TransactionForm
         categories={categories}
         recurringRules={recurringRules}
