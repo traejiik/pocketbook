@@ -80,13 +80,10 @@ export function RenewalsView({ renewals, anchorCurrency = 'HUF' }: Props) {
   }))
 
   return (
-    <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4 sm:space-y-5 max-w-[1240px] mx-auto">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-[22px] font-semibold tracking-tight">Upcoming renewals</h1>
-          <div className="text-[12.5px] text-muted-foreground mt-1">
-            {filtered.length} renewals · {fmtAnchor(total, anchorCurrency)} due in next {horizon} days
-          </div>
+    <div className="px-4 lg:px-7 pb-9 pt-1 space-y-4 max-w-[1320px] mx-auto">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="text-[12.5px] text-muted-foreground">
+          {filtered.length} renewals · {fmtAnchor(total, anchorCurrency)} due in next {horizon} days
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Segmented
@@ -123,18 +120,20 @@ export function RenewalsView({ renewals, anchorCurrency = 'HUF' }: Props) {
                 </div>
                 <div className="text-[12px] tabular text-foreground/85">{fmtAnchor(subTotal, anchorCurrency)}</div>
               </div>
-              <div className="bg-card border border-border rounded-xl divide-y divide-border overflow-hidden">
+              <div className="calm-card divide-y divide-border/40 overflow-hidden">
                 {list.map(({ rule, daysAway, hufEquivalent }) => (
                   <div
                     key={rule.id}
                     className="grid grid-cols-[52px_1fr_auto] sm:grid-cols-[60px_1fr_140px_140px] items-center px-4 py-3 hover:bg-accent/40 transition-colors"
                   >
-                    <div className="text-center">
-                      <div className="text-[9px] uppercase mono text-muted-foreground leading-none">
-                        {new Date(rule.nextDue).toLocaleDateString('en-GB', { month: 'short' })}
-                      </div>
-                      <div className="text-[15px] font-semibold tabular leading-tight mt-0.5">
-                        {new Date(rule.nextDue).getDate()}
+                    <div className="flex justify-center sm:justify-start">
+                      <div className="w-9 h-9 rounded-[10px] bg-secondary/70 flex flex-col items-center justify-center shrink-0">
+                        <div className="text-[8.5px] uppercase mono text-muted-foreground leading-none">
+                          {new Date(rule.nextDue).toLocaleDateString('en-GB', { month: 'short' })}
+                        </div>
+                        <div className="text-[12.5px] font-semibold tabular leading-none mt-0.5">
+                          {new Date(rule.nextDue).getDate()}
+                        </div>
                       </div>
                     </div>
                     <div className="flex items-center gap-2.5 min-w-0">
