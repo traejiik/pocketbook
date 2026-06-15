@@ -11,46 +11,60 @@ interface KpiBigProps {
   footnote?: string
   href?: string
   currency?: string
+  /** Tone-coloured radial glow background (v5 default on). */
+  glow?: boolean
 }
 
 const toneVar: Record<Tone, string> = {
-  income:  'hsl(var(--income))',
+  income: 'hsl(var(--income))',
   expense: 'hsl(var(--expense))',
   savings: 'hsl(var(--savings))',
   neutral: 'hsl(var(--foreground))',
 }
 
-const toneSurface: Record<Tone, string> = {
-  income:  'linear-gradient(135deg, hsl(var(--income) / 0.08) 0%, transparent 55%), hsl(var(--card))',
-  expense: 'linear-gradient(135deg, hsl(var(--expense) / 0.08) 0%, transparent 55%), hsl(var(--card))',
-  savings: 'linear-gradient(135deg, hsl(var(--savings) / 0.08) 0%, transparent 55%), hsl(var(--card))',
-  neutral: 'hsl(var(--card))',
-}
-
-export function KpiBig({ label, value, tone = 'income', deltaPct, footnote, href, currency = 'HUF' }: KpiBigProps) {
+export function KpiBig({
+  label,
+  value,
+  tone = 'income',
+  deltaPct,
+  footnote,
+  href,
+  currency = 'HUF',
+  glow = true,
+}: KpiBigProps) {
   const isNeg = value < 0
   const abs = Math.abs(value)
   const isHUF = currency === 'HUF'
   const symbol = currency === 'USD' ? '$' : currency === 'EUR' ? '€' : currency === 'GBP' ? '£' : null
 
   const valueStr = isHUF
-    ? (() => { const r = Math.round(abs); return r >= 100_000 ? `${Math.round(r / 1000)}k` : r.toLocaleString('hu-HU').replace(/,/g, ' ') })()
+    ? (() => {
+        const r = Math.round(abs)
+        return r >= 100_000 ? `${Math.round(r / 1000)}k` : r.toLocaleString('hu-HU').replace(/,/g, ' ')
+      })()
     : abs.toFixed(2)
 
+  const deltaClean = deltaPct ? deltaPct.replace('−', '').replace('-', '') : ''
   const deltaDown = deltaPct ? deltaPct.includes('−') || deltaPct.includes('-') : false
-  const isStatic  = deltaPct ? !deltaPct.match(/[\d%]/) : true
+  const isStatic = deltaPct ? !deltaPct.match(/[\d%]/) : true
+
+  const glowBg =
+    glow && tone !== 'neutral'
+      ? `radial-gradient(120% 100% at 16% 0%, hsl(var(--${tone}) / 0.10) 0%, transparent 58%), hsl(var(--card))`
+      : undefined
 
   return (
     <div
-      className="rounded-2xl p-5 border border-border flex flex-col gap-4 min-h-[170px]"
-      style={{ background: toneSurface[tone] }}
+      className="calm-card p-5 flex flex-col min-h-[148px]"
+      style={glowBg ? { background: glowBg } : undefined}
     >
       <div className="flex items-start justify-between">
-        <div className="text-[14px] font-medium text-foreground">{label}</div>
+        <div className="text-[13px] font-medium text-muted-foreground">{label}</div>
         {href && (
           <Link
             href={href}
-            className="w-8 h-8 rounded-full border border-border flex items-center justify-center text-foreground/80 hover:bg-accent transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+            aria-label={`Open ${label}`}
+            className="w-7 h-7 rounded-full border border-border/60 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
           >
             <ArrowUpRight className="w-3.5 h-3.5" />
           </Link>
@@ -61,29 +75,37 @@ export function KpiBig({ label, value, tone = 'income', deltaPct, footnote, href
           {symbol ? (
             <>
               {isNeg && <span>−</span>}
-              <span className="text-[16px] text-muted-foreground font-medium mr-0.5">{symbol}</span>
-              <span className="text-[44px]">{valueStr}</span>
+              <span className="text-[15px] text-muted-foreground font-medium mr-1">{symbol}</span>
+              <span className="text-[38px]">{valueStr}</span>
             </>
           ) : (
             <>
-              <span className="text-[44px]">{isNeg ? '−' : ''}{valueStr}</span>
-              <span className="text-[16px] text-muted-foreground font-medium ml-1.5">Ft</span>
+              <span className="text-[38px]">
+                {isNeg ? '−' : ''}
+                {valueStr}
+              </span>
+              <span className="text-[15px] text-muted-foreground font-medium ml-1.5">Ft</span>
             </>
           )}
         </div>
         {deltaPct && (
-          <div className="flex items-center gap-1.5 mt-3">
-            <span
-              className="mono text-[10.5px] bg-secondary border border-border rounded-md px-1.5 py-0.5 inline-flex items-center gap-0.5 text-foreground/80"
-              aria-label={isStatic ? footnote : `${deltaDown ? 'Down' : 'Up'} ${deltaPct.replace('−', '').replace('-', '')}, ${footnote}`}
-            >
-              {!isStatic && (deltaDown
-                ? <ArrowDown className="w-2.5 h-2.5" aria-hidden="true" />
-                : <ArrowUp className="w-2.5 h-2.5" aria-hidden="true" />
-              )}
-              <span aria-hidden="true">{deltaPct.replace('−', '').replace('-', '')}</span>
+          <div
+            className="flex items-center gap-1.5 mt-3.5 text-[11.5px] text-muted-foreground"
+            aria-label={
+              isStatic ? footnote : `${deltaDown ? 'Down' : 'Up'} ${deltaClean}, ${footnote}`
+            }
+          >
+            {!isStatic && (
+              <span aria-hidden="true" style={{ color: toneVar[tone] }}>
+                {deltaDown ? <ArrowDown className="w-3 h-3" /> : <ArrowUp className="w-3 h-3" />}
+              </span>
+            )}
+            <span aria-hidden="true" className="tabular font-medium text-foreground/80">
+              {deltaClean}
             </span>
-            <span className="text-[11px] text-muted-foreground" aria-hidden="true">{footnote}</span>
+            <span aria-hidden="true" className="truncate">
+              {footnote}
+            </span>
           </div>
         )}
       </div>
