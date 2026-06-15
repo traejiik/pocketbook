@@ -36,7 +36,7 @@ export function RecurringRuleCard({ rule, hufEquivalent, daysAway, onEdit, ancho
     <div
       role="button"
       tabIndex={0}
-      className="w-full text-left bg-card border border-border rounded-2xl p-4 group cursor-pointer hover:border-ring/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+      className="w-full text-left calm-card p-4 group cursor-pointer hover:border-ring/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
       onClick={() => onEdit?.(rule)}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onEdit?.(rule); } }}
     >

@@ -209,23 +209,10 @@ export function RecurringView({ rules, archivedRules, categories, budget, anchor
   }
 
   return (
-    <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4 sm:space-y-5 max-w-[1240px] mx-auto">
-      <div className="flex items-end justify-between">
-        <div>
-          <h1 className="text-[22px] font-semibold tracking-tight">Recurring rules</h1>
-          <div className="text-[12.5px] text-muted-foreground mt-1">
-            Subscriptions, installments, and recurring income.
-          </div>
-        </div>
-        <Button size="sm" onClick={openNew}>
-          <Plus className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">New rule</span>
-        </Button>
-      </div>
-
+    <div className="px-4 lg:px-7 pb-9 pt-1 space-y-4 max-w-[1320px] mx-auto">
       {/* Budget summary — gauge left, 2×2 KPI grid right */}
-      <div className="grid grid-cols-1 lg:grid-cols-[auto_1fr] gap-3 sm:gap-4 items-stretch">
-        <div className="bg-card border border-border rounded-2xl p-5 flex flex-col items-center justify-center gap-3">
+      <div className="grid grid-cols-1 lg:grid-cols-[auto_1fr] gap-4 items-stretch">
+        <div className="calm-card p-6 flex flex-col items-center justify-center gap-3">
           <GaugeMeter percent={Math.round(budget.expenseRatio * 100)} />
           <div className="flex items-center gap-4">
             <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
@@ -288,8 +275,13 @@ export function RecurringView({ rules, archivedRules, categories, budget, anchor
           value={tab}
           onChange={setTab}
         />
+        <div className="flex items-center gap-2">
+        <Button size="sm" onClick={openNew}>
+          <Plus className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline">New rule</span>
+        </Button>
         <Popover>
-          <PopoverTrigger className="inline-flex items-center gap-2 h-8 px-3 rounded-full border border-border text-[12px] text-muted-foreground hover:text-foreground hover:bg-accent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60">
+          <PopoverTrigger className="inline-flex items-center gap-2 h-9 px-3 rounded-[10px] border border-border/60 text-[12px] text-muted-foreground hover:text-foreground hover:bg-accent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60">
             <ArrowUpDown className="w-3.5 h-3.5" />
             Sort
           </PopoverTrigger>
@@ -316,6 +308,7 @@ export function RecurringView({ rules, archivedRules, categories, budget, anchor
             ))}
           </PopoverContent>
         </Popover>
+        </div>
       </div>
 
       {list.length === 0 ? (
@@ -528,7 +521,7 @@ function ArchivedGroup({
         {rules.map((r) => {
           const completed = isCompletedInstallment(r)
           return (
-            <div key={r.id} className="bg-card border border-border rounded-2xl p-4 flex flex-col gap-3">
+            <div key={r.id} className="calm-card p-4 flex flex-col gap-3">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-2.5 min-w-0">
                   <div
