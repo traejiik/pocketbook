@@ -2,15 +2,17 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { ChevronRight } from 'lucide-react'
 import { Segmented } from '@/components/ui/segmented'
 import { PillBar } from '@/components/finance/PillBar'
+import { CalmCard, CalmCardHead } from '@/components/finance/CalmCard'
 import { fmtAnchor } from '@/lib/format'
 
 const SHORT_LABEL: Record<string, string> = {
   'Rent Income': 'Rent',
   'Food & Groceries': 'Food',
   'Eating Out': 'Eat out',
-  'Subscriptions': 'Subs',
+  Subscriptions: 'Subs',
   'Emergency Fund': 'Save',
   'Phone Plan': 'Phone',
 }
@@ -38,96 +40,95 @@ interface Props {
   anchorCurrency?: string
 }
 
+type PillVariant = 'solid' | 'mid' | 'hatch'
+
+function catVariant(i: number): PillVariant {
+  return i === 0 ? 'solid' : i === 2 ? 'hatch' : 'mid'
+}
+
 export function DashboardChartSection({ byCategory, trend6mo, totalExpense, anchorCurrency = 'HUF' }: Props) {
   const [view, setView] = useState<'cat' | 'trend'>('cat')
 
-  const maxCat = Math.max(...byCategory.map((b) => b.value), 1)
+  const topCats = byCategory.slice(0, 4)
+  const maxCat = Math.max(...topCats.map((b) => b.value), 1)
   const topCat = byCategory[0]
   const trendMax = Math.max(...trend6mo.map((t) => t.net), 1)
 
   return (
-    <div className="col-span-12 lg:col-span-7 bg-card border border-border rounded-2xl p-4 sm:p-6">
-      <div className="flex items-center justify-between mb-5">
-        <div>
-          <div className="text-[15px] font-semibold tracking-tight">Expenses by category</div>
-          <div className="text-[12px] text-muted-foreground mt-0.5">
-            {new Date().toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })} · {fmtAnchor(totalExpense, anchorCurrency)} total
-          </div>
-        </div>
-        <Segmented
-          options={[
-            { label: 'Categories', value: 'cat' as const },
-            { label: 'Net trend',  value: 'trend' as const },
-          ]}
-          value={view}
-          onChange={setView}
-        />
-      </div>
+    <CalmCard className="col-span-12 lg:col-span-7 p-6">
+      <CalmCardHead
+        title="Expenses by category"
+        sub={`${new Date().toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })} · ${fmtAnchor(totalExpense, anchorCurrency)} total`}
+        right={
+          <Segmented
+            options={[
+              { label: 'Categories', value: 'cat' as const },
+              { label: 'Net trend', value: 'trend' as const },
+            ]}
+            value={view}
+            onChange={setView}
+          />
+        }
+      />
 
       {view === 'cat' ? (
-        <div>
-          <div className="grid grid-cols-7 gap-3 h-[210px] items-end px-1">
-            {byCategory.slice(0, 7).map((b, i) => {
-              const pct = b.value / maxCat
-              const h = 30 + pct * 140
+        <div className="mt-6">
+          <div className="grid grid-cols-4 gap-6 h-[220px] items-end px-2 max-w-[640px]">
+            {topCats.map((b, i) => {
+              const h = 30 + (b.value / maxCat) * 182
               const isMax = i === 0
-              const variant =
-                i === 1 || i === 4 ? 'soft'
-                : i === 2 ? 'mid'
-                : 'solid'
               return (
-                <div key={b.categoryId} className="flex flex-col items-center gap-2.5 min-w-0">
-                  <div className="relative w-full flex justify-center" style={{ height: h }}>
+                <div key={b.categoryId} className="flex flex-col items-center gap-3 min-w-0">
+                  <div
+                    className="relative w-full max-w-[104px] flex justify-center"
+                    style={{ height: h }}
+                  >
                     {isMax && (
-                      <div className="absolute -top-7 left-1/2 -translate-x-1/2 bg-card border border-border rounded-full px-2 py-0.5 shadow-pb-1 mono text-[10.5px] text-foreground whitespace-nowrap z-10">
+                      <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-secondary rounded-full px-2.5 py-1 mono text-[10.5px] whitespace-nowrap z-10">
                         {Math.round((b.value / totalExpense) * 100)}%
                       </div>
                     )}
-                    <PillBar height={h} color={b.color} variant={isMax ? 'solid' : variant} />
+                    <PillBar color={b.color} variant={catVariant(i)} />
                   </div>
-                  <div className="text-[10.5px] text-muted-foreground uppercase mono tracking-wider truncate w-full text-center">
+                  <div className="text-[10.5px] text-muted-foreground uppercase mono tracking-[0.1em] truncate w-full text-center">
                     {sl(b.name)}
                   </div>
                 </div>
               )
             })}
           </div>
-          <div className="mt-5 pt-4 border-t border-border flex items-center gap-4 flex-wrap">
+          <div className="mt-6 pt-4 border-t border-border/45 flex items-center gap-2 text-[11.5px] text-muted-foreground">
             {topCat && (
-              <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                <span className="w-2.5 h-2.5 rounded-full" style={{ background: topCat.color }} />
+              <>
+                <span className="w-2 h-2 rounded-full" style={{ background: topCat.color }} />
                 <span className="font-medium text-foreground">{topCat.name}</span>
                 <span>leads · {fmtAnchor(topCat.value, anchorCurrency)}</span>
-              </div>
+              </>
             )}
-            <div className="ml-auto text-[11px] text-muted-foreground">
-              7 of {byCategory.length} categories ·{' '}
-              <Link href="/categories" className="text-foreground hover:underline">
-                See all
-              </Link>
-            </div>
+            <Link
+              href="/categories"
+              className="ml-auto inline-flex items-center gap-1 text-foreground/80 hover:text-foreground transition-colors"
+            >
+              See all <ChevronRight className="w-3 h-3" />
+            </Link>
           </div>
         </div>
       ) : (
-        <div className="h-[210px] flex items-end justify-around gap-3">
+        <div className="mt-6 h-[252px] flex items-end gap-5 px-2 max-w-[640px]">
           {trend6mo.map((t, i) => {
-            const h = 30 + (t.net / trendMax) * 140
+            const h = 30 + (t.net / trendMax) * 182
             const isLast = i === trend6mo.length - 1
-            const variant =
-              isLast ? 'solid'
-              : i === trend6mo.length - 2 ? 'mid'
-              : 'soft'
             return (
-              <div key={t.month} className="flex flex-col items-center gap-2 flex-1">
-                <div className="relative w-full flex justify-center" style={{ height: h }}>
+              <div key={t.month} className="flex flex-col items-center gap-3 flex-1">
+                <div className="relative w-full max-w-[64px] flex justify-center" style={{ height: h }}>
                   {isLast && (
-                    <div className="absolute -top-7 left-1/2 -translate-x-1/2 bg-card border border-border rounded-full px-2 py-0.5 shadow-pb-1 mono text-[10.5px] z-10 whitespace-nowrap">
+                    <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-secondary rounded-full px-2.5 py-1 mono text-[10.5px] z-10">
                       {Math.round(t.net / 1000)}k
                     </div>
                   )}
-                  <PillBar height={h} color="hsl(var(--income))" variant={variant} />
+                  <PillBar color="hsl(var(--income))" variant={isLast ? 'solid' : 'mid'} />
                 </div>
-                <div className="text-[10.5px] text-muted-foreground uppercase mono tracking-wider">
+                <div className="text-[10.5px] text-muted-foreground uppercase mono tracking-[0.1em]">
                   {t.month}
                 </div>
               </div>
@@ -135,6 +136,6 @@ export function DashboardChartSection({ byCategory, trend6mo, totalExpense, anch
           })}
         </div>
       )}
-    </div>
+    </CalmCard>
   )
 }
