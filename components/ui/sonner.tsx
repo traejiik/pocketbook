@@ -11,6 +11,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
     <Sonner
       theme={theme as ToasterProps["theme"]}
       className="toaster group"
+      duration={2000}
       icons={{
         success: <CircleCheckIcon className="size-4" />,
         info: <InfoIcon className="size-4" />,
@@ -20,15 +21,16 @@ const Toaster = ({ ...props }: ToasterProps) => {
       }}
       style={
         {
-          "--normal-bg": "hsl(var(--popover))",
-          "--normal-text": "hsl(var(--popover-foreground))",
-          "--normal-border": "hsl(var(--border))",
-          "--success-bg": "hsl(var(--popover))",
-          "--success-text": "hsl(var(--popover-foreground))",
-          "--success-border": "hsl(var(--border))",
-          "--error-bg": "hsl(var(--popover))",
-          "--error-text": "hsl(var(--popover-foreground))",
-          "--error-border": "hsl(var(--border))",
+          // v5: inverted pill (foreground bg, background text), no border.
+          "--normal-bg": "hsl(var(--foreground))",
+          "--normal-text": "hsl(var(--background))",
+          "--normal-border": "transparent",
+          "--success-bg": "hsl(var(--foreground))",
+          "--success-text": "hsl(var(--background))",
+          "--success-border": "transparent",
+          "--error-bg": "hsl(var(--destructive))",
+          "--error-text": "hsl(var(--destructive-foreground))",
+          "--error-border": "transparent",
           "--border-radius": "9999px",
         } as React.CSSProperties
       }
