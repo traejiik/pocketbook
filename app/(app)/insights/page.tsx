@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic'
 
-import { Sparkles, Calendar } from 'lucide-react';
+import { Calendar } from 'lucide-react';
 import { prisma } from '@/lib/prisma';
 import { Button } from '@/components/ui/button';
 import { InsightCardClient } from '@/components/insights/InsightCardClient';
@@ -25,23 +25,15 @@ export default async function AiInsightsPage() {
   }));
 
   return (
-    <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 max-w-[920px] mx-auto">
-      <div className="flex items-end justify-between mb-6">
-        <div>
-          <h1 className="text-[22px] font-semibold tracking-tight flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-primary" />
-            AI Insights
-          </h1>
-          <div className="text-[12.5px] text-muted-foreground mt-1">
-            Conversational commentary on {monthLabel} · generated locally
-          </div>
+    <div className="px-4 lg:px-7 pb-9 pt-1 max-w-[920px] mx-auto">
+      <div className="flex items-center justify-between gap-3 mb-4">
+        <div className="text-[12.5px] text-muted-foreground">
+          Conversational commentary on {monthLabel} · generated locally
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm">
-            <Calendar className="w-3.5 h-3.5 mr-1.5" />
-            {monthLabel}
-          </Button>
-        </div>
+        <Button variant="outline" size="sm">
+          <Calendar className="w-3.5 h-3.5 mr-1.5" />
+          {monthLabel}
+        </Button>
       </div>
 
       <InsightCardClient
