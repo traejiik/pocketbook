@@ -156,6 +156,12 @@
 
   html,
   body {
+    height: 100%;
+    overflow: hidden;
+    /* The shell is fixed-height; only <main> scrolls. Lock the document
+       scroller so wheeling over non-scrollable chrome (e.g. the sidebar)
+       can't trigger the root's elastic rubber-band and reveal empty space. */
+    overscroll-behavior: none;
     background: hsl(var(--background));
     color: hsl(var(--foreground));
     -webkit-font-smoothing: antialiased;
