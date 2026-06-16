@@ -22,6 +22,7 @@ import { Empty } from '@/components/ui/empty'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { toast } from 'sonner'
+import { notify } from '@/lib/ui-notify'
 import { upsertRecurringRule, archiveRecurringRule, unarchiveRecurringRule, type RecurringRuleInput } from '@/server-actions/recurring'
 import { useFabContext } from '@/contexts/fab-context'
 import type { CardRule } from '@/components/finance/RecurringRuleCard'
@@ -182,7 +183,9 @@ export function RecurringView({ rules, archivedRules, categories, budget, anchor
         const range = result.backfilledFrom === result.backfilledTo
           ? fmtDate(result.backfilledFrom, { short: true })
           : `${fmtDate(result.backfilledFrom, { short: true })}–${fmtDate(result.backfilledTo, { short: true })}`
-        toast.success(`Added ${result.backfilledCount} catch-up transaction${result.backfilledCount === 1 ? '' : 's'} for ${range}.`)
+        notify.success(`Added ${result.backfilledCount} catch-up transaction${result.backfilledCount === 1 ? '' : 's'} for ${range}.`)
+      } else {
+        notify.success(editing ? `Saved ${values.name}` : `Created ${values.name}`)
       }
       setSheetOpen(false)
     })
@@ -190,8 +193,10 @@ export function RecurringView({ rules, archivedRules, categories, budget, anchor
 
   function onArchive() {
     if (!editing) return
+    const name = editing.name
     startTransition(async () => {
       await archiveRecurringRule(editing.id)
+      notify.success(`Archived ${name}`)
       setSheetOpen(false)
     })
   }
@@ -203,7 +208,7 @@ export function RecurringView({ rules, archivedRules, categories, budget, anchor
         toast.error(result.error)
         return
       }
-      toast.success('Rule restored.')
+      notify.success('Rule restored.')
     })
   }
 

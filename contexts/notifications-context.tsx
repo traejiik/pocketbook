@@ -4,11 +4,13 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from 'react';
 import { CheckCircle2, CalendarDays, type LucideIcon } from 'lucide-react';
+import { registerNotificationPusher } from '@/lib/ui-notify';
 
 export interface AppNotification {
   id: string;
@@ -63,6 +65,12 @@ export function NotificationsProvider({
       [{ id: `n-${counter}`, icon, msg, time: 'Just now', unread: false }, ...ns].slice(0, 12),
     );
   }, []);
+
+  // Let toasts fired anywhere (the notify helper) prepend to the bell log.
+  useEffect(() => {
+    registerNotificationPusher(push);
+    return () => registerNotificationPusher(null);
+  }, [push]);
 
   const hasUnread = items.some((n) => n.unread);
 

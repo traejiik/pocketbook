@@ -3,7 +3,7 @@
 import { useRouter, usePathname } from 'next/navigation';
 import { Search, Download } from 'lucide-react';
 import { useState, useEffect, useRef, type KeyboardEvent } from 'react';
-import { toast } from 'sonner';
+import { notify } from '@/lib/ui-notify';
 import { cn } from '@/lib/utils';
 import { NotificationsBell } from '@/components/shell/NotificationsBell';
 import { ProfileMenu } from '@/components/shell/ProfileMenu';
@@ -76,7 +76,7 @@ export function Header({ displayName = 'User', className }: HeaderProps) {
         {isTransactions && (
           <button
             type="button"
-            onClick={() => toast.success('Exported transactions.csv')}
+            onClick={() => notify.success('Exported transactions.csv')}
             className="inline-flex items-center gap-1.5 h-9 px-4 rounded-[10px] text-[12.5px] font-medium text-muted-foreground hover:text-foreground bg-card border border-border/50 hover:border-border transition-colors"
           >
             <Download className="w-3.5 h-3.5" />

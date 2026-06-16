@@ -42,7 +42,7 @@ describe('tablet breakpoint contract', () => {
 
     expect(mobileNav).toContain('md:hidden fixed bottom-0 inset-x-0');
     expect(mobileNav).toContain('Home');
-    expect(mobileNav).toContain('Txns');
+    expect(mobileNav).toContain('Transactions');
     expect(mobileNav).toContain('Recurring');
     expect(mobileNav).toContain('More');
     expect(mobileNav).toContain('side="bottom"');

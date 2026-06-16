@@ -10,6 +10,7 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { toast } from 'sonner';
+import { notify } from '@/lib/ui-notify';
 import { cn } from '@/lib/utils';
 import { fmtDate } from '@/lib/format';
 import {
@@ -228,7 +229,7 @@ export function SettingsView({
       await setAnchorCurrency(next);
       setAnchor(next);
       setPendingAnchor(null);
-      toast.success(`Anchor currency changed to ${next}`);
+      notify.success(`Anchor currency changed to ${next}`);
     });
   };
 
@@ -250,7 +251,7 @@ export function SettingsView({
     if (!r) return;
     startTransition(async () => {
       await setExchangeRate({ from: r.from, to: r.to, rate: r.rate, mode: r.mode });
-      toast.success(`Rate for ${r.from} updated`);
+      notify.success(`Rate for ${r.from} updated`);
     });
   };
 
@@ -261,7 +262,7 @@ export function SettingsView({
       await addTrackedCurrency(code);
       setAddCurrencyOpen(false);
       setNewCurrencyCode('');
-      toast.success(`${code} added`);
+      notify.success(`${code} added`);
     });
   };
 
@@ -272,7 +273,7 @@ export function SettingsView({
       setRates(prev => prev.filter(r =>
         !((r.from === from && r.to === to) || (r.from === to && r.to === from))
       ));
-      toast.success(`${from} removed`);
+      notify.success(`${from} removed`);
     });
   };
 
@@ -285,7 +286,7 @@ export function SettingsView({
     setModel(m);
     startTransition(async () => {
       await setOllamaModel(m);
-      toast.success(`Default model set to ${m}`);
+      notify.success(`Default model set to ${m}`);
     });
   };
 
@@ -300,7 +301,7 @@ export function SettingsView({
     startTransition(async () => {
       const result = await changePassword({ current: currentPw, next: newPw });
       if (result.error) { toast.error(result.error); return; }
-      toast.success('Password updated');
+      notify.success('Password updated');
       setCurrentPw(''); setNewPw(''); setConfirmPw('');
     });
   };
@@ -488,7 +489,7 @@ export function SettingsView({
                   onClick={() => {
                     startTransition(async () => {
                       const { synced } = await forceFxSync();
-                      toast.success(`Synced ${synced} rate${synced !== 1 ? 's' : ''}`);
+                      notify.success(`Synced ${synced} rate${synced !== 1 ? 's' : ''}`);
                       router.refresh();
                     });
                   }}
@@ -691,7 +692,7 @@ export function SettingsView({
                 startTransition(async () => {
                   await clearAllData();
                   setClearDbOpen(false);
-                  toast.success('All data cleared');
+                  notify.success('All data cleared');
                   router.refresh();
                 });
               }}
