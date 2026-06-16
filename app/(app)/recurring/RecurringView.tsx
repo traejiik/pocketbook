@@ -7,11 +7,10 @@ import { z } from 'zod'
 import { Plus, ArrowUpDown, Check, RepeatIcon, Calendar, Repeat2, RotateCcw, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Segmented } from '@/components/ui/segmented'
-import { KpiBig } from '@/components/finance/KpiBig'
-import { GaugeMeter } from '@/components/finance/GaugeMeter'
 import type { RecurringBudgetSummary } from '@/lib/aggregations'
 import { RecurringRuleCard } from '@/components/finance/RecurringRuleCard'
 import { AmountDisplay } from '@/components/finance/AmountDisplay'
+import { RecurringBudget, CommitmentsLane } from './RecurringBudget'
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter,
 } from '@/components/ui/sheet'
@@ -210,60 +209,16 @@ export function RecurringView({ rules, archivedRules, categories, budget, anchor
 
   return (
     <div className="px-4 lg:px-7 pb-9 pt-1 space-y-4 max-w-[1320px] mx-auto">
-      {/* Budget summary — gauge left, 2×2 KPI grid right */}
-      <div className="grid grid-cols-1 lg:grid-cols-[auto_1fr] gap-4 items-stretch">
-        <div className="calm-card p-6 flex flex-col items-center justify-center gap-3">
-          <GaugeMeter percent={Math.round(budget.expenseRatio * 100)} />
-          <div className="flex items-center gap-4">
-            <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
-              <span className="w-2.5 h-2.5 rounded-full bg-income" />
-              Used
-            </span>
-            <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
-              <span
-                className="w-3 h-2.5 rounded-sm"
-                style={{
-                  background: 'repeating-linear-gradient(45deg, hsl(var(--muted-foreground)/0.35) 0 2px, transparent 2px 5px)',
-                  border: '1px solid hsl(var(--border))',
-                }}
-              />
-              Left
-            </span>
-          </div>
-          {budget.expensesByCategory.length > 0 && (
-            <div className="w-full border-t border-border pt-3 space-y-1.5">
-              {budget.expensesByCategory.slice(0, 4).map(c => {
-                const pct = budget.monthlyExpenses > 0
-                  ? Math.round((c.amount / budget.monthlyExpenses) * 100)
-                  : 0
-                return (
-                  <div key={c.categoryId} className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full shrink-0" style={{ background: c.color }} />
-                    <span className="flex-1 text-[11px] text-muted-foreground truncate">{c.name}</span>
-                    <span className="text-[11px] tabular text-foreground/60">{pct}%</span>
-                  </div>
-                )
-              })}
-              {budget.expensesByCategory.length > 4 && (
-                <p className="text-[10.5px] text-muted-foreground pl-4">
-                  +{budget.expensesByCategory.length - 4} more
-                </p>
-              )}
-            </div>
-          )}
-        </div>
-        <div className="grid grid-cols-2 grid-rows-2 gap-3 sm:gap-4">
-          <KpiBig label="Income"   value={budget.monthlyIncome}   tone="income" />
-          <KpiBig label="Expenses" value={budget.monthlyExpenses} tone="expense" />
-          <KpiBig label="Net"      value={budget.netUsable}       tone={budget.netUsable >= 0 ? 'income' : 'expense'} />
-          <KpiBig label="Savings"  value={budget.monthlySavings}  tone="savings" />
-        </div>
-      </div>
-      {budget.hasNormalisedAnnuals && (
-        <p className="text-xs text-muted-foreground">
-          Annual rules are shown as monthly equivalents (÷ 12)
-        </p>
-      )}
+      {/* Budget summary — committed card + KPI grid */}
+      <RecurringBudget
+        budget={budget}
+        rules={rules}
+        counts={{ income: incomeRules.length, expense: expenseRules.length, savings: savingsRules.length }}
+        anchorCurrency={anchorCurrency}
+      />
+
+      {/* 30-day commitments cash-flow lane */}
+      <CommitmentsLane rules={rules} anchorCurrency={anchorCurrency} />
 
       <div className="flex items-center justify-between">
         <Segmented
