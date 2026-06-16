@@ -217,7 +217,9 @@ describe('tablet breakpoint contract', () => {
     expect(timeline).toContain('boxShadow: \'0 0 0 3px hsl(var(--card))\'');
 
     const categories = source('app/(app)/categories/CategoriesView.tsx');
-    expect(categories).toContain('max-w-[860px]');
+    // 4e7eeff removed the fixed max-w-[860px] inner column so categories now
+    // flows in the shared responsive page container.
+    expect(categories).toContain('max-w-[1320px] mx-auto');
     expect(categories).toContain('text-[10px] mono uppercase tracking-[0.12em]');
     expect(categories).toContain('kindLabel(category.kind)');
     expect(categories).not.toContain('category.color.toUpperCase()');
