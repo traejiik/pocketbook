@@ -22,8 +22,8 @@ describe('tablet breakpoint contract', () => {
     const header = source('components/shell/Header.tsx');
 
     expect(appShell).toContain('w-full h-dvh flex flex-col md:flex-row');
-    expect(appShell).toContain('className="hidden md:flex lg:hidden"');
-    expect(appShell).toContain('className="hidden lg:flex"');
+    expect(appShell).toContain('className="hidden md:flex min-[1025px]:hidden"');
+    expect(appShell).toContain('className="hidden min-[1025px]:flex"');
     expect(appShell).toContain('<Header displayName={displayName} className="hidden md:flex" />');
     expect(appShell).toContain('<MobileTopBar displayName={displayName} />');
     expect(appShell).toContain('pb-24 md:pb-0');

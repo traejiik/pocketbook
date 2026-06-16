@@ -89,12 +89,12 @@ export function AppShell({
         <TabletRail
           upcomingRenewalsCount={upcomingRenewalsCount}
           onQuickAdd={openNew}
-          className="hidden md:flex lg:hidden"
+          className="hidden md:flex min-[1025px]:hidden"
         />
         <Sidebar
           upcomingRenewalsCount={upcomingRenewalsCount}
           onQuickAdd={openNew}
-          className="hidden lg:flex"
+          className="hidden min-[1025px]:flex"
         />
         <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden bg-background">
           <Header displayName={displayName} className="hidden md:flex" />
