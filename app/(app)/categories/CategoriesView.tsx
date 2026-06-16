@@ -128,7 +128,7 @@ export function CategoriesView({ categories, anchorCurrency = 'HUF' }: Props) {
 
   return (
     <div className="px-4 lg:px-7 pb-9 pt-1 max-w-[1320px] mx-auto">
-      <div className="max-w-[860px] space-y-7">
+      <div className="space-y-7">
       <div className="flex items-center justify-between">
         <div className="text-[12.5px] text-muted-foreground">
           <span className="text-foreground font-medium tabular">{categories.length}</span> categories · 3 kinds
