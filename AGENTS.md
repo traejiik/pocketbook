@@ -26,7 +26,7 @@ Port faithfully — class names, layout, component composition — unless asked 
 13. **Recurring generation is idempotent** — `Transaction` has `@@unique([recurringRuleId, date])`; generated recurring writes must use that invariant and skip duplicates.
 14. **Installment counters are reconciled, not manually bumped** — after transaction create/edit/delete, recompute `installmentPaid` from linked transactions and archive only when the count reaches `installmentTotal`.
 15. **One-way CSV import is supported** — CSV upload/import is a Server Action workflow, not a REST mutation. Two-way Google Sheets sync remains out of scope.
-16. **Responsive tiers are width-based** — mobile `<768px` uses the sticky mobile top bar, bottom tab bar (centre FAB + More sheet); tablet `768–1024px` uses the collapsible 76px/232px icon rail; the static 224px sidebar appears only **above 1024px** (`min-[1025px]:`, so iPad-landscape 1024 stays on the rail). Desktop grid/span density keys off `lg` (1024) — KPI strips go four-up at `lg`. Do not add orientation queries, JS viewport detection, or container queries unless explicitly requested.
+16. **Responsive tiers are width-based** — mobile `<768px` uses the sticky mobile top bar, bottom tab bar (centre FAB + More sheet); tablet `768–1024px` uses the collapsible 76px/232px icon rail; the static 224px sidebar appears only **above 1024px** (`min-[1025px]:`, so iPad-landscape 1024 stays on the rail). Desktop grid/span density generally keys off `lg` (1024) — KPI strips go four-up at `lg` — but page-specific tablet compositions may use explicit widths when the v5 tablet prototype requires it. The Dashboard follows the v5 tablet prototype: its KPI strip goes four-up from `md` (768px), and at the tablet tier its 12-col cards reflow into balanced pairs (Expenses‖Gauge, Renewals‖Recent, Reminder‖AI) via `md:order-*`, with `lg:order-none` restoring the canonical desktop spans (`7/5/5/4/3`). Recurring keeps its two-column rule grids through 1024px, opens three-column rule grids only at `min-[1025px]`, and lets the Income committed/KPI block go side-by-side from `md` (768px) using `md:grid-cols-[320px_minmax(0,1fr)]`. Do not add orientation queries, JS viewport detection, or container queries unless explicitly requested.
 
 ## Do not build (v1)
 
@@ -46,7 +46,7 @@ The stack is not locked to old major versions. Major upgrades are allowed when t
 
 ## Current verification baseline
 
-- `pnpm test` passes: 60 tests across 15 files.
+- `pnpm test` passes: 62 tests across 15 files.
 - `pnpm lint` currently has 0 errors and 2 known React Compiler warnings from React Hook Form `watch()` usage in `components/forms/TransactionForm.tsx` and `app/(app)/recurring/RecurringView.tsx`. Do not treat those warnings as a new regression unless you are refactoring those forms.
 
 ## Documentation drift prevention

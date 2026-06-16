@@ -30,27 +30,38 @@ function RecKpi({
   value,
   tone,
   hint,
+  hintShort,
 }: {
   label: string
   value: number
   tone: Tone
   hint: string
+  hintShort?: string
 }) {
   return (
     <div
-      className="calm-card p-5 flex flex-col min-h-[150px]"
+      className="calm-card px-3.5 py-4 min-[1025px]:p-5 flex flex-col min-h-[112px] min-[1025px]:min-h-[150px] min-w-0"
       style={{ background: `linear-gradient(135deg, hsl(var(--${tone}) / 0.08) 0%, transparent 55%), hsl(var(--card))` }}
     >
-      <div className="text-[13.5px] font-medium">{label}</div>
+      <div className="text-[12.5px] min-[1025px]:text-[13.5px] font-medium">{label}</div>
       <div className="mt-auto">
         <div
           className="tabular font-semibold tracking-tight leading-none whitespace-nowrap"
           style={{ color: `hsl(var(--${tone}))` }}
         >
-          <span className="text-[33px]">{huf(value)}</span>
-          <span className="text-[15px] text-muted-foreground font-medium ml-1.5">Ft</span>
+          <span className="text-[24px] min-[1025px]:text-[33px]">{huf(value)}</span>
+          <span className="text-[11px] min-[1025px]:text-[15px] text-muted-foreground font-medium ml-1">Ft</span>
         </div>
-        <div className="text-[11px] text-muted-foreground mt-2.5">{hint}</div>
+        <div className="text-[10.5px] min-[1025px]:text-[11px] text-muted-foreground mt-2 min-[1025px]:mt-2.5">
+          {hintShort ? (
+            <>
+              <span className="md:hidden">{hintShort}</span>
+              <span className="hidden md:inline">{hint}</span>
+            </>
+          ) : (
+            hint
+          )}
+        </div>
       </div>
     </div>
   )
@@ -68,8 +79,8 @@ function CommittedCard({
   const free = budget.monthlyIncome - committed
 
   const expTotal = budget.monthlyExpenses || 1
-  const top = budget.expensesByCategory.slice(0, 5)
-  const otherV = budget.expensesByCategory.slice(5).reduce((s, b) => s + b.amount, 0)
+  const top = budget.expensesByCategory.slice(0, 4)
+  const otherV = budget.expensesByCategory.slice(4).reduce((s, b) => s + b.amount, 0)
   const segs = [
     ...top.map((b) => ({ key: b.categoryId, color: b.color, name: b.name, v: b.amount })),
     ...(otherV > 0 ? [{ key: 'other', color: 'hsl(var(--muted-foreground))', name: 'Other', v: otherV }] : []),
@@ -77,12 +88,22 @@ function CommittedCard({
 
   return (
     <CalmCard className="p-6 flex flex-col">
-      <div className="text-[14.5px] font-semibold tracking-tight">Income committed</div>
-      <div className="text-[11.5px] text-muted-foreground mt-1">
-        {huf(committed)} Ft / mo of {huf(budget.monthlyIncome)} Ft
+      <div className="flex items-end justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-[14.5px] font-semibold tracking-tight">Income committed</div>
+          <div className="text-[11.5px] text-muted-foreground mt-1">
+            {huf(committed)} Ft / mo of {huf(budget.monthlyIncome)} Ft
+          </div>
+        </div>
+        {/* mobile — % inline, top-right */}
+        <span className="md:hidden tabular text-[34px] font-semibold tracking-tight leading-none shrink-0">
+          {pct}
+          <span className="text-[18px]">%</span>
+        </span>
       </div>
 
-      <div className="flex items-end gap-2 mt-4">
+      {/* tablet/desktop — % below with label */}
+      <div className="hidden md:flex items-end gap-2 mt-4">
         <span className="tabular text-[40px] font-semibold tracking-tight leading-none">
           {pct}
           <span className="text-[20px]">%</span>
@@ -159,13 +180,13 @@ export function RecurringBudget({ budget, rules, counts, anchorCurrency }: Recur
   }, [rules, anchorCurrency])
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-4 items-stretch">
+    <div className="grid grid-cols-1 md:grid-cols-[320px_minmax(0,1fr)] gap-3 min-[1025px]:gap-4 items-stretch">
       <CommittedCard budget={budget} fx={fx} />
-      <div className="grid grid-cols-2 gap-4">
-        <RecKpi label="Income" value={budget.monthlyIncome} tone="income" hint={`${counts.income} recurring source${counts.income === 1 ? '' : 's'}`} />
+      <div className="grid grid-cols-2 gap-3 min-[1025px]:gap-4 min-w-0">
+        <RecKpi label="Income" value={budget.monthlyIncome} tone="income" hint={`${counts.income} recurring source${counts.income === 1 ? '' : 's'}`} hintShort={`${counts.income} source${counts.income === 1 ? '' : 's'}`} />
         <RecKpi label="Expenses" value={budget.monthlyExpenses} tone="expense" hint={`${counts.expense} active rule${counts.expense === 1 ? '' : 's'}`} />
-        <RecKpi label="Net" value={budget.netUsable} tone={budget.netUsable >= 0 ? 'income' : 'expense'} hint="Income − expenses − savings" />
-        <RecKpi label="Savings" value={budget.monthlySavings} tone="savings" hint={`${counts.savings} auto-save rule${counts.savings === 1 ? '' : 's'}`} />
+        <RecKpi label="Net" value={budget.netUsable} tone={budget.netUsable >= 0 ? 'income' : 'expense'} hint="Income − expenses − savings" hintShort="After save + spend" />
+        <RecKpi label="Savings" value={budget.monthlySavings} tone="savings" hint={`${counts.savings} auto-save rule${counts.savings === 1 ? '' : 's'}`} hintShort={`${counts.savings} auto-save${counts.savings === 1 ? '' : 's'}`} />
       </div>
     </div>
   )
@@ -218,7 +239,7 @@ export function CommitmentsLane({ rules, anchorCurrency }: { rules: BudgetRule[]
         title="Commitments"
         sub={`Next 30 days · ${huf(total30)} Ft out`}
         right={
-          <div className="hidden sm:flex items-center gap-3 text-[10.5px] text-muted-foreground">
+          <div className="hidden md:flex items-center gap-3 text-[10.5px] text-muted-foreground">
             <span className="inline-flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-expense" /> Expense</span>
             <span className="inline-flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-savings" /> Savings</span>
             <span className="inline-flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-income" /> Payday</span>
@@ -230,9 +251,8 @@ export function CommitmentsLane({ rules, anchorCurrency }: { rules: BudgetRule[]
         <div className="mt-4 flex items-center gap-2.5 rounded-[10px] px-3.5 py-2.5 bg-warning/10 border border-warning/25">
           <AlertTriangle className="w-3.5 h-3.5 text-warning shrink-0" />
           <span className="text-[12px] text-foreground/90">
-            <span className="font-semibold tabular">{soonCount} rule{soonCount === 1 ? '' : 's'}</span> · {huf(soonTotal)} Ft due in the next 7 days
+            <span className="font-semibold tabular">{soonCount} rule{soonCount === 1 ? '' : 's'}</span> · {huf(soonTotal)} Ft due in 7 days
           </span>
-          <span className="ml-auto mono text-[10px] uppercase tracking-[0.1em] text-warning/80">next 7 days</span>
         </div>
       )}
 
@@ -273,6 +293,13 @@ export function CommitmentsLane({ rules, anchorCurrency }: { rules: BudgetRule[]
 
         <div className="absolute left-0 text-[10px] text-muted-foreground mono" style={{ top: H + 16 }}>Today</div>
         <div className="absolute right-0 text-[10px] text-muted-foreground mono" style={{ top: H + 16 }}>+30d</div>
+      </div>
+
+      {/* Legend below the lane on mobile (header legend hides < md) */}
+      <div className="md:hidden flex items-center gap-3 text-[10.5px] text-muted-foreground mt-1">
+        <span className="inline-flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-expense" /> Expense</span>
+        <span className="inline-flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-savings" /> Savings</span>
+        <span className="inline-flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-income" /> Payday</span>
       </div>
     </CalmCard>
   )

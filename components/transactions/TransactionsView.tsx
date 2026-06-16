@@ -48,7 +48,7 @@ function toHUF(tx: SerializedTx, rates: { USD: number; EUR: number; GBP: number 
   return tx.amount * rate;
 }
 
-const ROW_GRID = 'lg:grid-cols-[100px_1fr_190px_130px_120px_32px]';
+const ROW_GRID = 'lg:grid-cols-[110px_1fr_220px_150px_130px_36px]';
 
 export function TransactionsView({
   transactions,

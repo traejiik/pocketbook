@@ -41,11 +41,6 @@ export function GaugeMeter({ percent }: GaugeMeterProps) {
         strokeLinecap="round"
         strokeDasharray={arcLen}
         strokeDashoffset={arcLen - usedLen}
-        className="gauge-fill-arc"
-        style={{
-          '--gauge-arc': arcLen,
-          '--gauge-offset': arcLen - usedLen,
-        } as React.CSSProperties}
       />
       <text x={cx} y={cy - 5} textAnchor="middle" fill="hsl(var(--foreground))" fontFamily="Geist, system-ui" fontSize="44" fontWeight="600" letterSpacing="-1">
         {p}%

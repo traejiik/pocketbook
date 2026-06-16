@@ -18,14 +18,14 @@ interface TimelineStripProps {
 
 export function TimelineStrip({ events, horizon, anchorCurrency = 'HUF' }: TimelineStripProps) {
   return (
-    <div className="bg-card border border-border rounded-2xl p-5">
-      <div className="text-[11px] uppercase tracking-[0.08em] text-muted-foreground mb-3 font-medium">
+    <div className="calm-card p-6">
+      <div className="text-[10px] mono uppercase tracking-[0.12em] text-muted-foreground mb-5">
         Cash-out timeline
       </div>
       <div className="relative h-14">
         <div className="absolute top-7 left-0 right-0 h-px bg-border" />
         {events.map((e) => {
-          const pct = (e.daysAway / horizon) * 100
+          const pct = Math.min(98, Math.max(0, (e.daysAway / horizon) * 100))
           return (
             <div
               key={e.id}
@@ -37,7 +37,7 @@ export function TimelineStrip({ events, horizon, anchorCurrency = 'HUF' }: Timel
                 className="w-2.5 h-2.5 rounded-full mx-auto"
                 style={{
                   background: e.categoryColor,
-                  boxShadow: '0 0 0 3px hsl(var(--background))',
+                  boxShadow: '0 0 0 3px hsl(var(--card))',
                 }}
               />
               <div className="text-[9.5px] text-muted-foreground mono text-center mt-1 whitespace-nowrap absolute left-1/2 -translate-x-1/2 group-hover:text-foreground">

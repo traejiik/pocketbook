@@ -89,7 +89,7 @@ export function AppShell({
         <TabletRail
           upcomingRenewalsCount={upcomingRenewalsCount}
           onQuickAdd={openNew}
-          className="hidden md:flex min-[1025px]:hidden"
+          className="hidden md:flex min-[1025px]:!hidden"
         />
         <Sidebar
           upcomingRenewalsCount={upcomingRenewalsCount}
