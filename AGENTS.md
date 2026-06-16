@@ -6,8 +6,8 @@ Handoff/session files are context, not authority. If they conflict with the actu
 
 ## Design reference
 
-All visual decisions come from `other/design-reference/`. Never deviate from the mockups in `other/design-reference/mockups/source/screens/*.jsx`.
-Port them faithfully — class names, layout, component composition, unless asked to change something otherwise
+The app is being restyled to **v2** from the **v5 redesign** in `other/v5-handoff/`. For all v2 visual decisions that bundle is the source of truth — match the prototypes in `other/v5-handoff/source/calm5/*.jsx` (desktop is canonical) plus the token/component/screen specs in `other/v5-handoff/0*.md`. Where it disagrees with the older `other/design-reference/` mockups, **v5 wins**.
+Port faithfully — class names, layout, component composition — unless asked to change something otherwise. Pieces that need data the app does not store (e.g. the recurring price-trend chip's prior price) are intentionally omitted.
 
 ## Implementation rules (non-negotiable)
 
