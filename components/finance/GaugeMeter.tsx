@@ -27,7 +27,7 @@ export function GaugeMeter({ percent }: GaugeMeterProps) {
         </pattern>
         <linearGradient id={fillId} x1="0%" y1="0%" x2="100%" y2="0%">
           <stop offset="0%" stopColor="hsl(var(--income))" />
-          <stop offset="100%" stopColor="hsl(var(--income))" stopOpacity="0.45" />
+          <stop offset="100%" stopColor="hsl(152 55% 30%)" />
         </linearGradient>
       </defs>
       {/* Remaining hatched arc — drawn first, full arc */}
@@ -41,11 +41,6 @@ export function GaugeMeter({ percent }: GaugeMeterProps) {
         strokeLinecap="round"
         strokeDasharray={arcLen}
         strokeDashoffset={arcLen - usedLen}
-        className="gauge-fill-arc"
-        style={{
-          '--gauge-arc': arcLen,
-          '--gauge-offset': arcLen - usedLen,
-        } as React.CSSProperties}
       />
       <text x={cx} y={cy - 5} textAnchor="middle" fill="hsl(var(--foreground))" fontFamily="Geist, system-ui" fontSize="44" fontWeight="600" letterSpacing="-1">
         {p}%

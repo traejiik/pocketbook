@@ -1,14 +1,16 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { CalendarIcon, CheckIcon, ChevronDownIcon } from 'lucide-react';
 import { toast } from 'sonner';
+import { notify } from '@/lib/ui-notify';
 
 import { deleteTransaction, type TxInput } from '@/server-actions/transactions';
 import { useTransactionSheet } from '@/contexts/sheet-context';
+import { useIsMobile } from '@/hooks/use-is-mobile';
 import { cn } from '@/lib/utils';
 import { fmtAnchor } from '@/lib/format';
 import { Button } from '@/components/ui/button';
@@ -89,15 +91,7 @@ export function TransactionForm({
   anchorCurrency = 'HUF',
 }: TransactionFormProps) {
   const { open, editingTx, close } = useTransactionSheet();
-
-  const [isMobile, setIsMobile] = useState(() =>
-    typeof window !== 'undefined' && window.innerWidth < 640,
-  );
-  useEffect(() => {
-    const handler = () => setIsMobile(window.innerWidth < 640);
-    window.addEventListener('resize', handler);
-    return () => window.removeEventListener('resize', handler);
-  }, []);
+  const useBottomSheet = useIsMobile('(max-width: 1024px)', true);
 
   const {
     register,
@@ -203,7 +197,7 @@ export function TransactionForm({
     if (!editingTx) return;
     try {
       await deleteTransaction(editingTx.id);
-      toast.success('Transaction deleted.');
+      notify.success('Transaction deleted.');
       setDeleteConfirmOpen(false);
       close();
     } catch {
@@ -215,13 +209,20 @@ export function TransactionForm({
     <>
       <Sheet open={open} onOpenChange={o => { if (!o) close(); }}>
         <SheetContent
-          side={isMobile ? 'bottom' : 'right'}
-          className="w-full sm:w-[440px] sm:max-w-[440px] max-sm:h-[95dvh] flex flex-col gap-0 p-0 overflow-y-auto"
+          side={useBottomSheet ? 'bottom' : 'right'}
+          className={cn(
+            'w-full mx-auto flex flex-col gap-0 p-0 overflow-y-auto',
+            'max-h-[92dvh] max-w-[560px] !rounded-t-[24px]',
+            'min-[1025px]:mx-0 min-[1025px]:h-full min-[1025px]:max-h-none min-[1025px]:!w-[420px] min-[1025px]:!max-w-[420px] min-[1025px]:!rounded-none',
+          )}
         >
+          <div className="flex justify-center pt-2.5 pb-1 min-[1025px]:hidden">
+            <div className="h-1.5 w-10 rounded-full bg-border" />
+          </div>
           <SheetHeader className="px-5 pt-5 pb-4 border-b border-border">
-            <SheetTitle>{editingTx ? 'Edit transaction' : 'New transaction'}</SheetTitle>
+            <SheetTitle>{editingTx ? 'Edit transaction' : 'Add transaction'}</SheetTitle>
             <SheetDescription className="text-[11.5px] mono">
-              {editingTx ? `id · ${editingTx.id}` : 'Press ⌘↵ to save'}
+              {editingTx ? `id · ${editingTx.id}` : 'Record a one-off or recurring entry'}
             </SheetDescription>
           </SheetHeader>
 
@@ -260,6 +261,24 @@ export function TransactionForm({
                     </button>
                   ))}
                 </div>
+              </div>
+
+              {/* Description */}
+              <div className="space-y-1.5">
+                <Label htmlFor="tx-description">Description</Label>
+                <Input
+                  id="tx-description"
+                  placeholder="e.g. Spar weekly groceries"
+                  aria-invalid={!!errors.description}
+                  aria-describedby={errors.description ? 'tx-description-error' : undefined}
+                  className={errors.description ? 'border-destructive' : ''}
+                  {...register('description')}
+                  value={descVal}
+                  onChange={e => setValue('description', e.target.value)}
+                />
+                {errors.description && (
+                  <p id="tx-description-error" className="text-[11px] text-destructive">{errors.description.message}</p>
+                )}
               </div>
 
               {/* Amount + currency */}
@@ -313,24 +332,6 @@ export function TransactionForm({
                   value={dateVal}
                   onChange={e => setValue('date', e.target.value)}
                 />
-              </div>
-
-              {/* Description */}
-              <div className="space-y-1.5">
-                <Label htmlFor="tx-description">Description</Label>
-                <Input
-                  id="tx-description"
-                  placeholder="e.g. Spar weekly groceries"
-                  aria-invalid={!!errors.description}
-                  aria-describedby={errors.description ? 'tx-description-error' : undefined}
-                  className={errors.description ? 'border-destructive' : ''}
-                  {...register('description')}
-                  value={descVal}
-                  onChange={e => setValue('description', e.target.value)}
-                />
-                {errors.description && (
-                  <p id="tx-description-error" className="text-[11px] text-destructive">{errors.description.message}</p>
-                )}
               </div>
 
               {/* Category pills */}

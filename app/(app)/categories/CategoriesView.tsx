@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { fmtAnchor } from '@/lib/format'
 import { useFabContext } from '@/contexts/fab-context'
+import { hexToRgba } from '@/lib/colors'
 
 type KindType = 'INCOME' | 'EXPENSE' | 'SAVINGS'
 
@@ -38,6 +39,10 @@ const KIND_TONE_VAR: Record<KindType, string> = {
   INCOME: 'hsl(var(--income))',
   EXPENSE: 'hsl(var(--expense))',
   SAVINGS: 'hsl(var(--savings))',
+}
+
+function kindLabel(kind: KindType) {
+  return KIND_LABELS[kind]
 }
 
 const PALETTE = [
@@ -122,18 +127,16 @@ export function CategoriesView({ categories, anchorCurrency = 'HUF' }: Props) {
   }
 
   return (
-    <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 max-w-[960px] mx-auto space-y-5 sm:space-y-6">
-      <div className="flex items-end justify-between">
-        <div>
-          <h1 className="text-[22px] font-semibold tracking-tight">Categories</h1>
-          <div className="text-[12.5px] text-muted-foreground mt-1">
-            {categories.length} categories · 3 kinds
-          </div>
+    <div className="px-4 lg:px-7 pb-9 pt-1 max-w-[1320px] mx-auto">
+      <div className="max-w-[860px] space-y-7">
+      <div className="flex items-center justify-between">
+        <div className="text-[12.5px] text-muted-foreground">
+          <span className="text-foreground font-medium tabular">{categories.length}</span> categories · 3 kinds
         </div>
         <button
           type="button"
           onClick={() => openNew('EXPENSE')}
-          className="inline-flex items-center gap-2 h-9 px-4 rounded-full bg-primary text-primary-foreground font-medium text-[13px] hover:opacity-90 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+          className="inline-flex items-center gap-2 h-9 px-4 rounded-[10px] bg-primary text-primary-foreground font-medium text-[12.5px] hover:opacity-90 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
         >
           <Plus className="w-3.5 h-3.5" /> New category
         </button>
@@ -145,50 +148,50 @@ export function CategoriesView({ categories, anchorCurrency = 'HUF' }: Props) {
           <div key={g}>
             <div className="flex items-center gap-2 mb-3">
               <span className="w-1.5 h-1.5 rounded-full" style={{ background: KIND_TONE_VAR[g] }} />
-              <h2 className="text-[12px] uppercase tracking-[0.08em] text-muted-foreground font-medium">
+              <h2 className="text-[10px] mono uppercase tracking-[0.12em] text-muted-foreground font-medium">
                 {KIND_LABELS[g]}
               </h2>
               <span className="mono text-[11px] text-muted-foreground">{list.length}</span>
               <div className="flex-1 h-px bg-border ml-2" />
             </div>
-            <div className="bg-card border border-border rounded-xl divide-y divide-border overflow-hidden">
-              {list.map((c) => (
+            <div className="calm-card divide-y divide-border/40 overflow-hidden">
+              {list.map((category) => (
                 <div
-                  key={c.id}
-                  className="grid grid-cols-[40px_1fr_80px_60px] sm:grid-cols-[44px_1fr_120px_140px_80px] items-center px-4 py-3 group hover:bg-accent/40 transition-colors"
+                  key={category.id}
+                  className="grid grid-cols-[44px_1fr_80px_60px] sm:grid-cols-[44px_1fr_110px_150px_72px] items-center px-4 sm:px-5 py-3.5 group hover:bg-accent/40 transition-colors"
                 >
                   <div className="flex items-center">
                     <span
-                      className="w-7 h-7 rounded-md border border-border flex items-center justify-center"
-                      style={{ background: `${c.color}1f` }}
+                      className="w-8 h-8 rounded-[9px] border border-border/40 flex items-center justify-center"
+                      style={{ background: hexToRgba(category.color, 0.14) }}
                     >
-                      <span className="w-3 h-3 rounded-full" style={{ background: c.color }} />
+                      <span className="w-3 h-3 rounded-full" style={{ background: category.color }} />
                     </span>
                   </div>
                   <div>
-                    <div className="text-[13.5px] font-medium">{c.name}</div>
-                    <div className="text-[11px] text-muted-foreground mono">{c.color.toUpperCase()}</div>
+                    <div className="text-[13.5px] font-medium">{category.name}</div>
+                    <div className="text-[11px] text-muted-foreground">{kindLabel(category.kind)}</div>
                   </div>
-                  <div className="text-[12px] text-muted-foreground">{c.txCount} txns</div>
+                  <div className="text-[12px] text-muted-foreground tabular">{category.txCount} txns</div>
                   <div className="hidden sm:block text-right tabular text-[12.5px] text-foreground/85">
-                    {c.txTotalHUF > 0
-                      ? fmtAnchor(c.txTotalHUF, anchorCurrency)
+                    {category.txTotalHUF > 0
+                      ? fmtAnchor(category.txTotalHUF, anchorCurrency)
                       : <span className="text-muted-foreground">—</span>
                     }
                   </div>
                   <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
                     <button
                       type="button"
-                      onClick={() => openEdit(c)}
-                      aria-label={`Edit ${c.name}`}
+                      onClick={() => openEdit(category)}
+                      aria-label={`Edit ${category.name}`}
                       className="p-2 rounded text-muted-foreground hover:text-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                     >
                       <Pencil className="w-3.5 h-3.5" />
                     </button>
                     <button
                       type="button"
-                      onClick={() => openDelete(c)}
-                      aria-label={`Delete ${c.name}`}
+                      onClick={() => openDelete(category)}
+                      aria-label={`Delete ${category.name}`}
                       className="p-2 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
@@ -208,6 +211,7 @@ export function CategoriesView({ categories, anchorCurrency = 'HUF' }: Props) {
           </div>
         )
       })}
+      </div>
 
       {/* Edit / create dialog */}
       <Dialog open={editDialog !== null} onOpenChange={(open) => !open && setEditDialog(null)}>

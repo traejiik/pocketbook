@@ -2,8 +2,7 @@
 
 import { useState, useTransition, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { DollarSign, Lock, Sparkles, Check, AlertTriangle, RefreshCw, Plus, Trash2, Edit, Repeat, Database, Upload, Loader2 } from 'lucide-react';
-import { Card } from '@/components/ui/card';
+import { DollarSign, Lock, Sparkles, Check, AlertTriangle, RefreshCw, Plus, Trash2, Edit, Repeat, Database, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,6 +10,7 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { toast } from 'sonner';
+import { notify } from '@/lib/ui-notify';
 import { cn } from '@/lib/utils';
 import { fmtDate } from '@/lib/format';
 import {
@@ -103,7 +103,7 @@ function ImportSection() {
         <Upload className="w-4 h-4 text-muted-foreground" />
         <h2 className="text-[14px] font-semibold tracking-tight">Import data</h2>
       </div>
-      <Card className="p-5 space-y-4">
+      <div className="calm-card p-6 space-y-4">
         <div>
           <div className="text-[13px] font-medium">Import transactions from CSV</div>
           <div className="text-[11.5px] text-muted-foreground mt-0.5">
@@ -134,12 +134,17 @@ function ImportSection() {
             onClick={handleImport}
           >
             {status === 'uploading' ? (
-              <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />Importing…</>
+              <><Upload className="w-3.5 h-3.5 mr-1.5" />Importing</>
             ) : (
               <><Check className="w-3.5 h-3.5 mr-1.5" />Import</>
             )}
           </Button>
         </div>
+        {status === 'uploading' && (
+          <div className="h-1.5 rounded-full bg-secondary overflow-hidden" aria-hidden="true">
+            <div className="h-full w-1/2 rounded-full bg-primary/45" />
+          </div>
+        )}
         {status === 'done' && result && (
           <div className="space-y-2">
             <div className="text-[12.5px] text-income">
@@ -162,7 +167,7 @@ function ImportSection() {
             Import failed. Please try again.
           </div>
         )}
-      </Card>
+      </div>
     </section>
   );
 }
@@ -229,7 +234,7 @@ export function SettingsView({
       await setAnchorCurrency(next);
       setAnchor(next);
       setPendingAnchor(null);
-      toast.success(`Anchor currency changed to ${next}`);
+      notify.success(`Anchor currency changed to ${next}`);
     });
   };
 
@@ -251,7 +256,7 @@ export function SettingsView({
     if (!r) return;
     startTransition(async () => {
       await setExchangeRate({ from: r.from, to: r.to, rate: r.rate, mode: r.mode });
-      toast.success(`Rate for ${r.from} updated`);
+      notify.success(`Rate for ${r.from} updated`);
     });
   };
 
@@ -262,7 +267,7 @@ export function SettingsView({
       await addTrackedCurrency(code);
       setAddCurrencyOpen(false);
       setNewCurrencyCode('');
-      toast.success(`${code} added`);
+      notify.success(`${code} added`);
     });
   };
 
@@ -273,7 +278,7 @@ export function SettingsView({
       setRates(prev => prev.filter(r =>
         !((r.from === from && r.to === to) || (r.from === to && r.to === from))
       ));
-      toast.success(`${from} removed`);
+      notify.success(`${from} removed`);
     });
   };
 
@@ -286,7 +291,7 @@ export function SettingsView({
     setModel(m);
     startTransition(async () => {
       await setOllamaModel(m);
-      toast.success(`Default model set to ${m}`);
+      notify.success(`Default model set to ${m}`);
     });
   };
 
@@ -301,7 +306,7 @@ export function SettingsView({
     startTransition(async () => {
       const result = await changePassword({ current: currentPw, next: newPw });
       if (result.error) { toast.error(result.error); return; }
-      toast.success('Password updated');
+      notify.success('Password updated');
       setCurrentPw(''); setNewPw(''); setConfirmPw('');
     });
   };
@@ -311,12 +316,7 @@ export function SettingsView({
 
   return (
     <>
-      <div className="px-4 sm:px-8 py-4 sm:py-6 max-w-[760px] mx-auto space-y-7">
-        <div>
-          <h1 className="text-[22px] font-semibold tracking-tight">Settings</h1>
-          <div className="text-[12.5px] text-muted-foreground mt-1">Configure currencies, security, and the local LLM.</div>
-        </div>
-
+      <div className="px-4 lg:px-7 pb-9 pt-1 max-w-[760px] mx-auto space-y-7">
         {/* ── Currencies & FX rates ──────────────────────────────────── */}
         <section id="currencies">
           <div className="flex items-center gap-2 mb-3">
@@ -325,7 +325,7 @@ export function SettingsView({
           </div>
 
           {/* Anchor selector */}
-          <Card className="p-5 mb-3">
+          <div className="calm-card p-6 mb-3">
             <div className="flex items-baseline justify-between mb-3">
               <div>
                 <div className="text-[13px] font-semibold tracking-tight">Anchor currency</div>
@@ -346,7 +346,7 @@ export function SettingsView({
                   )}
                 >
                   <div className="flex items-center justify-between">
-                    <span className="text-[20px] leading-none">{c.flag}</span>
+                    <span className="text-[20px] leading-none">{c.symbol}</span>
                     {anchor === c.code && <Check className="w-3.5 h-3.5 text-primary" />}
                   </div>
                   <div className="mt-2.5 text-[13px] font-semibold mono tracking-tight">{c.code}</div>
@@ -354,10 +354,10 @@ export function SettingsView({
                 </button>
               ))}
             </div>
-          </Card>
+          </div>
 
           {/* Tracked currencies */}
-          <Card className="p-5">
+          <div className="calm-card p-6">
             <div className="flex items-baseline justify-between mb-1">
               <div>
                 <div className="text-[13px] font-semibold tracking-tight">Tracked currencies</div>
@@ -494,7 +494,7 @@ export function SettingsView({
                   onClick={() => {
                     startTransition(async () => {
                       const { synced } = await forceFxSync();
-                      toast.success(`Synced ${synced} rate${synced !== 1 ? 's' : ''}`);
+                      notify.success(`Synced ${synced} rate${synced !== 1 ? 's' : ''}`);
                       router.refresh();
                     });
                   }}
@@ -503,7 +503,7 @@ export function SettingsView({
                 </Button>
               </div>
             </div>
-          </Card>
+          </div>
 
           <div className="mt-3 p-3 rounded-md bg-warning/8 border border-warning/25 text-[12px] text-foreground/85 flex items-start gap-2.5">
             <AlertTriangle className="w-3.5 h-3.5 mt-0.5 text-warning shrink-0" />
@@ -517,7 +517,7 @@ export function SettingsView({
             <Lock className="w-4 h-4 text-muted-foreground" />
             <h2 className="text-[14px] font-semibold tracking-tight">Security</h2>
           </div>
-          <Card className="p-5 space-y-4">
+          <div className="calm-card p-6 space-y-4">
             <div>
               <Label htmlFor="pw-current">Current password</Label>
               <Input id="pw-current" type="password" autoComplete="current-password" placeholder="••••••••••••" value={currentPw} onChange={e => setCurrentPw(e.target.value)} />
@@ -551,7 +551,7 @@ export function SettingsView({
                 <Check className="w-3.5 h-3.5 mr-1.5" />Update password
               </Button>
             </div>
-          </Card>
+          </div>
         </section>
 
         {/* ── AI Insights ───────────────────────────────────────────── */}
@@ -560,7 +560,7 @@ export function SettingsView({
             <Sparkles className="w-4 h-4 text-muted-foreground" />
             <h2 className="text-[14px] font-semibold tracking-tight">AI insights</h2>
           </div>
-          <Card className="p-5 space-y-4">
+          <div className="calm-card p-6 space-y-4">
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-[13px] font-medium">Ollama endpoint</div>
@@ -615,7 +615,7 @@ export function SettingsView({
                 Auto-generate on the 1st of each month
               </div>
             </div>
-          </Card>
+          </div>
         </section>
 
         {/* ── Import Data ───────────────────────────────────────────── */}
@@ -623,7 +623,7 @@ export function SettingsView({
 
         {/* ── About ─────────────────────────────────────────────────── */}
         <section id="about">
-          <Card className="p-5 grid grid-cols-3 gap-5 text-[12px]">
+          <div className="calm-card p-6 grid grid-cols-3 gap-5 text-[12px]">
             <div>
               <div className="text-[10.5px] uppercase tracking-[0.08em] text-muted-foreground font-medium">Version</div>
               <div className="mono text-foreground/85 mt-1">{version}</div>
@@ -636,7 +636,7 @@ export function SettingsView({
               <div className="text-[10.5px] uppercase tracking-[0.08em] text-muted-foreground font-medium">Last backup</div>
               <div className="mono text-foreground/85 mt-1">{lastBackup}</div>
             </div>
-          </Card>
+          </div>
         </section>
 
         {/* ── Danger zone ───────────────────────────────────────────── */}
@@ -645,7 +645,7 @@ export function SettingsView({
             <Database className="w-4 h-4 text-muted-foreground" />
             <h2 className="text-[14px] font-semibold tracking-tight">Data</h2>
           </div>
-          <Card className="p-5">
+          <div className="calm-card p-6">
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-[13px] font-medium">Clear all data</div>
@@ -657,7 +657,7 @@ export function SettingsView({
                 <Trash2 className="w-3.5 h-3.5 mr-1.5" />Clear database
               </Button>
             </div>
-          </Card>
+          </div>
         </section>
       </div>
 
@@ -697,7 +697,7 @@ export function SettingsView({
                 startTransition(async () => {
                   await clearAllData();
                   setClearDbOpen(false);
-                  toast.success('All data cleared');
+                  notify.success('All data cleared');
                   router.refresh();
                 });
               }}

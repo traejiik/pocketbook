@@ -109,13 +109,13 @@ other/                Design reference, mockups, handoff notes
 
 Data flow: server components fetch from Prisma directly -> pass props -> Server Actions mutate -> `revalidatePath` refreshes. Cron-callable API routes handle FX sync, monthly insights, and recurring rule reconciliation. No client-side data fetching for initial renders.
 
-Responsive layout: mobile stays on the bottom nav + FAB. The `sm` and `md` tablet bands use a 64px icon-rail sidebar, touch-sized header/form controls, and tablet-specific grid/table layouts. The full 220px sidebar and dense desktop tables return at `lg`, while `xl` preserves the mockup-derived desktop density.
+Responsive layout: mobile `<768px` uses a sticky top bar, bottom tab bar, More sheet, and FAB. Tablet `768–1024px` uses a collapsible 76px/232px rail with touch-sized controls (iPad-landscape 1024 stays on the rail). The static 224px sidebar appears only above 1024px (`min-[1025px]:`). Desktop grid/span density generally keys off `lg` (1024), with page-specific tablet adaptations where the v5 tablet prototype needs different rhythm: the Dashboard goes four-up KPIs from `md` and reflows its cards into balanced pairs (Expenses‖Gauge, Renewals‖Recent, Reminder‖AI) via `md:order-*` before `lg:order-none` restores the desktop spans, and the Recurring budget summary goes side-by-side at `md` (768px) while rule grids stay two-up until `min-[1025px]`.
 
 Design-system authority:
 
-- `other/design-reference/` is the canonical design contract. Its screen JSX remains the structural source of truth for layout, class intent, and component composition.
+- `other/v5-handoff/` is the canonical design contract for **v2** (the calm two-tone redesign). Its prototypes (`source/calm5/*.jsx`, desktop canonical) and token/component/screen specs (`0*.md`) are the structural source of truth for layout, class intent, and component composition. Where it disagrees with the older `other/design-reference/` mockups, v5 wins.
 - `app/globals.css` and live components are the canonical implementation.
-- `design-system/` is a generated compact audit/manual of the current implementation. Use it for orientation, but do not let it overrule `other/design-reference/` without an explicit design decision.
+- `design-system/` is a generated compact audit/manual of the current implementation. Use it for orientation, but do not let it overrule `other/v5-handoff/` without an explicit design decision.
 
 ## Dependency policy
 
