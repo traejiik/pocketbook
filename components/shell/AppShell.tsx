@@ -43,6 +43,11 @@ export function AppShell({
   const keyHandlers = useMemo(() => ({ n: openNew, N: openNew }), [openNew]);
   useGlobalKeys(keyHandlers);
 
+  // The scrolling region is <main>, not the window, so reset it on navigation.
+  useEffect(() => {
+    document.getElementById('main-content')?.scrollTo(0, 0);
+  }, [pathname]);
+
   useEffect(() => {
     let cancelled = false;
     startTransition(async () => {

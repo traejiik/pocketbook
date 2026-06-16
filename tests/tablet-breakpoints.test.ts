@@ -60,50 +60,45 @@ describe('tablet breakpoint contract', () => {
     const dashboard = source('app/(app)/dashboard/page.tsx');
     const chart = source('app/(app)/dashboard/DashboardChartSection.tsx');
 
-    expect(dashboard).toContain('grid grid-cols-2 xl:grid-cols-4');
+    expect(dashboard).toContain('grid grid-cols-2 lg:grid-cols-4');
     expect(chart).toContain('col-span-12 lg:col-span-7');
     expect(dashboard).toContain('col-span-12 md:col-span-6 lg:col-span-5');
     expect(dashboard).toContain('col-span-12 md:col-span-6 lg:col-span-4');
     expect(dashboard).toContain('col-span-12 md:col-span-6 lg:col-span-3');
   });
 
-  test('transactions use a four-column tablet table and six-column desktop table', () => {
+  test('transactions render a calm single-card ledger with a v5 desktop grid', () => {
     const tx = source('components/transactions/TransactionsView.tsx');
 
-    expect(tx).toContain('px-4 sm:px-6 lg:px-8');
-    expect(tx).toContain('hidden sm:grid grid-cols-[90px_1fr_130px_32px] lg:grid-cols-[100px_1fr_180px_120px_140px_40px]');
-    expect(tx).toContain('grid-cols-[1fr_auto_auto] sm:grid-cols-[90px_1fr_130px_32px] lg:grid-cols-[100px_1fr_180px_120px_140px_40px]');
-    expect(tx).toContain('hidden lg:block');
-    expect(tx).toContain('hidden lg:flex');
-    expect(tx).toContain('lg:hidden w-2 h-2 rounded-full shrink-0');
-    expect(tx).toContain('lg:hidden text-[11px] text-muted-foreground flex items-center gap-1 pl-3.5');
-    expect(tx).toContain('sm:hidden mono');
-    expect(tx).toContain('sm:hidden text-border');
-    expect(tx).toContain('lg:hidden text-[10.5px] text-muted-foreground tabular mt-0.5');
-    expect(tx).toContain('h-10 xl:h-8');
-    expect(tx).toContain('text-base xl:text-[12px]');
-    expect(tx).toContain('h-11 w-11 xl:h-9 xl:w-9');
+    expect(tx).toContain('px-4 lg:px-7 pb-9 pt-1 max-w-[1320px] mx-auto');
+    expect(tx).toContain("const ROW_GRID = 'lg:grid-cols-[100px_1fr_190px_130px_120px_32px]'");
+    expect(tx).toContain('grid-cols-[1fr_auto]');
+    expect(tx).toContain('hidden lg:grid');
+    expect(tx).toContain('hidden lg:block mono text-[12px] text-muted-foreground tabular');
+    expect(tx).toContain('hidden lg:flex items-center gap-1.5 text-[12px] text-muted-foreground');
+    expect(tx).toContain('<CalmCard className="mt-4 overflow-hidden">');
 
-    // Filter bar: two intentional rows below xl, single desktop row at xl
-    expect(tx).toContain('p-3 flex flex-col xl:flex-row xl:items-center gap-2 rounded-xl');
-    expect(tx).toContain('flex flex-col md:flex-row md:items-center gap-2');
-    expect(tx).toContain('flex items-center gap-2 flex-wrap xl:flex-1');
-    expect(source('components/ui/Segmented.tsx')).toContain('h-10 xl:h-8');
+    // Segmented control adopts the v5 pill sizing
+    expect(source('components/ui/segmented.tsx')).toContain('h-[26px]');
   });
 
-  test('recurring, settings, and supporting pages keep tablet-friendly padding and grids', () => {
-    expect(source('app/(app)/recurring/RecurringView.tsx')).toContain('px-4 sm:px-6 lg:px-8');
-    expect(source('app/(app)/recurring/RecurringView.tsx')).toContain('grid grid-cols-1 lg:grid-cols-[auto_1fr]');
+  test('recurring, settings, and supporting pages adopt v5 padding and grids', () => {
+    const recurring = source('app/(app)/recurring/RecurringView.tsx');
+    expect(recurring).toContain('px-4 lg:px-7 pb-9 pt-1');
+    expect(recurring).toContain('<RecurringBudget');
+    expect(recurring).toContain('<CommitmentsLane rules={rules}');
+    expect(source('app/(app)/recurring/RecurringBudget.tsx')).toContain('lg:grid-cols-[320px_1fr]');
 
     const settings = source('app/(app)/settings/SettingsView.tsx');
+    expect(settings).toContain('px-4 lg:px-7 pb-9 pt-1');
     expect(settings).toContain('grid grid-cols-[auto_1fr_auto] lg:grid-cols-[auto_1fr_auto_auto_auto]');
     expect(settings).toContain('hidden lg:flex items-center gap-0.5');
     expect(settings).toContain('hidden lg:block w-[150px]');
     expect(settings).toContain('lg:hidden px-1 pb-3.5');
 
-    expect(source('app/(app)/renewals/RenewalsView.tsx')).toContain('px-4 sm:px-6 lg:px-8');
-    expect(source('app/(app)/categories/CategoriesView.tsx')).toContain('px-4 sm:px-6 lg:px-8');
-    expect(source('app/(app)/insights/page.tsx')).toContain('px-4 sm:px-6 lg:px-8 py-4 sm:py-6');
+    expect(source('app/(app)/renewals/RenewalsView.tsx')).toContain('px-4 lg:px-7 pb-9 pt-1');
+    expect(source('app/(app)/categories/CategoriesView.tsx')).toContain('px-4 lg:px-7 pb-9 pt-1');
+    expect(source('app/(app)/insights/page.tsx')).toContain('px-4 lg:px-7 pb-9 pt-1');
   });
 
   test('transaction form controls stay touch-sized through tablet widths', () => {
