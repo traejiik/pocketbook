@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { CalendarIcon, CheckIcon, ChevronDownIcon } from 'lucide-react';
 import { toast } from 'sonner';
+import { notify } from '@/lib/ui-notify';
 
 import { deleteTransaction, type TxInput } from '@/server-actions/transactions';
 import { useTransactionSheet } from '@/contexts/sheet-context';
@@ -203,7 +204,7 @@ export function TransactionForm({
     if (!editingTx) return;
     try {
       await deleteTransaction(editingTx.id);
-      toast.success('Transaction deleted.');
+      notify.success('Transaction deleted.');
       setDeleteConfirmOpen(false);
       close();
     } catch {

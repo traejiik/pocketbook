@@ -22,7 +22,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 
 const TABS: { id: string; label: string; icon: LucideIcon }[] = [
   { id: 'dashboard', label: 'Home', icon: LayoutGrid },
-  { id: 'transactions', label: 'Txns', icon: List },
+  { id: 'transactions', label: 'Transactions', icon: List },
 ];
 const TABS_RIGHT: { id: string; label: string; icon: LucideIcon }[] = [
   { id: 'recurring', label: 'Recurring', icon: Repeat2 },
@@ -119,7 +119,7 @@ export function MobileNav({ onAdd, upcomingRenewalsCount = 0 }: MobileNavProps) 
           <SheetHeader className="pb-1">
             <SheetTitle>More</SheetTitle>
           </SheetHeader>
-          <div className="grid grid-cols-2 gap-2 px-4 pb-2">
+          <div className="flex flex-col gap-2 px-4 pb-2">
             {MORE.map((item) => {
               const Icon = item.icon;
               const active = activeId === item.id;

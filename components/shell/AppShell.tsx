@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import { usePathname } from 'next/navigation';
-import { toast } from 'sonner';
 import { Repeat2 } from 'lucide-react';
 import { Sidebar } from './Sidebar';
 import { TabletRail } from './TabletRail';
@@ -11,7 +10,7 @@ import { MobileTopBar } from './MobileTopBar';
 import { MobileNav } from './MobileNav';
 import { useTransactionSheet } from '@/contexts/sheet-context';
 import { FabProvider } from '@/contexts/fab-context';
-import { useNotifications } from '@/contexts/notifications-context';
+import { notify } from '@/lib/ui-notify';
 import { useGlobalKeys } from '@/hooks/use-global-keys';
 import { TransactionForm, type SerializedCategory, type SerializedRecurringRule } from '@/components/forms/TransactionForm';
 import { upsertTransaction, type TxInput } from '@/server-actions/transactions';
@@ -35,7 +34,6 @@ export function AppShell({
   displayName,
 }: AppShellProps) {
   const { openNew, close } = useTransactionSheet();
-  const { push } = useNotifications();
   const pathname = usePathname();
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [, startTransition] = useTransition();
@@ -54,9 +52,10 @@ export function AppShell({
       try {
         const result = await syncDueRecurringRulesAction();
         if (!cancelled && result.transactionsCreated > 0) {
-          const msg = `Logged ${result.transactionsCreated} recurring transaction${result.transactionsCreated === 1 ? '' : 's'}.`;
-          toast.success(msg);
-          push(msg, Repeat2);
+          notify.success(
+            `Logged ${result.transactionsCreated} recurring transaction${result.transactionsCreated === 1 ? '' : 's'}.`,
+            Repeat2,
+          );
         }
       } catch {
         // Cron also runs recurring sync; app-open sync is a quiet safety net.
@@ -66,15 +65,16 @@ export function AppShell({
     return () => {
       cancelled = true;
     };
-  }, [startTransition, push]);
+  }, [startTransition]);
 
   function handleFormSubmit(input: TxInput, _category: SerializedCategory) {
     startTransition(async () => {
       try {
         await upsertTransaction(input);
+        notify.success(`Added ${input.description}`);
         close();
       } catch {
-        toast.error('Failed to save transaction');
+        notify.error('Failed to save transaction');
       }
     });
   }
@@ -96,12 +96,12 @@ export function AppShell({
           onQuickAdd={openNew}
           className="hidden lg:flex"
         />
-        <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-background">
+        <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden bg-background">
           <Header displayName={displayName} className="hidden md:flex" />
           <MobileTopBar displayName={displayName} />
           <main
             id="main-content"
-            className="flex-1 overflow-auto pt-2 pb-24 md:pb-0"
+            className="flex-1 min-h-0 overflow-auto overscroll-contain pt-2 pb-24 md:pb-0"
           >
             {children}
           </main>

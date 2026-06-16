@@ -6,6 +6,7 @@ import { format, subMonths, addMonths } from 'date-fns';
 import { SearchIcon, ChevronRightIcon, ChevronLeftIcon, ChevronDownIcon, RepeatIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { notify } from '@/lib/ui-notify';
 import { upsertTransaction, type TxInput } from '@/server-actions/transactions';
 import { useTransactionSheet, type EditingTx } from '@/contexts/sheet-context';
 import { fmtAnchor, fmtCur, fmtDate, dayOfWeek } from '@/lib/format';
@@ -121,7 +122,7 @@ export function TransactionsView({
         addOptimistic(optimisticRow);
         try {
           await upsertTransaction(input);
-          toast.success(input.id ? 'Transaction updated.' : 'Transaction added.');
+          notify.success(input.id ? 'Transaction updated.' : 'Transaction added.');
         } catch {
           toast.error('Failed to save. Changes have been rolled back.');
         }
@@ -183,9 +184,9 @@ export function TransactionsView({
 
   return (
     <div className="px-4 lg:px-7 pb-9 pt-1 max-w-[1320px] mx-auto">
-      {/* Filter row — blends with the page, no island */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <label className="flex items-center gap-2.5 h-9 px-3.5 rounded-[10px] bg-card border border-border/50 focus-within:border-ring/50 transition-colors w-full sm:w-[240px] cursor-text">
+      {/* Filter row — stacks below lg, single row at desktop */}
+      <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center">
+        <label className="flex items-center gap-2.5 h-9 px-3.5 rounded-[10px] bg-card border border-border/50 focus-within:border-ring/50 transition-colors w-full lg:w-[240px] cursor-text">
           <SearchIcon className="w-[15px] h-[15px] text-muted-foreground shrink-0" />
           <input
             value={search}
@@ -195,53 +196,55 @@ export function TransactionsView({
           />
         </label>
 
-        <Segmented
-          options={[
-            { label: 'All', value: 'all' as TypeFilter },
-            { label: 'Income', value: 'INCOME' as TypeFilter },
-            { label: 'Expense', value: 'EXPENSE' as TypeFilter },
-            { label: 'Savings', value: 'SAVINGS' as TypeFilter },
-          ]}
-          value={typeFilter}
-          onChange={setTypeFilter}
-        />
+        <div className="flex items-center gap-2 flex-wrap">
+          <Segmented
+            options={[
+              { label: 'All', value: 'all' as TypeFilter },
+              { label: 'Income', value: 'INCOME' as TypeFilter },
+              { label: 'Expense', value: 'EXPENSE' as TypeFilter },
+              { label: 'Savings', value: 'SAVINGS' as TypeFilter },
+            ]}
+            value={typeFilter}
+            onChange={setTypeFilter}
+          />
 
-        <div className="relative">
-          <select
-            value={catFilter}
-            onChange={e => setCatFilter(e.target.value)}
-            aria-label="Filter by category"
-            className="appearance-none h-9 pl-3.5 pr-8 rounded-[10px] bg-card border border-border/50 hover:border-border text-[12.5px] text-muted-foreground focus:outline-hidden focus:ring-2 focus:ring-ring/60 transition-colors"
-          >
-            {catOptions.map(c => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
-          <ChevronDownIcon className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
+          <div className="relative">
+            <select
+              value={catFilter}
+              onChange={e => setCatFilter(e.target.value)}
+              aria-label="Filter by category"
+              className="appearance-none h-9 pl-3.5 pr-8 rounded-[10px] bg-card border border-border/50 hover:border-border text-[12.5px] text-muted-foreground focus:outline-hidden focus:ring-2 focus:ring-ring/60 transition-colors"
+            >
+              {catOptions.map(c => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+            <ChevronDownIcon className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
+          </div>
+
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => navigateMonth('prev')}
+              aria-label="Previous month"
+              className="w-7 h-7 rounded-[8px] flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent/70 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+            >
+              <ChevronLeftIcon className="w-3.5 h-3.5" />
+            </button>
+            <span className="text-[13px] font-medium tabular px-1 min-w-[88px] text-center">{monthLabel}</span>
+            <button
+              type="button"
+              onClick={() => navigateMonth('next')}
+              disabled={isCurrentMonth}
+              aria-label="Next month"
+              className="w-7 h-7 rounded-[8px] flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent/70 transition-colors disabled:opacity-40 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+            >
+              <ChevronRightIcon className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
 
-        <div className="flex items-center gap-1 ml-1">
-          <button
-            type="button"
-            onClick={() => navigateMonth('prev')}
-            aria-label="Previous month"
-            className="w-7 h-7 rounded-[8px] flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent/70 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-          >
-            <ChevronLeftIcon className="w-3.5 h-3.5" />
-          </button>
-          <span className="text-[13px] font-medium tabular px-1 min-w-[88px] text-center">{monthLabel}</span>
-          <button
-            type="button"
-            onClick={() => navigateMonth('next')}
-            disabled={isCurrentMonth}
-            aria-label="Next month"
-            className="w-7 h-7 rounded-[8px] flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent/70 transition-colors disabled:opacity-40 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-          >
-            <ChevronRightIcon className="w-3.5 h-3.5" />
-          </button>
-        </div>
-
-        <div className="ml-auto mono text-[12px] text-muted-foreground">
+        <div className="mono text-[12px] text-muted-foreground lg:ml-auto">
           Net:{' '}
           <span className={cn('font-medium', net >= 0 ? 'text-income' : 'text-expense')}>
             {fmtAnchor(net, anchorCurrency, { signed: true })}

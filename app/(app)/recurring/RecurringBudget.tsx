@@ -30,27 +30,18 @@ function RecKpi({
   value,
   tone,
   hint,
-  derived,
 }: {
   label: string
   value: number
   tone: Tone
   hint: string
-  derived?: boolean
 }) {
   return (
     <div
       className="calm-card p-5 flex flex-col min-h-[150px]"
       style={{ background: `linear-gradient(135deg, hsl(var(--${tone}) / 0.08) 0%, transparent 55%), hsl(var(--card))` }}
     >
-      <div className="flex items-start justify-between gap-2">
-        <div className="text-[13.5px] font-medium">{label}</div>
-        {derived && (
-          <span className="mono text-[9px] uppercase tracking-[0.1em] text-muted-foreground bg-secondary/80 rounded-full px-2 py-[3px] leading-none">
-            derived
-          </span>
-        )}
-      </div>
+      <div className="text-[13.5px] font-medium">{label}</div>
       <div className="mt-auto">
         <div
           className="tabular font-semibold tracking-tight leading-none whitespace-nowrap"
@@ -170,16 +161,11 @@ export function RecurringBudget({ budget, rules, counts, anchorCurrency }: Recur
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-4 items-stretch">
       <CommittedCard budget={budget} fx={fx} />
-      <div className="flex flex-col">
-        <div className="grid grid-cols-2 gap-4 flex-1">
-          <RecKpi label="Income" value={budget.monthlyIncome} tone="income" hint={`${counts.income} recurring source${counts.income === 1 ? '' : 's'}`} />
-          <RecKpi label="Expenses" value={budget.monthlyExpenses} tone="expense" hint={`${counts.expense} active rule${counts.expense === 1 ? '' : 's'}`} />
-          <RecKpi label="Net" value={budget.netUsable} tone={budget.netUsable >= 0 ? 'income' : 'expense'} derived hint="Income − expenses − savings" />
-          <RecKpi label="Savings" value={budget.monthlySavings} tone="savings" derived hint={`${counts.savings} auto-save rule${counts.savings === 1 ? '' : 's'}`} />
-        </div>
-        {budget.hasNormalisedAnnuals && (
-          <div className="text-[11px] text-muted-foreground mt-3">Annual rules are shown as monthly equivalents (÷ 12).</div>
-        )}
+      <div className="grid grid-cols-2 gap-4">
+        <RecKpi label="Income" value={budget.monthlyIncome} tone="income" hint={`${counts.income} recurring source${counts.income === 1 ? '' : 's'}`} />
+        <RecKpi label="Expenses" value={budget.monthlyExpenses} tone="expense" hint={`${counts.expense} active rule${counts.expense === 1 ? '' : 's'}`} />
+        <RecKpi label="Net" value={budget.netUsable} tone={budget.netUsable >= 0 ? 'income' : 'expense'} hint="Income − expenses − savings" />
+        <RecKpi label="Savings" value={budget.monthlySavings} tone="savings" hint={`${counts.savings} auto-save rule${counts.savings === 1 ? '' : 's'}`} />
       </div>
     </div>
   )
