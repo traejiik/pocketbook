@@ -239,7 +239,7 @@ export function CategoriesView({ categories, anchorCurrency = 'HUF' }: Props) {
                     aria-label={hex}
                     aria-pressed={editDialog?.color === hex}
                     onClick={() => setEditDialog((d) => d ? { ...d, color: hex } : d)}
-                    className="w-9 h-9 flex items-center justify-center rounded-md transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                    className="w-9 h-9 flex items-center justify-center rounded-md transition-[box-shadow] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
                   >
                     <span
                       className="w-6 h-6 rounded-[5px] block border-2"
