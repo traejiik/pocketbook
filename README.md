@@ -113,9 +113,9 @@ Responsive layout: mobile `<768px` uses a sticky top bar, bottom nav, More sheet
 
 Design-system authority:
 
-- `other/design-reference/` is the canonical design contract. Its screen JSX remains the structural source of truth for layout, class intent, and component composition.
+- `other/v5-handoff/` is the canonical design contract for **v2** (the calm two-tone redesign). Its prototypes (`source/calm5/*.jsx`, desktop canonical) and token/component/screen specs (`0*.md`) are the structural source of truth for layout, class intent, and component composition. Where it disagrees with the older `other/design-reference/` mockups, v5 wins.
 - `app/globals.css` and live components are the canonical implementation.
-- `design-system/` is a generated compact audit/manual of the current implementation. Use it for orientation, but do not let it overrule `other/design-reference/` without an explicit design decision.
+- `design-system/` is a generated compact audit/manual of the current implementation. Use it for orientation, but do not let it overrule `other/v5-handoff/` without an explicit design decision.
 
 ## Dependency policy
 
