@@ -25,7 +25,7 @@ export default async function AiInsightsPage() {
   }));
 
   return (
-    <div className="px-4 lg:px-7 pb-9 pt-1 max-w-[920px] mx-auto">
+    <div className="px-4 lg:px-7 pb-9 pt-1 max-w-[860px] mx-auto">
       <div className="flex items-center justify-between gap-3 mb-4">
         <div className="text-[12.5px] text-muted-foreground">
           Conversational commentary on {monthLabel} · generated locally

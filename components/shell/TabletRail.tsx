@@ -46,7 +46,7 @@ export function TabletRail({ upcomingRenewalsCount = 0, onQuickAdd, className }:
   return (
     <aside
       className={cn(
-        'shrink-0 flex flex-col pt-5 pb-4 px-3 bg-card border-r border-border/55 transition-[width] duration-200',
+        'shrink-0 flex-col pt-5 pb-4 px-3 bg-card border-r border-border/55 transition-[width] duration-200',
         collapsed ? 'w-[76px]' : 'w-[232px]',
         className,
       )}

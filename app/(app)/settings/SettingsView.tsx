@@ -2,7 +2,7 @@
 
 import { useState, useTransition, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { DollarSign, Lock, Sparkles, Check, AlertTriangle, RefreshCw, Plus, Trash2, Edit, Repeat, Database, Upload, Loader2 } from 'lucide-react';
+import { DollarSign, Lock, Sparkles, Check, AlertTriangle, RefreshCw, Plus, Trash2, Edit, Repeat, Database, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -103,7 +103,7 @@ function ImportSection() {
         <Upload className="w-4 h-4 text-muted-foreground" />
         <h2 className="text-[14px] font-semibold tracking-tight">Import data</h2>
       </div>
-      <div className="calm-card p-5 space-y-4">
+      <div className="calm-card p-6 space-y-4">
         <div>
           <div className="text-[13px] font-medium">Import transactions from CSV</div>
           <div className="text-[11.5px] text-muted-foreground mt-0.5">
@@ -134,12 +134,17 @@ function ImportSection() {
             onClick={handleImport}
           >
             {status === 'uploading' ? (
-              <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />Importing…</>
+              <><Upload className="w-3.5 h-3.5 mr-1.5" />Importing</>
             ) : (
               <><Check className="w-3.5 h-3.5 mr-1.5" />Import</>
             )}
           </Button>
         </div>
+        {status === 'uploading' && (
+          <div className="h-1.5 rounded-full bg-secondary overflow-hidden" aria-hidden="true">
+            <div className="h-full w-1/2 rounded-full bg-primary/45" />
+          </div>
+        )}
         {status === 'done' && result && (
           <div className="space-y-2">
             <div className="text-[12.5px] text-income">
@@ -320,7 +325,7 @@ export function SettingsView({
           </div>
 
           {/* Anchor selector */}
-          <div className="calm-card p-5 mb-3">
+          <div className="calm-card p-6 mb-3">
             <div className="flex items-baseline justify-between mb-3">
               <div>
                 <div className="text-[13px] font-semibold tracking-tight">Anchor currency</div>
@@ -341,7 +346,7 @@ export function SettingsView({
                   )}
                 >
                   <div className="flex items-center justify-between">
-                    <span className="text-[20px] leading-none">{c.flag}</span>
+                    <span className="text-[20px] leading-none">{c.symbol}</span>
                     {anchor === c.code && <Check className="w-3.5 h-3.5 text-primary" />}
                   </div>
                   <div className="mt-2.5 text-[13px] font-semibold mono tracking-tight">{c.code}</div>
@@ -352,7 +357,7 @@ export function SettingsView({
           </div>
 
           {/* Tracked currencies */}
-          <div className="calm-card p-5">
+          <div className="calm-card p-6">
             <div className="flex items-baseline justify-between mb-1">
               <div>
                 <div className="text-[13px] font-semibold tracking-tight">Tracked currencies</div>
@@ -512,7 +517,7 @@ export function SettingsView({
             <Lock className="w-4 h-4 text-muted-foreground" />
             <h2 className="text-[14px] font-semibold tracking-tight">Security</h2>
           </div>
-          <div className="calm-card p-5 space-y-4">
+          <div className="calm-card p-6 space-y-4">
             <div>
               <Label htmlFor="pw-current">Current password</Label>
               <Input id="pw-current" type="password" autoComplete="current-password" placeholder="••••••••••••" value={currentPw} onChange={e => setCurrentPw(e.target.value)} />
@@ -555,7 +560,7 @@ export function SettingsView({
             <Sparkles className="w-4 h-4 text-muted-foreground" />
             <h2 className="text-[14px] font-semibold tracking-tight">AI insights</h2>
           </div>
-          <div className="calm-card p-5 space-y-4">
+          <div className="calm-card p-6 space-y-4">
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-[13px] font-medium">Ollama endpoint</div>
@@ -618,7 +623,7 @@ export function SettingsView({
 
         {/* ── About ─────────────────────────────────────────────────── */}
         <section id="about">
-          <div className="calm-card p-5 grid grid-cols-3 gap-5 text-[12px]">
+          <div className="calm-card p-6 grid grid-cols-3 gap-5 text-[12px]">
             <div>
               <div className="text-[10.5px] uppercase tracking-[0.08em] text-muted-foreground font-medium">Version</div>
               <div className="mono text-foreground/85 mt-1">{version}</div>
@@ -640,7 +645,7 @@ export function SettingsView({
             <Database className="w-4 h-4 text-muted-foreground" />
             <h2 className="text-[14px] font-semibold tracking-tight">Data</h2>
           </div>
-          <div className="calm-card p-5">
+          <div className="calm-card p-6">
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-[13px] font-medium">Clear all data</div>

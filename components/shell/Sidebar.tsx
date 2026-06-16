@@ -21,7 +21,7 @@ export function Sidebar({ upcomingRenewalsCount = 0, onQuickAdd, className }: Si
   return (
     <aside
       className={cn(
-        'w-[224px] shrink-0 flex flex-col pt-5 pb-4 px-3 bg-card border-r border-border/55',
+        'w-[224px] shrink-0 flex-col pt-5 pb-4 px-3 bg-card border-r border-border/55',
         className,
       )}
     >

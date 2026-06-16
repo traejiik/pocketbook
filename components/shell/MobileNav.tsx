@@ -114,12 +114,16 @@ export function MobileNav({ onAdd, upcomingRenewalsCount = 0 }: MobileNavProps) 
       <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
         <SheetContent
           side="bottom"
-          className="mx-auto max-w-[402px] rounded-t-2xl pb-[max(env(safe-area-inset-bottom),1rem)]"
+          className="mx-auto max-w-[402px] gap-0 p-0 !rounded-t-[24px] pb-[max(env(safe-area-inset-bottom),1rem)]"
         >
-          <SheetHeader className="pb-1">
+          <div className="flex justify-center pt-2.5 pb-1">
+            <div className="h-1.5 w-10 rounded-full bg-border" />
+          </div>
+          <SheetHeader className="px-5 pt-2 pb-3.5 border-b border-border/60">
             <SheetTitle>More</SheetTitle>
+            <p className="text-[12px] text-muted-foreground">Other Pocketbook screens.</p>
           </SheetHeader>
-          <div className="flex flex-col gap-2 px-4 pb-2">
+          <div className="flex flex-col gap-2 px-5 py-4">
             {MORE.map((item) => {
               const Icon = item.icon;
               const active = activeId === item.id;

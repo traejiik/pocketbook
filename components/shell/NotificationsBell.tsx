@@ -74,8 +74,11 @@ export function NotificationsBell({ className }: { className?: string }) {
         </SheetTrigger>
         <SheetContent
           side="bottom"
-          className="mx-auto max-w-[402px] rounded-t-2xl gap-0 p-0 pb-[max(env(safe-area-inset-bottom),0.75rem)]"
+          className="mx-auto max-w-[402px] !rounded-t-[24px] gap-0 p-0 pb-[max(env(safe-area-inset-bottom),0.75rem)]"
         >
+          <div className="flex justify-center pt-2.5 pb-1">
+            <div className="h-1.5 w-10 rounded-full bg-border" />
+          </div>
           <SheetHeader className="sr-only">
             <SheetTitle>Notifications</SheetTitle>
           </SheetHeader>

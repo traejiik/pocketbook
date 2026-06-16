@@ -60,6 +60,7 @@ export default async function DashboardPage() {
 
   const now = new Date()
   const monthLabel = now.toLocaleDateString('en-GB', { month: 'short' })
+  const monthLong = now.toLocaleDateString('en-GB', { month: 'long' })
   const upcomingTotalHUF = upcoming.reduce((s, r) => s + (r.hufEquivalent ?? 0), 0)
   const nextRenewal = upcoming[0] ?? null
   const lastInsightDate = lastInsight
@@ -83,8 +84,8 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      {/* KPI row */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* KPI row — 2-up on mobile, four-up from tablet (matches v5 tablet prototype) */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <KpiBig label="Income" value={kpis.income} tone="income" deltaPct={incomeDelta?.label ?? '—'} footnote={deltaFootnote(incomeDelta)} currency={anchor} />
         <KpiBig label="Expenses" value={kpis.expense} tone="expense" deltaPct={expenseDelta?.label ?? '—'} footnote={deltaFootnote(expenseDelta)} currency={anchor} />
         <KpiBig label="Net" value={kpis.net} tone="income" deltaPct={netDelta?.label ?? '—'} footnote={deltaFootnote(netDelta)} currency={anchor} />
@@ -102,13 +103,15 @@ export default async function DashboardPage() {
         />
 
         {/* Upcoming renewals */}
-        <CalmCard className="col-span-12 md:col-span-6 lg:col-span-5 p-6">
+        <CalmCard className="col-span-12 md:col-span-6 lg:col-span-5 md:order-3 lg:order-none p-6">
           <CalmCardHead
             title="Upcoming renewals"
             sub={`Next 30 days · ${fmtAnchor(upcomingTotalHUF, anchor)}`}
             right={
               <Link href="/renewals" className="text-[12px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1 transition-colors">
-                View all <ChevronRight className="w-3 h-3" />
+                <span className="md:hidden">All</span>
+                <span className="hidden md:inline">View all</span>
+                <ChevronRight className="w-3 h-3" />
               </Link>
             }
           />
@@ -116,7 +119,7 @@ export default async function DashboardPage() {
             {upcoming.slice(0, 6).map(({ rule, daysAway, hufEquivalent }, i) => (
               <div
                 key={rule.id}
-                className={`flex items-center gap-3 py-[9.5px] ${i ? 'border-t border-border/40' : ''}`}
+                className={`items-center gap-3 py-[9.5px] ${i >= 4 ? 'hidden md:flex' : 'flex'} ${i ? 'border-t border-border/40' : ''}`}
               >
                 <div className="w-9 h-9 rounded-[10px] bg-secondary/70 flex flex-col items-center justify-center shrink-0">
                   <div className="text-[8.5px] text-muted-foreground uppercase mono leading-none">
@@ -157,14 +160,17 @@ export default async function DashboardPage() {
         </CalmCard>
 
         {/* Recent activity */}
-        <CalmCard className="col-span-12 md:col-span-6 lg:col-span-5 p-6">
+        <CalmCard className="col-span-12 md:col-span-6 lg:col-span-5 md:order-4 lg:order-none p-6">
           <CalmCardHead
             title="Recent activity"
             sub={`Last ${recentTx.length} transactions`}
             right={
-              <Link href="/transactions" className="text-[12px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1 transition-colors">
-                View all <ChevronRight className="w-3 h-3" />
-              </Link>
+              <>
+                <span className="md:hidden text-[11px] text-muted-foreground">{monthLong}</span>
+                <Link href="/transactions" className="hidden md:inline-flex text-[12px] text-muted-foreground hover:text-foreground items-center gap-1 transition-colors">
+                  View all <ChevronRight className="w-3 h-3" />
+                </Link>
+              </>
             }
           />
           <div className="mt-3">
@@ -209,8 +215,8 @@ export default async function DashboardPage() {
           </div>
         </CalmCard>
 
-        {/* Income used — gauge */}
-        <CalmCard className="col-span-12 md:col-span-6 lg:col-span-4 p-6 flex flex-col">
+        {/* Income used — gauge (mobile: right under the KPIs; tablet/desktop keep their slots) */}
+        <CalmCard className="col-span-12 md:col-span-6 lg:col-span-4 order-first md:order-2 lg:order-none p-6 flex flex-col">
           <CalmCardHead
             title="Income used"
             sub={`${fmtAnchor(kpis.expense + kpis.savings, anchor)} of ${fmtAnchor(kpis.income, anchor)}`}
@@ -241,13 +247,14 @@ export default async function DashboardPage() {
           </div>
         </CalmCard>
 
-        {/* Right stack: Reminder + AI Insights */}
-        <div className="col-span-12 md:col-span-6 lg:col-span-3 flex flex-col gap-4">
+        {/* Reminder + AI Insights — side-by-side pair on tablet, stacked rail on desktop */}
+        <div className="col-span-12 lg:col-span-3 md:order-5 lg:order-none flex flex-col gap-4 md:grid md:grid-cols-2 lg:flex lg:flex-col">
           {nextRenewal ? (
             <CalmCard className="p-6 flex flex-col">
-              <div className="text-[11.5px] text-muted-foreground">Reminder</div>
-              <div className="text-[14.5px] font-semibold tracking-tight mt-1">Next renewal</div>
-              <div className="mt-4 text-[14px] font-semibold tracking-tight text-primary leading-snug">
+              <div className="md:hidden text-[11.5px] text-muted-foreground">Reminder · Next renewal</div>
+              <div className="hidden md:block text-[11.5px] text-muted-foreground">Reminder</div>
+              <div className="hidden md:block text-[14.5px] font-semibold tracking-tight mt-1">Next renewal</div>
+              <div className="mt-2 md:mt-4 text-[14px] font-semibold tracking-tight text-primary leading-snug">
                 {nextRenewal.rule.name}
               </div>
               <div className="text-[11.5px] text-muted-foreground mt-1.5 tabular">
@@ -255,7 +262,7 @@ export default async function DashboardPage() {
               </div>
               <Link
                 href="/renewals"
-                className="mt-5 w-full inline-flex items-center justify-center gap-2 h-9 rounded-[10px] bg-primary text-primary-foreground font-medium text-[12px] hover:opacity-90 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                className="mt-5 w-full inline-flex items-center justify-center gap-2 h-11 lg:h-9 rounded-[12px] lg:rounded-[10px] bg-primary text-primary-foreground font-medium text-[13px] lg:text-[12px] hover:opacity-90 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
               >
                 <CalendarDays className="w-3.5 h-3.5" /> View renewals
               </Link>
@@ -268,38 +275,35 @@ export default async function DashboardPage() {
             </CalmCard>
           )}
 
-          {/* AI Insights card */}
+          {/* AI Insights card — model top-right; body adapts the real insight state (no fake commentary) */}
           <CalmCard className="p-6 flex flex-col flex-1">
             <div className="flex items-center gap-2">
-              <span className="text-primary"><Sparkles className="w-4 h-4" /></span>
+              <span className="text-primary"><Sparkles className="w-[18px] h-[18px]" /></span>
               <span className="text-[14.5px] font-semibold tracking-tight">AI Insights</span>
+              <span className="mono text-[10.5px] text-muted-foreground ml-auto">{settings?.ollamaModel ?? 'No model picked'}</span>
             </div>
-            <div className="mono text-[10.5px] text-muted-foreground mt-1.5">{settings?.ollamaModel ?? 'No model picked'}</div>
-            <div className="mt-auto pt-5">
-              <div className="text-[24px] font-semibold tabular tracking-tight leading-none">
-                {!ollamaReachable ? 'Unreachable' : insightCount > 0 ? insightCount : '~12s'}
-              </div>
-              <div className="text-[10.5px] text-muted-foreground mt-1.5">
-                {!ollamaReachable
-                  ? 'Ollama endpoint unreachable'
-                  : lastInsightDate ? `Last · ${lastInsightDate}` : 'No insights yet'}
-              </div>
-              {ollamaReachable ? (
-                <Link
-                  href="/insights?generate=1"
-                  className="mt-4 w-full inline-flex items-center justify-center gap-2 h-9 rounded-[10px] bg-secondary/90 hover:bg-secondary text-foreground font-medium text-[12px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-                >
-                  Generate <ArrowRight className="w-3.5 h-3.5" />
-                </Link>
-              ) : (
-                <Link
-                  href="/settings#ai-insights"
-                  className="mt-4 w-full inline-flex items-center justify-center gap-2 h-9 rounded-[10px] border border-border font-medium text-[12px] hover:bg-accent transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-                >
-                  Configure Ollama
-                </Link>
-              )}
+            <div className="text-[12.5px] text-muted-foreground mt-3 leading-relaxed flex-1">
+              {!ollamaReachable
+                ? 'The Ollama endpoint is unreachable. Configure it in Settings to start generating insights.'
+                : insightCount > 0
+                ? `${insightCount} insight${insightCount === 1 ? '' : 's'} generated so far${lastInsightDate ? ` · last on ${lastInsightDate}` : ''}. Generate fresh commentary on where the money went.`
+                : 'No insights generated yet. Generate fresh commentary on where the money went.'}
             </div>
+            {ollamaReachable ? (
+              <Link
+                href="/insights?generate=1"
+                className="mt-4 w-full inline-flex items-center justify-center gap-2 h-11 lg:h-9 rounded-[12px] lg:rounded-[10px] bg-secondary/90 hover:bg-secondary text-foreground font-medium text-[13px] lg:text-[12px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+              >
+                Generate <ArrowRight className="w-4 h-4 lg:w-3.5 lg:h-3.5" />
+              </Link>
+            ) : (
+              <Link
+                href="/settings#ai-insights"
+                className="mt-4 w-full inline-flex items-center justify-center gap-2 h-11 lg:h-9 rounded-[12px] lg:rounded-[10px] border border-border font-medium text-[13px] lg:text-[12px] hover:bg-accent transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+              >
+                Configure Ollama
+              </Link>
+            )}
           </CalmCard>
         </div>
       </div>

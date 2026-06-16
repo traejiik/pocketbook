@@ -109,7 +109,7 @@ other/                Design reference, mockups, handoff notes
 
 Data flow: server components fetch from Prisma directly -> pass props -> Server Actions mutate -> `revalidatePath` refreshes. Cron-callable API routes handle FX sync, monthly insights, and recurring rule reconciliation. No client-side data fetching for initial renders.
 
-Responsive layout: mobile `<768px` uses a sticky top bar, bottom tab bar, More sheet, and FAB. Tablet `768–1024px` uses a collapsible 76px/232px rail with touch-sized controls (iPad-landscape 1024 stays on the rail). The static 224px sidebar appears only above 1024px (`min-[1025px]:`); desktop grid/span density keys off `lg` (1024).
+Responsive layout: mobile `<768px` uses a sticky top bar, bottom tab bar, More sheet, and FAB. Tablet `768–1024px` uses a collapsible 76px/232px rail with touch-sized controls (iPad-landscape 1024 stays on the rail). The static 224px sidebar appears only above 1024px (`min-[1025px]:`). Desktop grid/span density generally keys off `lg` (1024), with page-specific tablet adaptations where the v5 tablet prototype needs different rhythm: the Dashboard goes four-up KPIs from `md` and reflows its cards into balanced pairs (Expenses‖Gauge, Renewals‖Recent, Reminder‖AI) via `md:order-*` before `lg:order-none` restores the desktop spans, and the Recurring budget summary goes side-by-side at `md` (768px) while rule grids stay two-up until `min-[1025px]`.
 
 Design-system authority:
 
