@@ -93,9 +93,9 @@ export function LoginForm({ displayName, version, instanceName, host }: { displa
 
         <Card className="p-6 shadow-pb-3">
           <div className="text-center mb-5">
-            <div className="text-[16px] font-semibold tracking-tight">
+            <h1 className="text-[16px] font-semibold tracking-tight">
               Welcome {displayName === 'back' ? 'back' : `back, ${displayName}`}
-            </div>
+            </h1>
             <div className="text-[12.5px] text-muted-foreground mt-1">Sign in to your personal ledger</div>
           </div>
 
@@ -111,6 +111,7 @@ export function LoginForm({ displayName, version, instanceName, host }: { displa
                   onChange={(e) => { setPassword(e.target.value); setError(''); }}
                   placeholder="••••••••••••"
                   className="pl-9 pr-9"
+                  autoComplete="current-password"
                   autoFocus
                 />
                 <button
@@ -124,7 +125,7 @@ export function LoginForm({ displayName, version, instanceName, host }: { displa
                 </button>
               </div>
               {error && (
-                <div className="mt-2 text-[12px] text-destructive flex items-center gap-1.5">
+                <div role="alert" className="mt-2 text-[12px] text-destructive flex items-center gap-1.5">
                   <AlertCircle className="w-3.5 h-3.5" /> {error}
                 </div>
               )}

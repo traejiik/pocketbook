@@ -62,13 +62,13 @@ export function Header({ displayName = 'User', className }: HeaderProps) {
           <Search className="w-[15px] h-[15px] text-muted-foreground" />
           <input
             ref={searchRef}
-            className="flex-1 bg-transparent outline-none text-[12.5px] placeholder:text-muted-foreground/80 min-w-0"
+            className="flex-1 bg-transparent outline-none text-[12.5px] placeholder:text-muted-foreground min-w-0"
             placeholder="Search transactions, subs, categories…"
             value={searchValue}
             onChange={(e) => setSearchValue(e.target.value)}
             onKeyDown={handleSearchKey}
           />
-          <span className="mono text-[10px] text-muted-foreground/70">⌘K</span>
+          <span className="mono text-[10px] text-muted-foreground">⌘K</span>
         </label>
       </div>
 

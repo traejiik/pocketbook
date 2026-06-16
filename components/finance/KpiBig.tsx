@@ -64,7 +64,7 @@ export function KpiBig({
           <Link
             href={href}
             aria-label={`Open ${label}`}
-            className="w-7 h-7 rounded-full border border-border/60 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+            className="relative w-7 h-7 rounded-full border border-border/60 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 after:absolute after:-inset-2 md:after:hidden"
           >
             <ArrowUpRight className="w-3.5 h-3.5" />
           </Link>

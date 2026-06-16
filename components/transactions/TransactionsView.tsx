@@ -186,12 +186,12 @@ export function TransactionsView({
     <div className="px-4 lg:px-7 pb-9 pt-1 max-w-[1320px] mx-auto">
       {/* Filter row — stacks below lg, single row at desktop */}
       <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center">
-        <label className="flex items-center gap-2.5 h-9 px-3.5 rounded-[10px] bg-card border border-border/50 focus-within:border-ring/50 transition-colors w-full lg:w-[240px] cursor-text">
+        <label className="flex items-center gap-2.5 h-11 md:h-9 px-3.5 rounded-[10px] bg-card border border-border/50 focus-within:border-ring/50 transition-colors w-full lg:w-[240px] cursor-text">
           <SearchIcon className="w-[15px] h-[15px] text-muted-foreground shrink-0" />
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="flex-1 bg-transparent outline-none text-[12.5px] placeholder:text-muted-foreground/80 min-w-0"
+            className="flex-1 bg-transparent outline-none text-[12.5px] placeholder:text-muted-foreground min-w-0"
             placeholder="Search transactions…"
           />
         </label>
@@ -213,7 +213,7 @@ export function TransactionsView({
               value={catFilter}
               onChange={e => setCatFilter(e.target.value)}
               aria-label="Filter by category"
-              className="appearance-none h-9 pl-3.5 pr-8 rounded-[10px] bg-card border border-border/50 hover:border-border text-[12.5px] text-muted-foreground focus:outline-hidden focus:ring-2 focus:ring-ring/60 transition-colors"
+              className="appearance-none h-11 md:h-9 pl-3.5 pr-8 rounded-[10px] bg-card border border-border/50 hover:border-border text-[12.5px] text-muted-foreground focus:outline-hidden focus:ring-2 focus:ring-ring/60 transition-colors"
             >
               {catOptions.map(c => (
                 <option key={c.id} value={c.id}>{c.name}</option>
@@ -227,7 +227,7 @@ export function TransactionsView({
               type="button"
               onClick={() => navigateMonth('prev')}
               aria-label="Previous month"
-              className="w-7 h-7 rounded-[8px] flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent/70 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+              className="relative w-7 h-7 rounded-[8px] flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent/70 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 after:absolute after:-inset-2 md:after:hidden"
             >
               <ChevronLeftIcon className="w-3.5 h-3.5" />
             </button>
@@ -237,7 +237,7 @@ export function TransactionsView({
               onClick={() => navigateMonth('next')}
               disabled={isCurrentMonth}
               aria-label="Next month"
-              className="w-7 h-7 rounded-[8px] flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent/70 transition-colors disabled:opacity-40 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+              className="relative w-7 h-7 rounded-[8px] flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent/70 transition-colors disabled:opacity-40 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 after:absolute after:-inset-2 md:after:hidden"
             >
               <ChevronRightIcon className="w-3.5 h-3.5" />
             </button>

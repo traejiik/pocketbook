@@ -3,7 +3,7 @@ import { Input as InputPrimitive } from "@base-ui/react/input"
 
 import { cn } from "@/lib/utils"
 
-const inputBase = "h-9 w-full min-w-0 rounded-[10px] border border-input bg-transparent px-3 text-base sm:text-[13.5px] transition-colors outline-hidden placeholder:text-muted-foreground/70 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/60 disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive dark:bg-input/30"
+const inputBase = "h-9 w-full min-w-0 rounded-[10px] border border-input bg-transparent px-3 text-base sm:text-[13.5px] transition-colors outline-hidden placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/60 disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive dark:bg-input/30"
 
 interface InputProps extends React.ComponentProps<"input"> {
   icon?: React.ReactNode
