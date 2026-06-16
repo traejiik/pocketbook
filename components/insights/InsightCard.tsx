@@ -2,7 +2,6 @@
 
 import { useState, useCallback } from 'react';
 import { Sparkles, ChevronRight, ThumbsUp, ThumbsDown, RefreshCw } from 'lucide-react';
-import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { setInsightFeedback } from '@/server-actions/insights';
@@ -92,7 +91,7 @@ export function InsightCard({ ollamaUrl, ollamaModel, history }: Props) {
   return (
     <div className="space-y-4">
       {/* Status bar */}
-      <Card className="p-3 flex items-center justify-between text-[12px]">
+      <div className="calm-card p-3 flex items-center justify-between text-[12px]">
         <div className="flex items-center gap-2.5">
           <span className={cn(
             'w-2 h-2 rounded-full shrink-0',
@@ -115,10 +114,10 @@ export function InsightCard({ ollamaUrl, ollamaModel, history }: Props) {
         <div className="mono text-muted-foreground text-[11px]">
           {model}
         </div>
-      </Card>
+      </div>
 
       {/* Main note card */}
-      <Card className="relative overflow-hidden">
+      <div className="calm-card relative overflow-hidden">
         <div
           className="absolute inset-0 pointer-events-none opacity-50"
           style={{ background: 'radial-gradient(50% 30% at 15% 0%, hsl(var(--primary) / 0.10), transparent 60%)' }}
@@ -229,7 +228,7 @@ export function InsightCard({ ollamaUrl, ollamaModel, history }: Props) {
             </div>
           )}
         </div>
-      </Card>
+      </div>
 
       {/* History */}
       {history.length > 0 && (
@@ -237,7 +236,7 @@ export function InsightCard({ ollamaUrl, ollamaModel, history }: Props) {
           <div className="text-[11px] uppercase tracking-[0.08em] text-muted-foreground font-medium mb-2">
             Previous notes
           </div>
-          <Card className="divide-y divide-border">
+          <div className="calm-card divide-y divide-border/40 overflow-hidden">
             {history.map(item => (
               <button
                 key={item.id}
@@ -255,7 +254,7 @@ export function InsightCard({ ollamaUrl, ollamaModel, history }: Props) {
                 <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
               </button>
             ))}
-          </Card>
+          </div>
         </div>
       )}
 
