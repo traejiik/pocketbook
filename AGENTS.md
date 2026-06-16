@@ -26,7 +26,7 @@ Port faithfully — class names, layout, component composition — unless asked 
 13. **Recurring generation is idempotent** — `Transaction` has `@@unique([recurringRuleId, date])`; generated recurring writes must use that invariant and skip duplicates.
 14. **Installment counters are reconciled, not manually bumped** — after transaction create/edit/delete, recompute `installmentPaid` from linked transactions and archive only when the count reaches `installmentTotal`.
 15. **One-way CSV import is supported** — CSV upload/import is a Server Action workflow, not a REST mutation. Two-way Google Sheets sync remains out of scope.
-16. **Responsive tiers are width-based** — mobile `<768px` uses the sticky mobile top bar, bottom nav, More sheet, and FAB; tablet `768–1023px` uses the collapsible 76px/232px rail; `lg`/`≥1024px` restores the 224px sidebar and desktop header/content spans; and `xl` restores the densest desktop control sizing plus the widest grids (`KpiBig` rows go four-up only at `xl`; its 44px numerals need ~190px of column width). Do not add orientation queries, JS viewport detection, or container queries unless explicitly requested.
+16. **Responsive tiers are width-based** — mobile `<768px` uses the sticky mobile top bar, bottom tab bar (centre FAB + More sheet); tablet `768–1024px` uses the collapsible 76px/232px icon rail; the static 224px sidebar appears only **above 1024px** (`min-[1025px]:`, so iPad-landscape 1024 stays on the rail). Desktop grid/span density keys off `lg` (1024) — KPI strips go four-up at `lg`. Do not add orientation queries, JS viewport detection, or container queries unless explicitly requested.
 
 ## Do not build (v1)
 
