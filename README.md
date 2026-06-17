@@ -1,5 +1,8 @@
 # Pocketbook
 
+![wordmark logo](/public/wordmark-dark.svg)
+
+
 A self-hosted personal finance tracker for a single user. Replaces a manual spreadsheet — tracks income, expenses, savings, recurring rules, renewals, and categories, with an AI-powered monthly summary generated locally via Ollama. No cloud, no subscription, no third-party data.
 
 ---
