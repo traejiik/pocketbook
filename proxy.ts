@@ -26,5 +26,7 @@ export default auth((req) => {
 });
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+  // PWA assets (manifest + icons) must stay public so the install prompt works
+  // from the login page and while logged out — same treatment as favicon.ico.
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|icons/).*)'],
 };

@@ -27,6 +27,7 @@ A self-hosted personal finance tracker for a single user. Replaces a manual spre
 - AI Insights: real streaming from local Ollama, saved to DB, feedback buttons
 - Settings: anchor currency, tracked FX rates (dynamic/manual), password change, LLM picker
 - CSV importer for bootstrapping from existing data
+- Installable as a PWA: add to home screen / install to run in a standalone window (web app manifest + icons, no offline caching)
 
 ---
 

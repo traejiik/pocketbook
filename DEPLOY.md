@@ -126,6 +126,8 @@ In the nginx-proxy-manager web UI:
 
 NPM resolves `pocketbook-web` by container name over `core_net` — no IP address or exposed host port required.
 
+> **PWA install:** Pocketbook is installable (web app manifest at `/manifest.webmanifest`, icons in `public/icons/`). No new env vars or services — but browsers only offer "Install / Add to Home Screen" over a secure context, so the **Force SSL** step above is what makes the install prompt appear.
+
 ---
 
 ## Verify FX rate sync
