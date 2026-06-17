@@ -110,19 +110,41 @@ describe('tablet breakpoint contract', () => {
     expect(chart).toContain('top-0 left-1/2 -translate-x-1/2');
   });
 
-  test('transactions render a calm single-card ledger with a v5 desktop grid', () => {
+  test('transactions render dedicated mobile, tablet, and desktop ledger tiers', () => {
     const tx = source('components/transactions/TransactionsView.tsx');
 
-    expect(tx).toContain('px-4 lg:px-7 pb-9 pt-1 max-w-[1320px] mx-auto');
-    expect(tx).toContain("const ROW_GRID = 'lg:grid-cols-[110px_1fr_220px_150px_130px_36px]'");
-    expect(tx).toContain('grid-cols-[1fr_auto]');
-    expect(tx).toContain('hidden lg:grid');
-    expect(tx).toContain('hidden lg:block mono text-[12px] text-muted-foreground tabular');
-    expect(tx).toContain('hidden lg:flex items-center gap-1.5 text-[12px] text-muted-foreground');
+    // Shared container; mobile padding below md, v5 padding from md up
+    expect(tx).toContain('px-4 md:px-7 pb-9 pt-1 max-w-[1320px] mx-auto');
+
+    // Three breakpoint tiers, each gated by Tailwind visibility (no JS detection)
+    expect(tx).toContain('<MobileTransactions');
+    expect(tx).toContain('hidden md:block lg:hidden md:max-w-[920px] md:mx-auto');
+    expect(tx).toContain('hidden lg:block');
+
+    // Per-tier grids
+    expect(tx).toContain("const DESKTOP_GRID = 'grid-cols-[110px_1fr_220px_150px_130px_36px]'");
+    expect(tx).toContain("const TABLET_GRID = 'grid-cols-[80px_1fr_190px_130px]'");
+
+    // Tablet rows carry a 32px category avatar; desktop keeps the In-HUF column + card spacing
+    expect(tx).toContain('<CategoryAvatar name={tx.category.name} color={tx.category.color} size={32} />');
     expect(tx).toContain('<CalmCard className="mt-4 overflow-hidden">');
 
-    // Segmented control adopts the v5 pill sizing
-    expect(source('components/ui/segmented.tsx')).toContain('h-[26px]');
+    // Shared month/net pill replaces the loose nav + plain-text net
+    expect(tx).toContain('<MonthNetStrip');
+    const strip = source('components/transactions/MonthNetStrip.tsx');
+    expect(strip).toContain('bg-card border border-border/45');
+    expect(strip).toContain("net >= 0 ? 'text-income' : 'text-expense'");
+
+    // Mobile tier: 36px avatar rows + animated floating search overlay
+    const mobile = source('components/transactions/MobileTransactions.tsx');
+    expect(mobile).toContain('color={tx.category.color} size={36}');
+    expect(mobile).toContain('Type to search all transactions');
+    expect(mobile).toContain('aria-label="Search transactions"');
+
+    // Segmented control keeps the v5 desktop pill sizing and gains a 40px touch variant
+    const segmented = source('components/ui/segmented.tsx');
+    expect(segmented).toContain('h-[26px]');
+    expect(segmented).toContain('h-[34px]');
   });
 
   test('recurring, settings, and supporting pages adopt v5 padding and grids', () => {
