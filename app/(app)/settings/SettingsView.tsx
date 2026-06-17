@@ -52,10 +52,10 @@ type Props = {
 };
 
 const ANCHOR_OPTIONS = [
-  { code: 'HUF', symbol: 'Ft', name: 'Forint',    flag: '🇭🇺' },
-  { code: 'USD', symbol: '$',  name: 'US Dollar', flag: '🇺🇸' },
-  { code: 'EUR', symbol: '€',  name: 'Euro',      flag: '🇪🇺' },
-  { code: 'GBP', symbol: '£',  name: 'Pound',     flag: '🇬🇧' },
+  { code: 'HUF', symbol: 'Ft', name: 'Hungarian Forint', flag: '🇭🇺' },
+  { code: 'USD', symbol: '$',  name: 'US Dollar',        flag: '🇺🇸' },
+  { code: 'EUR', symbol: '€',  name: 'Euro',             flag: '🇪🇺' },
+  { code: 'GBP', symbol: '£',  name: 'British Pound',    flag: '🇬🇧' },
 ];
 
 function formatModelSize(bytes: number): string {
@@ -316,7 +316,7 @@ export function SettingsView({
 
   return (
     <>
-      <div className="px-4 lg:px-7 pb-9 pt-1 max-w-[760px] mx-auto space-y-7">
+      <div className="px-4 lg:px-7 pb-9 pt-1 max-w-[860px] mx-auto space-y-7">
         {/* ── Currencies & FX rates ──────────────────────────────────── */}
         <section id="currencies">
           <div className="flex items-center gap-2 mb-3">
@@ -333,7 +333,7 @@ export function SettingsView({
               </div>
               <span className="text-[10.5px] mono uppercase tracking-wider text-muted-foreground">Default</span>
             </div>
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {ANCHOR_OPTIONS.map(c => (
                 <button
                   key={c.code}
@@ -346,11 +346,11 @@ export function SettingsView({
                   )}
                 >
                   <div className="flex items-center justify-between">
-                    <span className="text-[20px] leading-none">{c.symbol}</span>
+                    <span className="text-[16px] leading-none">{c.symbol}</span>
                     {anchor === c.code && <Check className="w-3.5 h-3.5 text-primary" />}
                   </div>
                   <div className="mt-2.5 text-[13px] font-semibold mono tracking-tight">{c.code}</div>
-                  <div className="text-[10.5px] text-muted-foreground mt-0.5">{c.name}</div>
+                  <div className="text-[10.5px] text-muted-foreground mt-0.5 whitespace-nowrap">{c.name}</div>
                 </button>
               ))}
             </div>
