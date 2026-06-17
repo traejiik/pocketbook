@@ -4,7 +4,7 @@ import { useState, useTransition, useEffect, useCallback, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Plus, ArrowUpDown, Check, RepeatIcon, Calendar, Repeat2, RotateCcw, ChevronDown } from 'lucide-react'
+import { Plus, ArrowUpDown, Check, RepeatIcon, Calendar, RotateCcw, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Segmented } from '@/components/ui/segmented'
 import type { RecurringBudgetSummary } from '@/lib/aggregations'
@@ -147,7 +147,7 @@ function CompactRuleRow({
   anchorCurrency: string
   onEdit: (rule: SerialisedRule) => void
 }) {
-  const Icon = rule.cycle === 'ANNUAL' ? Calendar : Repeat2
+  const Icon = rule.cycle === 'ANNUAL' ? Calendar : RepeatIcon
   const daysAway = daysUntil(rule.nextDue)
   const urgent = daysAway >= 0 && daysAway <= 7
   const amountTone =
@@ -208,7 +208,7 @@ function ArchivedCompactRow({
   onRestore: (id: string) => void
 }) {
   const completed = isCompletedInstallment(rule)
-  const RowIcon = completed || rule.cycle === 'ANNUAL' ? Calendar : Repeat2
+  const RowIcon = completed || rule.cycle === 'ANNUAL' ? Calendar : RepeatIcon
   return (
     <div className={cn('flex items-center gap-3 px-4 py-3', top && 'border-t border-border/40')}>
       <span
@@ -378,7 +378,7 @@ export function RecurringView({ rules, archivedRules, categories, budget, anchor
   }
 
   return (
-    <div className="px-4 lg:px-7 pb-9 pt-1 space-y-5 max-w-[920px] min-[1025px]:max-w-[1240px] mx-auto">
+    <div className="px-4 lg:px-7 pb-9 pt-1 space-y-5 max-w-[920px] min-[1025px]:max-w-[1320px] mx-auto">
       <div className="hidden md:flex items-center justify-between gap-3">
         <div className="text-[12.5px] text-muted-foreground">
           Subscriptions, installments, and recurring income.
@@ -732,7 +732,7 @@ function ArchivedGroup({
                     )}
                     style={{ background: hexToRgba(r.category.color, 0.12), color: r.category.color }}
                   >
-                    {r.cycle === 'ANNUAL' ? <Calendar className="w-4 h-4" /> : <Repeat2 className="w-4 h-4" />}
+                    {r.cycle === 'ANNUAL' ? <Calendar className="w-4 h-4" /> : <RepeatIcon className="w-4 h-4" />}
                   </div>
                   <div className="min-w-0">
                     <div className="text-[13.5px] font-medium truncate text-foreground/80">{r.name}</div>

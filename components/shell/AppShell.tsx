@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import { usePathname } from 'next/navigation';
-import { Repeat2 } from 'lucide-react';
+import { Repeat } from 'lucide-react';
 import { Sidebar } from './Sidebar';
 import { TabletRail } from './TabletRail';
 import { Header } from './Header';
@@ -55,7 +55,7 @@ export function AppShell({
         if (!cancelled && result.transactionsCreated > 0) {
           notify.success(
             `Logged ${result.transactionsCreated} recurring transaction${result.transactionsCreated === 1 ? '' : 's'}.`,
-            Repeat2,
+            Repeat,
           );
         }
       } catch {
@@ -102,7 +102,7 @@ export function AppShell({
           <MobileTopBar displayName={displayName} />
           <main
             id="main-content"
-            className="pt-2 pb-24 md:pb-0 md:flex-1 md:min-h-0 md:overflow-y-auto md:overflow-x-hidden md:overscroll-contain"
+            className="pt-2 pb-24 overflow-x-hidden md:pb-0 md:flex-1 md:min-h-0 md:overflow-y-auto md:overscroll-contain"
           >
             {children}
           </main>

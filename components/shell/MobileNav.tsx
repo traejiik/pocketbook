@@ -6,9 +6,9 @@ import { usePathname } from 'next/navigation';
 import {
   LayoutGrid,
   List,
-  Repeat2,
+  Repeat,
   Plus,
-  Ellipsis,
+  Menu,
   CalendarDays,
   Tag,
   Sparkles,
@@ -25,7 +25,7 @@ const TABS: { id: string; label: string; icon: LucideIcon }[] = [
   { id: 'transactions', label: 'Transactions', icon: List },
 ];
 const TABS_RIGHT: { id: string; label: string; icon: LucideIcon }[] = [
-  { id: 'recurring', label: 'Recurring', icon: Repeat2 },
+  { id: 'recurring', label: 'Recurring', icon: Repeat },
 ];
 const MORE: { id: string; label: string; icon: LucideIcon }[] = [
   { id: 'renewals', label: 'Renewals', icon: CalendarDays },
@@ -102,7 +102,7 @@ export function MobileNav({ onAdd, upcomingRenewalsCount = 0 }: MobileNavProps) 
               moreActive ? 'text-primary' : 'text-muted-foreground',
             )}
           >
-            <Ellipsis className="w-5 h-5" />
+            <Menu className="w-5 h-5" />
             More
             {upcomingRenewalsCount > 0 && (
               <span className="absolute top-2.5 right-[calc(50%-16px)] w-1.5 h-1.5 rounded-full bg-warning" />

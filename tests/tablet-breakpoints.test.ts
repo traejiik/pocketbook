@@ -32,7 +32,7 @@ describe('tablet breakpoint contract', () => {
     expect(appShell).toContain('className="hidden min-[1025px]:flex"');
     expect(appShell).toContain('<Header displayName={displayName} className="hidden md:flex" />');
     expect(appShell).toContain('<MobileTopBar displayName={displayName} />');
-    expect(appShell).toContain('pb-24 md:pb-0');
+    expect(appShell).toContain('pb-24 overflow-x-hidden md:pb-0');
 
     expect(tabletRail).toContain("const STORAGE_KEY = 'pb-rail-collapsed';");
     expect(tabletRail).toContain("collapsed ? 'w-[76px]' : 'w-[232px]'");
@@ -221,7 +221,7 @@ describe('tablet breakpoint contract', () => {
   test('recurring keeps tablet sheets and mobile rule list faithful to v5', () => {
     const recurring = source('app/(app)/recurring/RecurringView.tsx');
 
-    expect(recurring).toContain('max-w-[920px] min-[1025px]:max-w-[1240px]');
+    expect(recurring).toContain('max-w-[920px] min-[1025px]:max-w-[1320px]');
     expect(recurring).toContain('space-y-5');
     expect(recurring).toContain('Subscriptions, installments, and recurring income.');
     expect(recurring).toContain('ruleCountLabel');

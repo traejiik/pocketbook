@@ -1,4 +1,4 @@
-import { Calendar, Repeat2, MoreHorizontal, AlertTriangle } from 'lucide-react'
+import { Calendar, Repeat, MoreHorizontal, AlertTriangle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { fmtAnchor, fmtCur, fmtDate } from '@/lib/format'
 import { hexToRgba } from '@/lib/colors'
@@ -56,7 +56,7 @@ export function RecurringRuleCard({ rule, hufEquivalent, daysAway, onEdit, ancho
               className="w-9 h-9 rounded-[10px] flex items-center justify-center shrink-0"
               style={{ background: hexToRgba(rule.category.color, 0.14), color: rule.category.color }}
             >
-              {rule.cycle === 'ANNUAL' ? <Calendar className="w-4 h-4" /> : <Repeat2 className="w-4 h-4" />}
+              {rule.cycle === 'ANNUAL' ? <Calendar className="w-4 h-4" /> : <Repeat className="w-4 h-4" />}
             </div>
             <div className="min-w-0">
               <div className="text-[13.5px] font-medium truncate">{rule.name}</div>

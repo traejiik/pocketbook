@@ -128,7 +128,7 @@ function CommittedCard({
 
       {/* category composition */}
       {segs.length > 0 && (
-        <div className="mt-5 pt-4 border-t border-border/50">
+        <div className="mt-5 pt-4 pb-3 border-t border-border/50">
           <div className="text-[10px] mono uppercase tracking-[0.12em] text-muted-foreground mb-2.5">Where it goes</div>
           <div className="h-2.5 rounded-full overflow-hidden flex gap-px bg-secondary">
             {segs.map((s) => (
@@ -256,7 +256,7 @@ export function CommitmentsLane({ rules, anchorCurrency }: { rules: BudgetRule[]
         </div>
       )}
 
-      <div className="mt-5 relative" style={{ height: H + 38 }}>
+      <div className="mt-5 relative overflow-x-clip" style={{ height: H + 38 }}>
         {/* 7-day window shade */}
         <div className="absolute top-0 left-0 rounded-l-[6px] bg-warning/6" style={{ width: `${(7 / HORIZON) * 100}%`, height: H + 8 }} />
         {/* baseline */}

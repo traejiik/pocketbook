@@ -1,7 +1,7 @@
 import {
   LayoutGrid,
   List,
-  Repeat2,
+  Repeat,
   CalendarDays,
   Tag,
   Sparkles,
@@ -20,7 +20,7 @@ export interface NavItem {
 export const NAV: NavItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutGrid },
   { id: 'transactions', label: 'Transactions', icon: List },
-  { id: 'recurring', label: 'Recurring', icon: Repeat2 },
+  { id: 'recurring', label: 'Recurring', icon: Repeat },
   { id: 'renewals', label: 'Renewals', icon: CalendarDays },
   { id: 'categories', label: 'Categories', icon: Tag },
   { id: 'insights', label: 'AI Insights', icon: Sparkles },

@@ -150,7 +150,7 @@ export function DashboardChartSection({ byCategory, trend6mo, totalExpense, anch
                 )
               })}
             </div>
-            <div className="mt-6 pt-4 border-t border-border/45 flex items-center gap-2 text-[11.5px] text-muted-foreground">
+            <div className="mt-11 pt-4 border-t border-border/45 flex items-center gap-2 text-[11.5px] text-muted-foreground">
               {topCat && (
                 <>
                   <span className="w-2 h-2 rounded-full" style={{ background: topCat.color }} />
