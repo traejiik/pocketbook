@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, type ReactNode } from 'react';
 import { SearchIcon, XIcon, RepeatIcon } from 'lucide-react';
 
 import { CalmCard } from '@/components/finance/CalmCard';
@@ -208,44 +208,33 @@ function TxSearchOverlay({
   );
 }
 
-// ── Mobile page tier ────────────────────────────────────────────────────────
-interface MobileTransactionsProps {
-  baseGroups: TxGroup[];
-  baseCount: number;
-  mobileNet: number;
-  searchGroups: TxGroup[];
-  searchCount: number;
+interface TransactionSearchFrameProps {
   q: string;
   setSearch: (v: string) => void;
-  filter: TypeFilter;
-  setTypeFilter: (v: TypeFilter) => void;
-  monthLabel: string;
-  onPrev: () => void;
-  onNext: () => void;
-  isCurrentMonth: boolean;
-  anchorCurrency: string;
+  searchGroups: TxGroup[];
+  searchCount: number;
   toHuf: (tx: SerializedTx) => number;
+  anchorCurrency: string;
   onRowClick: (tx: SerializedTx) => void;
+  closedControls: (searchButton: ReactNode) => ReactNode;
+  ledger: ReactNode;
+  afterControls?: ReactNode;
+  className?: string;
 }
 
-export function MobileTransactions({
-  baseGroups,
-  baseCount,
-  mobileNet,
-  searchGroups,
-  searchCount,
+export function TransactionSearchFrame({
   q,
   setSearch,
-  filter,
-  setTypeFilter,
-  monthLabel,
-  onPrev,
-  onNext,
-  isCurrentMonth,
-  anchorCurrency,
+  searchGroups,
+  searchCount,
   toHuf,
+  anchorCurrency,
   onRowClick,
-}: MobileTransactionsProps) {
+  closedControls,
+  ledger,
+  afterControls,
+  className,
+}: TransactionSearchFrameProps) {
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchAnim, setSearchAnim] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -276,14 +265,22 @@ export function MobileTransactions({
   }, []);
 
   const rowTrans = reduced ? `opacity 0.15s ${EASE}` : `opacity 0.18s ${EASE}, transform 0.18s ${EASE}`;
+  const searchButton = (
+    <button
+      type="button"
+      onClick={openSearch}
+      aria-label="Search transactions"
+      className="w-10 h-10 rounded-[12px] bg-card border border-border/50 flex items-center justify-center text-muted-foreground shrink-0 active:bg-accent/70 transition-colors"
+    >
+      <SearchIcon className="w-[18px] h-[18px]" />
+    </button>
+  );
 
   return (
-    <div className="space-y-3">
-      {/* Row 1 — filter tabs / search input (40px) */}
+    <div className={cn('space-y-3', className)}>
       <div className="relative" style={{ height: 40 }}>
-        {/* Default: segmented + search icon */}
         <div
-          className="absolute inset-0 flex items-center gap-2"
+          className="absolute inset-0"
           style={{
             opacity: searchAnim ? 0 : 1,
             transform: !reduced && searchAnim ? 'translateX(-10px)' : 'translateX(0)',
@@ -291,31 +288,9 @@ export function MobileTransactions({
             pointerEvents: searchAnim ? 'none' : 'auto',
           }}
         >
-          <div className="flex-1 min-w-0">
-            <Segmented
-              size="lg"
-              fullWidth
-              options={[
-                { label: 'All', value: 'all' as TypeFilter },
-                { label: 'Income', value: 'INCOME' as TypeFilter },
-                { label: 'Expense', value: 'EXPENSE' as TypeFilter },
-                { label: 'Savings', value: 'SAVINGS' as TypeFilter },
-              ]}
-              value={filter}
-              onChange={setTypeFilter}
-            />
-          </div>
-          <button
-            type="button"
-            onClick={openSearch}
-            aria-label="Search transactions"
-            className="w-10 h-10 rounded-[12px] bg-card border border-border/50 flex items-center justify-center text-muted-foreground shrink-0 active:bg-accent/70 transition-colors"
-          >
-            <SearchIcon className="w-[18px] h-[18px]" />
-          </button>
+          {closedControls(searchButton)}
         </div>
 
-        {/* Open: search input + Cancel */}
         {searchOpen && (
           <div
             className="absolute inset-0 flex items-center gap-2"
@@ -357,19 +332,8 @@ export function MobileTransactions({
         )}
       </div>
 
-      {/* Row 2 — month / net pill */}
-      <MonthNetStrip
-        size="md"
-        fullWidth
-        monthLabel={monthLabel}
-        onPrev={onPrev}
-        onNext={onNext}
-        isCurrentMonth={isCurrentMonth}
-        net={mobileNet}
-        anchorCurrency={anchorCurrency}
-      />
+      {afterControls}
 
-      {/* Content — ledger (blurs under search) + floating overlay */}
       <div className="relative">
         <div
           style={{
@@ -380,16 +344,7 @@ export function MobileTransactions({
             transition: `filter 0.22s ${EASE}, opacity 0.22s ${EASE}`,
           }}
         >
-          <CalmCard className="overflow-hidden">
-            {baseGroups.length === 0 ? (
-              <EmptyMatch />
-            ) : (
-              <GroupedRows groups={baseGroups} toHuf={toHuf} anchorCurrency={anchorCurrency} onRowClick={onRowClick} />
-            )}
-          </CalmCard>
-          <div className="text-[11px] text-muted-foreground mono px-0.5 mt-3">
-            {baseCount} transaction{baseCount === 1 ? '' : 's'}
-          </div>
+          {ledger}
         </div>
 
         {searchOpen && (
@@ -407,5 +362,101 @@ export function MobileTransactions({
         )}
       </div>
     </div>
+  );
+}
+
+// ── Mobile page tier ────────────────────────────────────────────────────────
+interface MobileTransactionsProps {
+  baseGroups: TxGroup[];
+  baseCount: number;
+  mobileNet: number;
+  searchGroups: TxGroup[];
+  searchCount: number;
+  q: string;
+  setSearch: (v: string) => void;
+  filter: TypeFilter;
+  setTypeFilter: (v: TypeFilter) => void;
+  monthLabel: string;
+  onPrev: () => void;
+  onNext: () => void;
+  isCurrentMonth: boolean;
+  anchorCurrency: string;
+  toHuf: (tx: SerializedTx) => number;
+  onRowClick: (tx: SerializedTx) => void;
+}
+
+export function MobileTransactions({
+  baseGroups,
+  baseCount,
+  mobileNet,
+  searchGroups,
+  searchCount,
+  q,
+  setSearch,
+  filter,
+  setTypeFilter,
+  monthLabel,
+  onPrev,
+  onNext,
+  isCurrentMonth,
+  anchorCurrency,
+  toHuf,
+  onRowClick,
+}: MobileTransactionsProps) {
+  return (
+    <TransactionSearchFrame
+      q={q}
+      setSearch={setSearch}
+      searchGroups={searchGroups}
+      searchCount={searchCount}
+      toHuf={toHuf}
+      anchorCurrency={anchorCurrency}
+      onRowClick={onRowClick}
+      closedControls={(searchButton) => (
+        <div className="flex h-full items-center gap-2">
+          <div className="flex-1 min-w-0">
+            <Segmented
+              size="lg"
+              fullWidth
+              options={[
+                { label: 'All', value: 'all' as TypeFilter },
+                { label: 'Income', value: 'INCOME' as TypeFilter },
+                { label: 'Expense', value: 'EXPENSE' as TypeFilter },
+                { label: 'Savings', value: 'SAVINGS' as TypeFilter },
+              ]}
+              value={filter}
+              onChange={setTypeFilter}
+            />
+          </div>
+          {searchButton}
+        </div>
+      )}
+      afterControls={(
+        <MonthNetStrip
+          size="md"
+          fullWidth
+          monthLabel={monthLabel}
+          onPrev={onPrev}
+          onNext={onNext}
+          isCurrentMonth={isCurrentMonth}
+          net={mobileNet}
+          anchorCurrency={anchorCurrency}
+        />
+      )}
+      ledger={(
+        <>
+          <CalmCard className="overflow-hidden">
+            {baseGroups.length === 0 ? (
+              <EmptyMatch />
+            ) : (
+              <GroupedRows groups={baseGroups} toHuf={toHuf} anchorCurrency={anchorCurrency} onRowClick={onRowClick} />
+            )}
+          </CalmCard>
+          <div className="text-[11px] text-muted-foreground mono px-0.5 mt-3">
+            {baseCount} transaction{baseCount === 1 ? '' : 's'}
+          </div>
+        </>
+      )}
+    />
   );
 }

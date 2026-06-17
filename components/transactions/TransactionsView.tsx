@@ -3,7 +3,7 @@
 import { useState, useOptimistic, startTransition, useMemo, useCallback, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { format, subMonths, addMonths } from 'date-fns';
-import { SearchIcon, ChevronRightIcon, ChevronDownIcon, RepeatIcon, XIcon } from 'lucide-react';
+import { SearchIcon, ChevronRightIcon, ChevronDownIcon, RepeatIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { notify } from '@/lib/ui-notify';
@@ -15,7 +15,7 @@ import { Segmented } from '@/components/ui/segmented';
 import { CalmCard } from '@/components/finance/CalmCard';
 import { CategoryAvatar } from '@/components/finance/CategoryAvatar';
 import { MonthNetStrip } from '@/components/transactions/MonthNetStrip';
-import { MobileTransactions } from '@/components/transactions/MobileTransactions';
+import { MobileTransactions, TransactionSearchFrame } from '@/components/transactions/MobileTransactions';
 import { TransactionForm, type SerializedCategory, type SerializedRecurringRule } from '@/components/forms/TransactionForm';
 
 export interface SerializedTx {
@@ -173,7 +173,7 @@ export function TransactionsView({
     [addOptimistic],
   );
 
-  // Desktop + tablet share the type + category + search filtered set.
+  // Desktop keeps the inline search field, so its ledger filters by query.
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
     return optimisticTxs.filter(t => {
@@ -191,7 +191,7 @@ export function TransactionsView({
     [filtered, fxRates],
   );
 
-  // Mobile base ledger ignores the search query (search is a separate overlay);
+  // Mobile/tablet base ledgers ignore the search query (search is a separate overlay);
   // it still respects the type + category filters.
   const mobileBaseList = useMemo(
     () => optimisticTxs.filter(t => {
@@ -207,7 +207,7 @@ export function TransactionsView({
     [mobileBaseList, fxRates],
   );
 
-  // Mobile search overlay matches the query across *all* types (prototype behaviour).
+  // Mobile/tablet search overlay matches the query across *all* types (prototype behaviour).
   const mobileSearchList = useMemo(() => {
     const q = search.toLowerCase();
     if (!q) return [];
@@ -269,7 +269,7 @@ export function TransactionsView({
   );
 
   return (
-    <div className="px-4 md:px-7 pb-9 pt-1 max-w-[1320px] mx-auto">
+    <div className="px-4 lg:px-7 pb-9 pt-1 max-w-[1320px] mx-auto">
       {/* ─────────── Mobile (<md) ─────────── */}
       <div className="md:hidden">
         <MobileTransactions
@@ -293,220 +293,238 @@ export function TransactionsView({
       </div>
 
       {/* ─────────── Tablet (md–lg) ─────────── */}
-      <div className="hidden md:block lg:hidden md:max-w-[920px] md:mx-auto space-y-5">
-        <div className="flex items-center gap-3 flex-wrap">
-          <label className="flex items-center gap-2.5 h-10 px-3.5 rounded-[12px] bg-card border border-border/50 focus-within:border-ring/60 transition-colors w-[196px] shrink-0 cursor-text">
-            <SearchIcon className="w-[15px] h-[15px] text-muted-foreground shrink-0" />
-            <input
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              className="flex-1 bg-transparent outline-none text-[13px] placeholder:text-muted-foreground min-w-0"
-              placeholder="Search transactions…"
-            />
-            {search && (
-              <button
-                type="button"
-                onClick={() => setSearch('')}
-                aria-label="Clear search"
-                className="shrink-0 text-muted-foreground/60 active:text-foreground"
-              >
-                <XIcon className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </label>
-
-          <Segmented size="lg" options={typeOptions} value={typeFilter} onChange={setTypeFilter} />
-
-          <MonthNetStrip
-            size="md"
-            className="ml-auto"
-            monthLabel={monthLabel}
-            onPrev={() => navigateMonth('prev')}
-            onNext={() => navigateMonth('next')}
-            isCurrentMonth={isCurrentMonth}
-            net={net}
-            anchorCurrency={anchorCurrency}
-          />
-        </div>
-
-        <CalmCard className="overflow-hidden">
-          <div className={cn('grid gap-4 items-center px-5 h-10 text-[10px] mono uppercase tracking-[0.12em] text-muted-foreground border-b border-border/45', TABLET_GRID)} aria-hidden="true">
-            <span>Date</span>
-            <span>Description</span>
-            <span>Category</span>
-            <span className="text-right">Amount</span>
-          </div>
-
-          {filtered.length === 0 ? emptyState : groups.map(g => (
-            <div key={g.date}>
-              <div className="flex items-center justify-between px-5 py-2 bg-secondary/50 border-t border-border/35">
-                <span className="mono text-[10.5px] tracking-[0.1em] text-muted-foreground uppercase">
-                  {fmtDate(g.date)} · {dayOfWeek(g.date)}
-                </span>
-                <span className="mono text-[10.5px] text-muted-foreground">
-                  {g.items.length} item{g.items.length === 1 ? '' : 's'}
-                </span>
+      <div className="hidden md:block lg:hidden md:max-w-[920px] md:mx-auto">
+        <TransactionSearchFrame
+          className="space-y-5"
+          q={search}
+          setSearch={setSearch}
+          searchGroups={mobileSearchGroups}
+          searchCount={mobileSearchList.length}
+          toHuf={toHuf}
+          anchorCurrency={anchorCurrency}
+          onRowClick={handleRowClick}
+          closedControls={(searchButton) => (
+            <div className="flex h-full items-center gap-2">
+              {searchButton}
+              <div className="flex-1 min-w-0">
+                <Segmented size="lg" fullWidth options={typeOptions} value={typeFilter} onChange={setTypeFilter} />
               </div>
-
-              {g.items.map(tx => {
-                const isOptimistic = tx.id.startsWith('optimistic-');
-                const isFx = tx.currency !== anchorCurrency;
-                return (
-                  <button
-                    key={tx.id}
-                    type="button"
-                    aria-label={rowLabelFor(tx)}
-                    onClick={() => handleRowClick(tx)}
-                    disabled={isOptimistic}
-                    className={cn(
-                      'w-full grid gap-4 items-center px-5 py-3 border-t border-border/35 text-left active:bg-accent/40 hover:bg-accent/40 transition-colors',
-                      TABLET_GRID,
-                      isOptimistic && 'opacity-60 pointer-events-none',
-                    )}
-                  >
-                    <span className="mono text-[12px] text-muted-foreground tabular">{fmtDate(tx.date, { short: true })}</span>
-
-                    <span className="flex items-center gap-2.5 min-w-0">
-                      <CategoryAvatar name={tx.category.name} color={tx.category.color} size={32} />
-                      <span className="min-w-0 flex items-center gap-1.5">
-                        <span className="text-[13.5px] font-medium truncate">{tx.description}</span>
-                        {tx.recurringRuleId && <RepeatIcon className="w-3 h-3 text-muted-foreground/50 shrink-0" />}
-                      </span>
-                    </span>
-
-                    <span className="flex items-center gap-1.5 text-[12px] text-muted-foreground min-w-0">
-                      <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: tx.category.color }} />
-                      <span className="truncate">{tx.category.name}</span>
-                    </span>
-
-                    <span className="text-right">
-                      <span className="block tabular text-[13.5px] font-medium" style={{ color: amountColor(tx.type) }}>
-                        {amountSign(tx.type)}{fmtCur(Math.abs(Number(tx.amount)), tx.currency as 'HUF' | 'USD' | 'EUR' | 'GBP').replace('−', '')}
-                      </span>
-                      {isFx && (
-                        <span className="block tabular text-[10.5px] text-muted-foreground mt-0.5">≈ {spaceFt(toHUF(tx, fxRates))}</span>
-                      )}
-                    </span>
-                  </button>
-                );
-              })}
+              <MonthNetStrip
+                size="md"
+                className="shrink-0"
+                monthLabel={monthLabel}
+                onPrev={() => navigateMonth('prev')}
+                onNext={() => navigateMonth('next')}
+                isCurrentMonth={isCurrentMonth}
+                net={mobileNet}
+                anchorCurrency={anchorCurrency}
+              />
             </div>
-          ))}
-        </CalmCard>
+          )}
+          ledger={(
+            <>
+              <CalmCard className="overflow-hidden">
+                <div className={cn('grid gap-4 items-center px-5 h-10 text-[10px] mono uppercase tracking-[0.12em] text-muted-foreground border-b border-border/45', TABLET_GRID)} aria-hidden="true">
+                  <span>Date</span>
+                  <span>Description</span>
+                  <span>Category</span>
+                  <span className="text-right">Amount</span>
+                </div>
 
-        <div className="mono text-[11.5px] text-muted-foreground px-0.5">
-          {filtered.length} transaction{filtered.length === 1 ? '' : 's'}
-        </div>
+                {mobileBaseList.length === 0 ? emptyState : mobileBaseGroups.map(g => (
+                  <div key={g.date}>
+                    <div className="flex items-center justify-between px-5 py-2 bg-secondary/50 border-t border-border/35">
+                      <span className="mono text-[10.5px] tracking-[0.1em] text-muted-foreground uppercase">
+                        {fmtDate(g.date)} · {dayOfWeek(g.date)}
+                      </span>
+                      <span className="mono text-[10.5px] text-muted-foreground">
+                        {g.items.length} item{g.items.length === 1 ? '' : 's'}
+                      </span>
+                    </div>
+
+                    {g.items.map(tx => {
+                      const isOptimistic = tx.id.startsWith('optimistic-');
+                      const isFx = tx.currency !== anchorCurrency;
+                      return (
+                        <button
+                          key={tx.id}
+                          type="button"
+                          aria-label={rowLabelFor(tx)}
+                          onClick={() => handleRowClick(tx)}
+                          disabled={isOptimistic}
+                          className={cn(
+                            'w-full grid gap-4 items-center px-5 py-3 border-t border-border/35 text-left active:bg-accent/40 hover:bg-accent/40 transition-colors',
+                            TABLET_GRID,
+                            isOptimistic && 'opacity-60 pointer-events-none',
+                          )}
+                        >
+                          <span className="mono text-[12px] text-muted-foreground tabular">{fmtDate(tx.date, { short: true })}</span>
+
+                          <span className="flex items-center gap-2.5 min-w-0">
+                            <CategoryAvatar name={tx.category.name} color={tx.category.color} size={32} />
+                            <span className="min-w-0 flex items-center gap-1.5">
+                              <span className="text-[13.5px] font-medium truncate">{tx.description}</span>
+                              {tx.recurringRuleId && <RepeatIcon className="w-3 h-3 text-muted-foreground/50 shrink-0" />}
+                            </span>
+                          </span>
+
+                          <span className="flex items-center gap-1.5 text-[12px] text-muted-foreground min-w-0">
+                            <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: tx.category.color }} />
+                            <span className="truncate">{tx.category.name}</span>
+                          </span>
+
+                          <span className="text-right">
+                            <span className="block tabular text-[13.5px] font-medium" style={{ color: amountColor(tx.type) }}>
+                              {amountSign(tx.type)}{fmtCur(Math.abs(Number(tx.amount)), tx.currency as 'HUF' | 'USD' | 'EUR' | 'GBP').replace('−', '')}
+                            </span>
+                            {isFx && (
+                              <span className="block tabular text-[10.5px] text-muted-foreground mt-0.5">≈ {spaceFt(toHUF(tx, fxRates))}</span>
+                            )}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ))}
+              </CalmCard>
+
+              <div className="mono text-[11.5px] text-muted-foreground px-0.5">
+                {mobileBaseList.length} transaction{mobileBaseList.length === 1 ? '' : 's'}
+              </div>
+            </>
+          )}
+        />
       </div>
 
       {/* ─────────── Desktop (lg+) ─────────── */}
       <div className="hidden lg:block">
-        <div className="flex items-center gap-3 flex-wrap">
-          <label className="flex items-center gap-2.5 h-9 px-3.5 rounded-[10px] bg-card border border-border/50 focus-within:border-ring/50 transition-colors w-[240px] cursor-text">
-            <SearchIcon className="w-[15px] h-[15px] text-muted-foreground shrink-0" />
-            <input
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              className="flex-1 bg-transparent outline-none text-[12.5px] placeholder:text-muted-foreground min-w-0"
-              placeholder="Search transactions…"
-            />
-          </label>
+        <TransactionSearchFrame
+          className="space-y-4"
+          q={search}
+          setSearch={setSearch}
+          searchGroups={mobileSearchGroups}
+          searchCount={mobileSearchList.length}
+          toHuf={toHuf}
+          anchorCurrency={anchorCurrency}
+          onRowClick={handleRowClick}
+          closedControls={(searchButton) => (
+            <div className="flex h-full items-center gap-3 flex-nowrap">
+              {/* Full search field once the row is wide enough (xl+) */}
+              <label className="hidden xl:flex items-center gap-2.5 h-9 px-3.5 rounded-[10px] bg-card border border-border/50 focus-within:border-ring/50 transition-colors w-[240px] shrink-0 cursor-text">
+                <SearchIcon className="w-[15px] h-[15px] text-muted-foreground shrink-0" />
+                <input
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  className="flex-1 bg-transparent outline-none text-[12.5px] placeholder:text-muted-foreground min-w-0"
+                  placeholder="Search transactions…"
+                />
+              </label>
 
-          <Segmented options={typeOptions} value={typeFilter} onChange={setTypeFilter} />
+              {/* Collapsed tablet/mobile search affordance until there's room */}
+              <span className="xl:hidden shrink-0 [&>button]:w-9 [&>button]:h-9 [&>button]:rounded-[10px]">
+                {searchButton}
+              </span>
 
-          <div className="relative">
-            <select
-              value={catFilter}
-              onChange={e => setCatFilter(e.target.value)}
-              aria-label="Filter by category"
-              className="appearance-none h-9 pl-3.5 pr-8 rounded-[10px] bg-card border border-border/50 hover:border-border text-[12.5px] text-muted-foreground focus:outline-hidden focus:ring-2 focus:ring-ring/60 transition-colors"
-            >
-              {catOptions.map(c => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
-            <ChevronDownIcon className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
-          </div>
+              <Segmented className="shrink-0 [&>button]:h-[30px]" options={typeOptions} value={typeFilter} onChange={setTypeFilter} />
 
-          <MonthNetStrip
-            size="sm"
-            className="ml-auto"
-            monthLabel={monthLabel}
-            onPrev={() => navigateMonth('prev')}
-            onNext={() => navigateMonth('next')}
-            isCurrentMonth={isCurrentMonth}
-            net={net}
-            anchorCurrency={anchorCurrency}
-          />
-        </div>
-
-        <CalmCard className="mt-4 overflow-hidden">
-          <div className={cn('grid gap-3 items-center px-6 h-11 text-[10px] mono uppercase tracking-[0.12em] text-muted-foreground border-b border-border/45', DESKTOP_GRID)} aria-hidden="true">
-            <span>Date</span>
-            <span>Description</span>
-            <span>Category</span>
-            <span className="text-right">Amount</span>
-            <span className="text-right">In HUF</span>
-            <span />
-          </div>
-
-          {filtered.length === 0 ? emptyState : groups.map(g => (
-            <div key={g.date}>
-              <div className="flex items-center justify-between px-6 py-2 bg-secondary/35">
-                <span className="mono text-[10.5px] tracking-[0.1em] text-muted-foreground uppercase">
-                  {fmtDate(g.date)} · {dayOfWeek(g.date)}
-                </span>
-                <span className="mono text-[10.5px] tracking-[0.1em] text-muted-foreground uppercase">
-                  {g.items.length} item{g.items.length === 1 ? '' : 's'}
-                </span>
+              <div className="relative shrink-0">
+                <select
+                  value={catFilter}
+                  onChange={e => setCatFilter(e.target.value)}
+                  aria-label="Filter by category"
+                  className="appearance-none h-9 pl-3.5 pr-8 rounded-[10px] bg-card border border-border/50 hover:border-border text-[12.5px] text-muted-foreground focus:outline-hidden focus:ring-2 focus:ring-ring/60 transition-colors"
+                >
+                  {catOptions.map(c => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+                <ChevronDownIcon className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
               </div>
 
-              {g.items.map(tx => {
-                const isOptimistic = tx.id.startsWith('optimistic-');
-                return (
-                  <button
-                    key={tx.id}
-                    type="button"
-                    aria-label={rowLabelFor(tx)}
-                    onClick={() => handleRowClick(tx)}
-                    disabled={isOptimistic}
-                    className={cn(
-                      'w-full grid gap-3 items-center px-6 py-[13px] border-t border-border/35 text-left hover:bg-accent/40 transition-colors',
-                      DESKTOP_GRID,
-                      isOptimistic && 'opacity-60 pointer-events-none',
-                    )}
-                  >
-                    <span className="mono text-[12px] text-muted-foreground tabular">{fmtDate(tx.date, { short: true })}</span>
-
-                    <span className="flex items-center gap-1.5 min-w-0">
-                      <span className="text-[13.5px] font-medium truncate">{tx.description}</span>
-                      {tx.recurringRuleId && <RepeatIcon className="w-3 h-3 text-muted-foreground/70 shrink-0" />}
-                    </span>
-
-                    <span className="flex items-center gap-1.5 text-[12px] text-muted-foreground min-w-0">
-                      <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: tx.category.color }} />
-                      <span className="truncate">{tx.category.name}</span>
-                    </span>
-
-                    <span className="text-right tabular text-[13.5px] font-medium" style={{ color: amountColor(tx.type) }}>
-                      {amountSign(tx.type)}{fmtCur(Math.abs(Number(tx.amount)), tx.currency as 'HUF' | 'USD' | 'EUR' | 'GBP').replace('−', '')}
-                    </span>
-
-                    <span className="text-right tabular text-[12px] text-muted-foreground">{spaceFt(toHUF(tx, fxRates))}</span>
-
-                    <span className="flex justify-end text-muted-foreground/60">
-                      <ChevronRightIcon className="w-3.5 h-3.5" />
-                    </span>
-                  </button>
-                );
-              })}
+              <MonthNetStrip
+                size="sm"
+                className="ml-auto shrink-0"
+                monthLabel={monthLabel}
+                onPrev={() => navigateMonth('prev')}
+                onNext={() => navigateMonth('next')}
+                isCurrentMonth={isCurrentMonth}
+                net={net}
+                anchorCurrency={anchorCurrency}
+              />
             </div>
-          ))}
-        </CalmCard>
+          )}
+          ledger={(
+            <>
+              <CalmCard className="overflow-hidden">
+                <div className={cn('grid gap-3 items-center px-6 h-11 text-[10px] mono uppercase tracking-[0.12em] text-muted-foreground border-b border-border/45', DESKTOP_GRID)} aria-hidden="true">
+                  <span>Date</span>
+                  <span>Description</span>
+                  <span>Category</span>
+                  <span className="text-right">Amount</span>
+                  <span className="text-right">In HUF</span>
+                  <span />
+                </div>
 
-        <div className="mt-3 text-[11.5px] text-muted-foreground">
-          {filtered.length} transaction{filtered.length === 1 ? '' : 's'}
-        </div>
+                {filtered.length === 0 ? emptyState : groups.map(g => (
+                  <div key={g.date}>
+                    <div className="flex items-center justify-between px-6 py-2 bg-secondary/35">
+                      <span className="mono text-[10.5px] tracking-[0.1em] text-muted-foreground uppercase">
+                        {fmtDate(g.date)} · {dayOfWeek(g.date)}
+                      </span>
+                      <span className="mono text-[10.5px] tracking-[0.1em] text-muted-foreground uppercase">
+                        {g.items.length} item{g.items.length === 1 ? '' : 's'}
+                      </span>
+                    </div>
+
+                    {g.items.map(tx => {
+                      const isOptimistic = tx.id.startsWith('optimistic-');
+                      return (
+                        <button
+                          key={tx.id}
+                          type="button"
+                          aria-label={rowLabelFor(tx)}
+                          onClick={() => handleRowClick(tx)}
+                          disabled={isOptimistic}
+                          className={cn(
+                            'w-full grid gap-3 items-center px-6 py-[13px] border-t border-border/35 text-left hover:bg-accent/40 transition-colors',
+                            DESKTOP_GRID,
+                            isOptimistic && 'opacity-60 pointer-events-none',
+                          )}
+                        >
+                          <span className="mono text-[12px] text-muted-foreground tabular">{fmtDate(tx.date, { short: true })}</span>
+
+                          <span className="flex items-center gap-1.5 min-w-0">
+                            <span className="text-[13.5px] font-medium truncate">{tx.description}</span>
+                            {tx.recurringRuleId && <RepeatIcon className="w-3 h-3 text-muted-foreground/70 shrink-0" />}
+                          </span>
+
+                          <span className="flex items-center gap-1.5 text-[12px] text-muted-foreground min-w-0">
+                            <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: tx.category.color }} />
+                            <span className="truncate">{tx.category.name}</span>
+                          </span>
+
+                          <span className="text-right tabular text-[13.5px] font-medium" style={{ color: amountColor(tx.type) }}>
+                            {amountSign(tx.type)}{fmtCur(Math.abs(Number(tx.amount)), tx.currency as 'HUF' | 'USD' | 'EUR' | 'GBP').replace('−', '')}
+                          </span>
+
+                          <span className="text-right tabular text-[12px] text-muted-foreground">{spaceFt(toHUF(tx, fxRates))}</span>
+
+                          <span className="flex justify-end text-muted-foreground/60">
+                            <ChevronRightIcon className="w-3.5 h-3.5" />
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ))}
+              </CalmCard>
+
+              <div className="mt-3 text-[11.5px] text-muted-foreground">
+                {filtered.length} transaction{filtered.length === 1 ? '' : 's'}
+              </div>
+            </>
+          )}
+        />
       </div>
 
       {/* Shared sheet + delete dialog */}

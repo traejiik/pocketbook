@@ -114,7 +114,7 @@ describe('tablet breakpoint contract', () => {
     const tx = source('components/transactions/TransactionsView.tsx');
 
     // Shared container; mobile padding below md, v5 padding from md up
-    expect(tx).toContain('px-4 md:px-7 pb-9 pt-1 max-w-[1320px] mx-auto');
+    expect(tx).toContain('px-4 lg:px-7 pb-9 pt-1 max-w-[1320px] mx-auto');
 
     // Three breakpoint tiers, each gated by Tailwind visibility (no JS detection)
     expect(tx).toContain('<MobileTransactions');
@@ -125,9 +125,17 @@ describe('tablet breakpoint contract', () => {
     expect(tx).toContain("const DESKTOP_GRID = 'grid-cols-[110px_1fr_220px_150px_130px_36px]'");
     expect(tx).toContain("const TABLET_GRID = 'grid-cols-[80px_1fr_190px_130px]'");
 
-    // Tablet rows carry a 32px category avatar; desktop keeps the In-HUF column + card spacing
+    // Tablet rows carry a 32px category avatar; desktop keeps the In-HUF column
     expect(tx).toContain('<CategoryAvatar name={tx.category.name} color={tx.category.color} size={32} />');
-    expect(tx).toContain('<CalmCard className="mt-4 overflow-hidden">');
+
+    // Desktop wraps its tier in the shared search frame so the controls stay on
+    // a single non-wrapping row from 1024px: the full search field only appears
+    // at xl, collapsing to the tablet/mobile search affordance until then. The
+    // type toggle is bumped to 36px (h-9) so it matches the search/select height.
+    expect(tx).toContain('<div className="flex h-full items-center gap-3 flex-nowrap">');
+    expect(tx).toContain('hidden xl:flex items-center gap-2.5 h-9');
+    expect(tx).toContain('xl:hidden shrink-0 [&>button]:w-9 [&>button]:h-9');
+    expect(tx).toContain('<Segmented className="shrink-0 [&>button]:h-[30px]"');
 
     // Shared month/net pill replaces the loose nav + plain-text net
     expect(tx).toContain('<MonthNetStrip');
@@ -140,6 +148,12 @@ describe('tablet breakpoint contract', () => {
     expect(mobile).toContain('color={tx.category.color} size={36}');
     expect(mobile).toContain('Type to search all transactions');
     expect(mobile).toContain('aria-label="Search transactions"');
+
+    // Tablet borrows the mobile animated search affordance so the type strip
+    // and month/net strip can stay on one row through 768-1024px.
+    expect(tx).toContain('TransactionSearchFrame');
+    expect(tx).toContain('closedControls={(searchButton) => (');
+    expect(tx).not.toContain('w-[196px] shrink-0 cursor-text');
 
     // Segmented control keeps the v5 desktop pill sizing and gains a 40px touch variant
     const segmented = source('components/ui/segmented.tsx');
