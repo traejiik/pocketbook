@@ -41,8 +41,9 @@ export function AppShell({
   const keyHandlers = useMemo(() => ({ n: openNew, N: openNew }), [openNew]);
   useGlobalKeys(keyHandlers);
 
-  // The scrolling region is <main>, not the window, so reset it on navigation.
+  // On mobile the document scrolls; on desktop <main> scrolls. Reset both.
   useEffect(() => {
+    window.scrollTo(0, 0);
     document.getElementById('main-content')?.scrollTo(0, 0);
   }, [pathname]);
 
@@ -85,7 +86,7 @@ export function AppShell({
 
   return (
     <FabProvider>
-      <div className="w-full h-dvh flex flex-col md:flex-row overflow-hidden bg-background text-foreground">
+      <div className="w-full flex flex-col md:h-dvh md:flex-row md:overflow-hidden bg-background text-foreground">
         <TabletRail
           upcomingRenewalsCount={upcomingRenewalsCount}
           onQuickAdd={openNew}
@@ -96,12 +97,12 @@ export function AppShell({
           onQuickAdd={openNew}
           className="hidden min-[1025px]:flex"
         />
-        <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden bg-background">
+        <div className="flex flex-col min-w-0 bg-background md:flex-1 md:min-h-0 md:overflow-hidden">
           <Header displayName={displayName} className="hidden md:flex" />
           <MobileTopBar displayName={displayName} />
           <main
             id="main-content"
-            className="flex-1 min-h-0 overflow-auto overscroll-contain pt-2 pb-24 md:pb-0"
+            className="pt-2 pb-24 md:pb-0 md:flex-1 md:min-h-0 md:overflow-y-auto md:overflow-x-hidden md:overscroll-contain"
           >
             {children}
           </main>
