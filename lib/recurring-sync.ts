@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma'
+import { lockRate, type FxLock } from '@/lib/fx'
 import { notifyDiscord, DISCORD_GREEN } from '@/lib/notify'
 
 type RecurringCycle = 'MONTHLY' | 'ANNUAL'
@@ -110,21 +111,33 @@ export async function syncDueRecurringRules(today: Date = new Date()): Promise<R
 
   const plans = dueRules.map((rule) => planDueRecurringRule(rule, todayDate))
 
+  // Once a recurring charge materialises into a ledger row it freezes the rate at
+  // generation time, exactly like a manual transaction. Lock per distinct currency.
+  const lockByCurrency = new Map<Currency, FxLock>()
+  for (const currency of new Set(plans.flatMap((plan) => plan.transactions.map((t) => t.currency)))) {
+    lockByCurrency.set(currency, await lockRate(currency))
+  }
+
   let transactionsCreated = 0
 
   await prisma.$transaction(async (tx) => {
     for (const plan of plans) {
       if (plan.transactions.length > 0) {
         const created = await tx.transaction.createMany({
-          data: plan.transactions.map((transaction) => ({
-            date: dateOnlyStringToDate(transaction.date),
-            description: transaction.description,
-            amount: transaction.amount,
-            currency: transaction.currency,
-            type: transaction.type,
-            categoryId: transaction.categoryId,
-            recurringRuleId: transaction.recurringRuleId,
-          })),
+          data: plan.transactions.map((transaction) => {
+            const lock = lockByCurrency.get(transaction.currency)
+            return {
+              date: dateOnlyStringToDate(transaction.date),
+              description: transaction.description,
+              amount: transaction.amount,
+              currency: transaction.currency,
+              type: transaction.type,
+              categoryId: transaction.categoryId,
+              recurringRuleId: transaction.recurringRuleId,
+              fxRate: lock?.fxRate ?? null,
+              fxAnchor: lock?.fxAnchor ?? null,
+            }
+          }),
           skipDuplicates: true,
         })
         transactionsCreated += created.count

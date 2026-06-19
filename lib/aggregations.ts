@@ -1,9 +1,22 @@
 import { cache } from 'react';
 import { prisma } from './prisma';
-import { toAnchor } from './fx';
+import { toAnchor, frozenToAnchor } from './fx';
 import type { Category, RecurringRule } from '@prisma/client';
 
 export type RuleWithCategory = RecurringRule & { category: Category };
+
+type FrozenTx = { amount: number | { toString(): string }; currency: string; fxRate: unknown; fxAnchor: string | null };
+
+// Convert a transaction to the anchor using its frozen rate (live fallback for
+// legacy/null rows). Centralises the Decimal → number coercion every caller needs.
+function txToAnchor(t: FrozenTx): Promise<number | null> {
+  return frozenToAnchor(
+    Math.abs(Number(t.amount)),
+    t.currency as 'HUF' | 'USD' | 'EUR' | 'GBP',
+    t.fxRate === null || t.fxRate === undefined ? null : Number(t.fxRate),
+    t.fxAnchor,
+  );
+}
 
 async function kpisForRange(start: Date, end: Date) {
   const txs = await prisma.transaction.findMany({
@@ -12,7 +25,7 @@ async function kpisForRange(start: Date, end: Date) {
 
   let income = 0, expense = 0, savings = 0, unconvertibleCount = 0;
   for (const t of txs) {
-    const amt = await toAnchor(Math.abs(Number(t.amount)), t.currency as 'HUF' | 'USD' | 'EUR' | 'GBP');
+    const amt = await txToAnchor(t);
     if (amt === null) { unconvertibleCount++; continue; }   // no FX path — surfaced, not silently dropped
     if (t.type === 'INCOME')  income  += amt;
     if (t.type === 'EXPENSE') expense += amt;
@@ -62,7 +75,7 @@ async function expensesByCategoryForRange(start: Date, end: Date) {
 
   const map = new Map<string, { name: string; color: string; value: number }>();
   for (const t of txs) {
-    const amt = await toAnchor(Math.abs(Number(t.amount)), t.currency as 'HUF' | 'USD' | 'EUR' | 'GBP');
+    const amt = await txToAnchor(t);
     if (amt === null) continue;
     const existing = map.get(t.categoryId);
     if (existing) existing.value += amt;
@@ -139,7 +152,7 @@ export const getMonthlyTrend = cache(async (months: number) => {
 
     let net = 0;
     for (const t of txs) {
-      const amt = await toAnchor(Math.abs(Number(t.amount)), t.currency as 'HUF' | 'USD' | 'EUR' | 'GBP');
+      const amt = await txToAnchor(t);
       if (amt === null) continue;
       if (t.type === 'INCOME')  net += amt;
       if (t.type === 'EXPENSE') net -= amt;
@@ -177,15 +190,14 @@ export const getCategoriesWithStats = cache(async () => {
     by: ['categoryId'],
     _count: { id: true },
   });
-  const txSums = await prisma.transaction.findMany({ select: { categoryId: true, amount: true, currency: true } });
+  const txSums = await prisma.transaction.findMany({
+    select: { categoryId: true, amount: true, currency: true, fxRate: true, fxAnchor: true },
+  });
 
   const countMap = new Map(txCounts.map((r) => [r.categoryId, r._count.id]));
   const sumMap = new Map<string, number>();
   for (const t of txSums) {
-    const converted = await toAnchor(
-      Math.abs(Number(t.amount)),
-      t.currency as 'HUF' | 'USD' | 'EUR' | 'GBP',
-    );
+    const converted = await txToAnchor(t);
     if (converted === null) continue;
     const prev = sumMap.get(t.categoryId) ?? 0;
     sumMap.set(t.categoryId, prev + converted);

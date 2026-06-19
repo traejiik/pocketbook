@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
+import { lockRate } from '@/lib/fx';
 import { requireAuthenticatedUser } from '@/lib/require-auth';
 
 const txSchema = z.object({
@@ -59,14 +60,26 @@ export async function upsertTransaction(input: TxInput) {
     recurringRuleId: fields.recurringRuleId ?? null,
   };
 
+  // Freeze the FX rate at write time so the transaction's anchor value stays put
+  // even as live rates move. `lock.fxAnchor` is the current anchor currency.
+  const lock = await lockRate(fields.currency);
+
   if (id) {
     // The rule link can change on edit, so reconcile both the old and new rule.
     const existing = await prisma.transaction.findUnique({
       where: { id },
-      select: { recurringRuleId: true },
+      select: { recurringRuleId: true, currency: true, fxRate: true, fxAnchor: true },
     });
+    // Keep the original lock when only amount/date/etc. change. Re-lock only when
+    // the currency changes (old rate no longer applies), the row was never locked,
+    // or the anchor has moved since it was logged.
+    const keepLock = !!existing
+      && existing.currency === fields.currency
+      && existing.fxRate !== null
+      && existing.fxAnchor === lock.fxAnchor;
+    const updateData = keepLock ? data : { ...data, fxRate: lock.fxRate, fxAnchor: lock.fxAnchor };
     await prisma.$transaction(async (tx) => {
-      await tx.transaction.update({ where: { id }, data });
+      await tx.transaction.update({ where: { id }, data: updateData });
       const affected = new Set<string>();
       if (existing?.recurringRuleId) affected.add(existing.recurringRuleId);
       if (data.recurringRuleId) affected.add(data.recurringRuleId);
@@ -74,7 +87,7 @@ export async function upsertTransaction(input: TxInput) {
     });
   } else {
     await prisma.$transaction(async (tx) => {
-      await tx.transaction.create({ data });
+      await tx.transaction.create({ data: { ...data, fxRate: lock.fxRate, fxAnchor: lock.fxAnchor } });
       if (data.recurringRuleId) await reconcileInstallmentRule(tx, data.recurringRuleId);
     });
   }

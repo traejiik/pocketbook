@@ -54,6 +54,12 @@ model Transaction {
   description     String
   amount          Decimal         @db.Decimal(14, 2)
   currency        String          @db.Char(3)
+  // FX rate locked at write time: `currency` → `fxAnchor` multiplier on the day
+  // the transaction was logged. Reads use this frozen value so historical totals
+  // don't drift as live rates move. Null on legacy rows / when no FX path existed
+  // at lock time → reads fall back to a live conversion. Recurring rules stay live.
+  fxRate          Decimal?        @db.Decimal(14, 6)
+  fxAnchor        String?         @db.Char(3)
   type            TransactionType
   categoryId      String
   category        Category        @relation(fields: [categoryId], references: [id])

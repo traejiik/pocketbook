@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
 import { syncAllAutoRates } from '@/lib/frankfurter';
+import { lockRate } from '@/lib/fx';
 import { requireAuthenticatedUser } from '@/lib/require-auth';
 
 const currencySchema = z.enum(['HUF', 'USD', 'EUR', 'GBP']);
@@ -22,6 +23,30 @@ export async function setAnchorCurrency(code: string) {
     where: { id: 'singleton' },
     data: { anchorCurrency: code },
   });
+
+  // Frozen rates are stored relative to a specific anchor, so switching the anchor
+  // re-baselines every transaction to today's rate for the NEW anchor. This is the
+  // one moment history re-prices; afterwards rows are frozen again. Recurring is
+  // unaffected (it converts live and has no stored lock).
+  const currencies = await prisma.transaction.findMany({
+    distinct: ['currency'],
+    select: { currency: true },
+  });
+  const locks = await Promise.all(
+    currencies.map(async ({ currency }) => ({
+      currency,
+      ...(await lockRate(currency as 'HUF' | 'USD' | 'EUR' | 'GBP', code)),
+    })),
+  );
+  await prisma.$transaction(
+    locks.map((l) =>
+      prisma.transaction.updateMany({
+        where: { currency: l.currency },
+        data: { fxRate: l.fxRate, fxAnchor: l.fxAnchor },
+      }),
+    ),
+  );
+
   revalidatePath('/', 'layout');
 }
 

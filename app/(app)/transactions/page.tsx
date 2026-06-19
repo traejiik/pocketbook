@@ -42,23 +42,39 @@ export default async function TransactionsPage({
     getAnchorCurrency(),
   ]);
 
-  // Serialise Prisma Decimal + Date to plain values for client components
-  const transactions: SerializedTx[] = rawTxs.map((tx: (typeof rawTxs)[number]) => ({
-    id: tx.id,
-    date: tx.date.toISOString().slice(0, 10),
-    description: tx.description,
-    amount: Number(tx.amount),
-    currency: tx.currency,
-    type: tx.type,
-    categoryId: tx.categoryId,
-    category: {
-      id: tx.category.id,
-      name: tx.category.name,
-      color: tx.category.color,
-      kind: tx.category.kind,
-    },
-    recurringRuleId: tx.recurringRuleId,
-  }));
+  // Build rate map: 1 foreign = X anchorCurrency (fallback to HUF rates). Used only
+  // for rows without a valid lock (legacy/null, or anchor changed mid-flight).
+  const rateMap = { HUF: 1, USD: 358.4, EUR: 396.1, GBP: 452.0 };
+  for (const row of exchangeRates) {
+    if (row.toCurrency === anchorCurrency) {
+      rateMap[row.fromCurrency as keyof typeof rateMap] = Number(row.rate);
+    }
+  }
+
+  // Serialise Prisma Decimal + Date to plain values for client components.
+  // `amountAnchor` is the FROZEN converted value: each row uses the rate locked
+  // when it was logged, so the ledger column no longer drifts as live rates move.
+  const transactions: SerializedTx[] = rawTxs.map((tx: (typeof rawTxs)[number]) => {
+    const locked = tx.fxRate !== null && tx.fxAnchor === anchorCurrency;
+    const rate = locked ? Number(tx.fxRate) : (rateMap[tx.currency as keyof typeof rateMap] ?? 1);
+    return {
+      id: tx.id,
+      date: tx.date.toISOString().slice(0, 10),
+      description: tx.description,
+      amount: Number(tx.amount),
+      amountAnchor: Number(tx.amount) * rate,
+      currency: tx.currency,
+      type: tx.type,
+      categoryId: tx.categoryId,
+      category: {
+        id: tx.category.id,
+        name: tx.category.name,
+        color: tx.category.color,
+        kind: tx.category.kind,
+      },
+      recurringRuleId: tx.recurringRuleId,
+    };
+  });
 
   const serialisedCategories: SerializedCategory[] = categories.map((c: (typeof categories)[number]) => ({
     id: c.id,
@@ -73,14 +89,6 @@ export default async function TransactionsPage({
     cycle: r.cycle,
     kind: r.kind,
   }));
-
-  // Build rate map: 1 foreign = X anchorCurrency (fallback to HUF rates)
-  const rateMap = { USD: 358.4, EUR: 396.1, GBP: 452.0 };
-  for (const row of exchangeRates) {
-    if (row.toCurrency === anchorCurrency) {
-      rateMap[row.fromCurrency as keyof typeof rateMap] = Number(row.rate);
-    }
-  }
 
   const monthLabel = format(from, 'MMMM yyyy');
   const currentMonthISO = format(from, 'yyyy-MM');

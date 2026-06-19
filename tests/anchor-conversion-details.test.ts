@@ -1,12 +1,18 @@
 import { describe, expect, it, vi } from 'vitest'
 
+const liveRate = (amount: number, currency: string): number | null => {
+  if (currency === 'USD') return amount * 358.4
+  if (currency === 'EUR') return amount * 396.1
+  if (currency === 'HUF') return amount
+  return null
+}
+
 vi.mock('@/lib/fx', () => ({
-  toAnchor: vi.fn(async (amount: number, currency: string) => {
-    if (currency === 'USD') return amount * 358.4
-    if (currency === 'EUR') return amount * 396.1
-    if (currency === 'HUF') return amount
-    return null
-  }),
+  toAnchor: vi.fn(async (amount: number, currency: string) => liveRate(amount, currency)),
+  // Frozen read: use the stored rate when present, else fall back to the live rate.
+  frozenToAnchor: vi.fn(async (amount: number, currency: string, fxRate: number | null) =>
+    fxRate != null ? amount * fxRate : liveRate(amount, currency),
+  ),
 }))
 
 const prismaMock = {

@@ -59,3 +59,32 @@ export async function fromAnchor(amount: number, to: Currency): Promise<number |
   const rate = await resolveRate(anchor, to);
   return rate !== null ? amount * rate : null;
 }
+
+export type FxLock = { fxRate: number | null; fxAnchor: string };
+
+// Snapshot the current `currency → anchor` rate so a transaction can freeze it at
+// write time. `fxRate` is 1 when the transaction is already in the anchor, and
+// null when no FX path exists (kept consistent with toAnchor's "unconvertible"
+// contract — callers store the null and let reads fall back / surface it).
+export async function lockRate(from: Currency, anchor?: string): Promise<FxLock> {
+  const target = anchor ?? (await getAnchorCurrency());
+  if (from === target) return { fxRate: 1, fxAnchor: target };
+  const rate = await resolveRate(from, target);
+  return { fxRate: rate, fxAnchor: target };
+}
+
+// Read a transaction's anchor value using its frozen rate. The stored rate is used
+// only while it still targets the current anchor; otherwise (legacy/null rows, or
+// the brief window mid anchor-switch before re-locking) we fall back to a live
+// conversion so nothing silently drops to zero. Returns null only when the live
+// fallback also has no path — same semantics as toAnchor.
+export async function frozenToAnchor(
+  amount: number,
+  from: Currency,
+  fxRate: number | null,
+  fxAnchor: string | null,
+): Promise<number | null> {
+  const anchor = await getAnchorCurrency();
+  if (fxRate !== null && fxAnchor === anchor) return amount * fxRate;
+  return toAnchor(amount, from);
+}

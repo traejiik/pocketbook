@@ -19,6 +19,12 @@ vi.mock('@/lib/prisma', () => ({
   },
 }))
 
+// Generated rows freeze their FX rate; that behaviour is covered in fx-lock.test.ts.
+// Stub it here so the sync test stays focused on date/installment planning.
+vi.mock('@/lib/fx', () => ({
+  lockRate: vi.fn(async () => ({ fxRate: 1, fxAnchor: 'HUF' })),
+}))
+
 // Dates are constructed in UTC throughout — `@db.Date` stores the UTC calendar
 // day, and the engine now matches, so these assertions hold in any timezone.
 const today = new Date(Date.UTC(2026, 4, 29))

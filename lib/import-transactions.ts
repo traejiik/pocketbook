@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { prisma } from './prisma'
+import { lockRate, type FxLock } from './fx'
 
 const SUPPORTED_CURRENCIES = ['HUF', 'USD', 'EUR', 'GBP'] as const
 
@@ -68,6 +69,17 @@ export async function importTransactions(
   let skipped = 0
   const errors: string[] = []
 
+  // Freeze the FX rate at import time, memoised per currency (rates don't change
+  // mid-import). Imported rows behave like any other logged transaction.
+  const lockByCurrency = new Map<string, FxLock>()
+  const lockFor = async (currency: string): Promise<FxLock> => {
+    const cached = lockByCurrency.get(currency)
+    if (cached) return cached
+    const lock = await lockRate(currency as 'HUF' | 'USD' | 'EUR' | 'GBP')
+    lockByCurrency.set(currency, lock)
+    return lock
+  }
+
   for (const row of rows) {
     const parsedDate = new Date(row.date + 'T00:00:00Z')
 
@@ -98,6 +110,7 @@ export async function importTransactions(
       recurringRuleId = rule?.id ?? null
     }
 
+    const lock = await lockFor(row.currency)
     await prisma.transaction.create({
       data: {
         date: parsedDate,
@@ -107,6 +120,8 @@ export async function importTransactions(
         type: row.type,
         categoryId: row.categoryId,
         recurringRuleId,
+        fxRate: lock.fxRate,
+        fxAnchor: lock.fxAnchor,
       },
     })
     imported++

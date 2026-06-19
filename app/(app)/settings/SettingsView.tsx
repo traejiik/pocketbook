@@ -507,7 +507,7 @@ export function SettingsView({
 
           <div className="mt-3 p-3 rounded-md bg-warning/8 border border-warning/25 text-[12px] text-foreground/85 flex items-start gap-2.5">
             <AlertTriangle className="w-3.5 h-3.5 mt-0.5 text-warning shrink-0" />
-            <div>Switching anchor or changing manual rates retroactively converts every non-anchor transaction — past totals will shift accordingly.</div>
+            <div>Each transaction locks its exchange rate when logged, so editing rates or the daily sync won&apos;t move past totals — only recurring and new transactions use the new rate. Switching the anchor currency is the exception: it re-locks every transaction to today&apos;s rates once.</div>
           </div>
         </section>
 
@@ -668,8 +668,7 @@ export function SettingsView({
             <DialogTitle>Change anchor currency?</DialogTitle>
           </DialogHeader>
           <p className="text-[13px] text-muted-foreground">
-            Switching to <strong>{pendingAnchor}</strong> retroactively converts every non-anchor transaction.
-            Past totals will shift accordingly. Continue?
+            Switching to <strong>{pendingAnchor}</strong> re-locks every transaction to today&apos;s rates for the new anchor — a one-time re-baseline. Afterwards totals stay frozen again. Continue?
           </p>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setPendingAnchor(null)}>Cancel</Button>

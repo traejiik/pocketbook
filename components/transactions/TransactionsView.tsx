@@ -23,6 +23,9 @@ export interface SerializedTx {
   date: string; // "YYYY-MM-DD"
   description: string;
   amount: number; // signed — negative for EXPENSE/SAVINGS
+  // Frozen anchor value (signed), using the rate locked when the row was logged.
+  // Absent on optimistic rows not yet round-tripped → falls back to a live rate.
+  amountAnchor?: number;
   currency: string;
   type: 'INCOME' | 'EXPENSE' | 'SAVINGS';
   categoryId: string;
@@ -47,6 +50,10 @@ interface TransactionsViewProps {
 }
 
 function toHUF(tx: SerializedTx, rates: { USD: number; EUR: number; GBP: number }): number {
+  // Persisted rows carry a frozen anchor value; use it so the column never drifts.
+  // Optimistic rows (no amountAnchor yet) fall back to the current live rate, which
+  // is what they'll freeze to on save anyway.
+  if (tx.amountAnchor != null) return tx.amountAnchor;
   const rate =
     tx.currency === 'USD' ? rates.USD
     : tx.currency === 'EUR' ? rates.EUR

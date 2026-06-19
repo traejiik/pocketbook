@@ -18,6 +18,11 @@ const transactionClient = {
 
 vi.mock('@/lib/auth', () => ({ auth: authMock }))
 vi.mock('next/cache', () => ({ revalidatePath: revalidatePathMock }))
+// FX lock is exercised in fx-lock.test.ts; stub it here so reconciliation tests
+// stay isolated from rate lookups.
+vi.mock('@/lib/fx', () => ({
+  lockRate: vi.fn(async () => ({ fxRate: 1, fxAnchor: 'HUF' })),
+}))
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     transaction: { findUnique: txFindUnique },
