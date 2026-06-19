@@ -144,6 +144,10 @@ STAGE="seed"
 say "Seeding database..."
 run node /app/prisma/seed.js
 
+STAGE="fx-backfill"
+say "Backfilling transaction FX locks..."
+run node /app/prisma/backfill-fx.js
+
 STAGE="start"
 say "Starting Next.js..."
 exec node /app/server.js
