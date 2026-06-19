@@ -16,6 +16,7 @@ COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN pnpm prisma generate
 RUN npm install -g esbuild && esbuild prisma/seed.ts --bundle --platform=node --target=node24 --outfile=prisma/seed.js --external:@prisma/client
+RUN esbuild prisma/backfill-fx.ts --bundle --platform=node --target=node24 --outfile=prisma/backfill-fx.js --external:@prisma/client
 RUN pnpm build
 
 # --- runner stage (final) ---
