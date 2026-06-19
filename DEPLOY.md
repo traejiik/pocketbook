@@ -103,6 +103,8 @@ docker compose exec pocketbook-web npx prisma migrate deploy
 docker compose exec pocketbook-web npx prisma db seed
 ```
 
+Normal container startup performs migration, seed, and the idempotent transaction FX-lock backfill automatically. The backfill runs as `/app/prisma/backfill-fx.js` inside `entrypoint.sh`, after the seed and before Next.js, so it inherits the generated `PB_DATABASE_URL`; no separate `docker exec` command is required.
+
 ## Optional: import transactions from CSV
 
 ```bash
@@ -234,6 +236,7 @@ docker compose down -v                    # ⚠ DESTRUCTIVE — also removes the
 | Login fails immediately | `PB_AUTH_SECRET` mismatch or `PB_AUTH_URL` not matching the actual URL |
 | `PrismaClientInitializationError` on first request | DB not yet healthy — check `docker compose ps` and wait for `pocketbook-db` to show `healthy` |
 | `stage=prisma-migrate` with `datasource.url property is required` | Stale/broken image missing `prisma.config.ts` in the runner — pull/redeploy `v1.0.7` or newer |
+| `stage=fx-backfill` on startup | The FX-lock backfill failed after migration/seed. Read the captured output in `startup-failures.log`; do not bypass it, because unlocked historical transactions would continue to drift. |
 | `auth url is needed` / boot loop | `AUTH_URL`/`AUTH_SECRET` not reaching the container — with the bundled compose, set `PB_AUTH_URL`/`PB_AUTH_SECRET` in the panel (a bare `AUTH_URL` in the panel is ignored, since that compose only interpolates `PB_*`) |
 | AI insights load forever | Ollama unreachable — verify `PB_OLLAMA_BASE_URL` in the panel and that Ollama is on `core_net` |
 | FX sync returns 401 | `PB_FX_SYNC_SECRET` in the panel doesn't match the header sent by the `fx-sync` sidecar |
@@ -250,13 +253,13 @@ after the console scrolls or a Watchtower/Portainer recreate wipes `docker logs`
 
 ```bash
 # Timestamped report per failed boot: stage, exit code, which PB_* vars were missing,
-# and the captured migrate/seed output.
+# and the captured migrate/seed/FX-backfill output.
 cat ${PB_DOCKER_DIR:-/opt/docker}/pocketbook/data/startup-failures.log
 ```
 
 The `stage=` field tells you where it died: `validate-env` (a required var is missing —
 listed by its resolved name), `wait-for-db` (DB never became reachable — check
-`docker logs pocketbook-db`), `prisma-migrate`, or `seed`.
+`docker logs pocketbook-db`), `prisma-migrate`, `seed`, or `fx-backfill`.
 
 > **`Permission denied` creating `startup-failures.log`?** The container runs as uid 1001, so the
 > host data dir must be writable by it. If it isn't, the report falls back to the container-local

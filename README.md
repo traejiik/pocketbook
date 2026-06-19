@@ -135,7 +135,7 @@ docker-compose up -d
 #    PB_SEED_USER_EMAIL / PB_SEED_USER_PASSWORD
 ```
 
-On boot, the `pocketbook-web` container builds `PB_DATABASE_URL` from the `PB_POSTGRES_*` variables, runs `prisma migrate deploy`, then runs the idempotent seed before starting Next.js. Prisma 7 reads its datasource URL from `prisma.config.ts`, so the runner image ships that root config alongside `prisma/`.
+On boot, the `pocketbook-web` container builds `PB_DATABASE_URL` from the `PB_POSTGRES_*` variables, runs `prisma migrate deploy`, runs the idempotent seed, and then backfills any transaction FX locks that are still missing before starting Next.js. Prisma 7 reads its datasource URL from `prisma.config.ts`, so the runner image ships that root config alongside `prisma/`; the bundled backfill runs inside the same entrypoint environment.
 
 ### Configuration
 
@@ -202,7 +202,7 @@ pnpm prisma db seed
 pnpm dev                      # http://localhost:3000
 ```
 
-Useful scripts: `pnpm test` (Vitest), `pnpm lint`, `pnpm db:generate`, `pnpm db:migrate`, `pnpm db:seed`.
+Useful scripts: `pnpm test` (Vitest), `pnpm lint`, `pnpm db:generate`, `pnpm db:migrate`, `pnpm db:seed`, and `pnpm db:backfill-fx` (local FX-lock diagnostics).
 
 ```text
 app/                  Next.js App Router — pages and layouts
