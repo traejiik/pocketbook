@@ -1,83 +1,180 @@
-# Pocketbook
+<div align="center">
 
-![wordmark logo](/public/wordmark-dark.svg)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="public/wordmark-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="public/wordmark-light.svg">
+  <img alt="Pocketbook" src="public/wordmark-dark.svg" width="280">
+</picture>
 
+### A calm, self-hosted personal finance tracker — with private, local AI insights.
 
-A self-hosted personal finance tracker for a single user. Replaces a manual spreadsheet — tracks income, expenses, savings, recurring rules, renewals, and categories, with an AI-powered monthly summary generated locally via Ollama. No cloud, no subscription, no third-party data.
+Replace the spreadsheet. Keep your data on your own hardware. Let a local LLM read your month back to you.
 
----
+[![License: MIT](https://img.shields.io/badge/License-MIT-2A6FDB.svg?style=flat-square)](LICENSE)
+[![Next.js](https://img.shields.io/badge/Next.js-16-000000?style=flat-square&logo=next.js)](https://nextjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?style=flat-square&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![Self-hosted](https://img.shields.io/badge/Self--hosted-Docker-2496ED?style=flat-square&logo=docker&logoColor=white)](#-quick-start)
+[![GitHub stars](https://img.shields.io/github/stars/traejiik/pocketbook?style=flat-square&color=5C8AFA)](https://github.com/traejiik/pocketbook/stargazers)
 
-## Stack
-
-- **Framework:** Next.js 16.2.6 (App Router) · React 19.2.6 · TypeScript 5
-- **Styling:** Tailwind CSS 4.3 via CSS-first `@theme` tokens in `app/globals.css`
-- **Components:** shadcn v4 registry style, local Base UI-backed primitives, and custom finance components
-- **Database:** PostgreSQL 16 + Prisma 7.8
-- **Auth:** Auth.js v5 (`next-auth@beta`, credentials provider, single user)
-- **Forms:** react-hook-form + zod
-- **Charts:** Recharts 2 + custom SVG
-- **AI:** Local Ollama via `PB_OLLAMA_BASE_URL` in deploy env, passed to the app as `OLLAMA_BASE_URL`
-- **FX rates:** frankfurter.app (ECB feed), auto-synced daily
-- **Runtime/deploy:** Node 24 Alpine, pnpm 10.33.0 in Docker, Docker Compose, GHCR image releases
-
-## Features
-
-- Dashboard with income/expense KPIs, savings gauge, upcoming renewals, and expense chart
-- Transactions list with filters, search, grouped by date, optimistic add/edit
-- Recurring rules with installment tracking, first-run catch-up seeding, and automatic due-date transaction logging
-- Renewals view with timeline strip and week/month grouping
-- Categories with CRUD and spend stats
-- AI Insights: real streaming from local Ollama, saved to DB, feedback buttons
-- Settings: anchor currency, tracked FX rates (dynamic/manual), password change, LLM picker
-- CSV importer for bootstrapping from existing data
-- Installable as a PWA: add to home screen / install to run in a standalone window (web app manifest + icons, no offline caching)
+</div>
 
 ---
 
-## Quick start
+## What is Pocketbook?
+
+Most finance apps want your bank login, a monthly subscription, and a copy of every transaction you've ever made — on *their* servers. **Pocketbook wants none of that.**
+
+It's a single-user, self-hosted money tracker that replaces a manual budgeting spreadsheet with something fast, dense, and trustworthy. You run it on your own homelab, log in with your own credentials, and your financial history never leaves your machine. Every month, a **local Ollama model** reads your numbers and writes you a short, plain-English note about where your money actually went — no cloud, no API keys, no data sold.
+
+Numbers lead. Surfaces recede. A single calm blue is reserved for what matters.
+
+<div align="center">
+
+![Pocketbook dashboard](docs/screenshots/dashboard.png)
+
+</div>
+
+---
+
+## ✨ Highlights
+
+- **🔒 Yours alone** — one user, seeded from your env file. No multi-tenant logic, no sign-up flow, no telemetry. Self-hosted with Docker Compose.
+- **🧠 Private AI insights** — monthly commentary streamed token-by-token from your own Ollama instance. It never calls out to a third party, and the app works fine if the model is offline.
+- **💱 Multi-currency, done right** — HUF-first with USD/EUR/GBP support, ECB rates auto-synced daily, triangulated conversion, and honest handling of amounts it can't convert.
+- **🔁 Recurring & installments** — subscriptions, rent, and installment plans tracked with idempotent auto-logging and reconciled counters.
+- **📅 Renewal radar** — a cash-out timeline that tells you what's leaving your account in the next 30/60/90 days.
+- **⚡ Fast and honest UI** — optimistic writes, skeletons instead of spinners, tabular numerics on every figure, dark-mode-first, and a real `⌘K` search.
+- **📥 One-way CSV import** — bootstrap from your old spreadsheet in one shot.
+- **📱 Installable PWA** — add to home screen and run in a standalone window.
+
+---
+
+## 📸 A closer look
+
+### Transactions — dense, searchable, optimistic
+
+Group by date, filter by type and category, and add or edit inline with optimistic updates that roll back cleanly if the server says no.
+
+![Transactions](docs/screenshots/transactions.png)
+
+### Quick entry — a slide-over sheet, anywhere
+
+Press `N` to log a transaction without leaving the page. Type, amount, currency, category, and an optional link to a recurring rule.
+
+![New transaction sheet](docs/screenshots/transaction-sheet.png)
+
+### Recurring rules — subscriptions & installments
+
+Every subscription, rent payment, and installment plan in one place — with monthly/annual outflow totals and progress on multi-payment plans.
+
+![Recurring rules](docs/screenshots/recurring.png)
+
+### Renewals — see the cash-out coming
+
+A timeline strip plus week/month grouping so nothing surprises you on the statement.
+
+![Upcoming renewals](docs/screenshots/renewals.png)
+
+### Categories — identity with stats
+
+CRUD your categories, give each a colour, and see spend and frequency at a glance.
+
+![Categories](docs/screenshots/categories.png)
+
+### AI Insights — your month, narrated locally
+
+Real streaming tokens from your Ollama model, saved to the database with a feedback control and a running history of previous notes.
+
+![AI Insights](docs/screenshots/insights.png)
+
+### Settings — anchor currency, FX, security & the local LLM
+
+Pick your anchor currency, manage tracked FX rates (dynamic or manual), change your password, and choose which Ollama model writes your insights.
+
+![Settings](docs/screenshots/settings.png)
+
+---
+
+## 🧱 Tech stack
+
+| Layer | Choice |
+| --- | --- |
+| **Framework** | Next.js 16.2.6 (App Router) · React 19.2.6 · TypeScript 5 |
+| **Styling** | Tailwind CSS 4.3 via CSS-first `@theme` tokens in `app/globals.css` |
+| **Components** | shadcn v4 registry style · local Base UI-backed primitives · custom finance charts/SVGs |
+| **Database** | PostgreSQL 16 + Prisma 7.8 |
+| **Auth** | Auth.js v5 (`next-auth@beta`, credentials provider, single user) |
+| **Forms** | react-hook-form + zod |
+| **AI** | Local Ollama — `PB_OLLAMA_BASE_URL` in deploy env, passed to the app as `OLLAMA_BASE_URL` |
+| **FX rates** | [frankfurter.app](https://frankfurter.app) (ECB feed), auto-synced daily |
+| **Runtime / deploy** | Node 24 Alpine · pnpm 10.33.0 in Docker · Docker Compose · GHCR image releases |
+
+**Architecture in one line:** server components read from Prisma directly → pass props → Server Actions mutate → `revalidatePath` refreshes. The only REST routes are for Auth.js, SSE insights streaming, and secret-authenticated cron endpoints (FX sync, monthly insights, recurring sync). No client-side data fetching for initial renders.
+
+---
+
+## 🚀 Quick start
+
+Pocketbook ships as a Docker image. You need **Docker + Docker Compose** and a reachable **Ollama** instance (optional — the app runs without it).
 
 ```bash
-# 1. Clone and copy env
+# 1. Clone and copy the env template
 git clone https://github.com/traejiik/pocketbook.git
 cd pocketbook
 cp .env.example .env
 
-# 2. Fill in .env — required vars:
-#   PB_POSTGRES_PASSWORD, PB_AUTH_SECRET, PB_AUTH_URL
-#   PB_SEED_USER_EMAIL, PB_SEED_USER_PASSWORD, PB_FX_SYNC_SECRET
-#   PB_OLLAMA_BASE_URL (e.g. http://homelab.local:11434)
+# 2. Fill in .env (see the table below). Generate secrets with:
+#    openssl rand -base64 32   # PB_AUTH_SECRET
+#    openssl rand -hex 32      # PB_FX_SYNC_SECRET
 
 # 3. Start
 docker-compose up -d
 
-# 4. Open http://localhost:3000 and log in with your PB_SEED_USER_EMAIL / PB_SEED_USER_PASSWORD
+# 4. Open http://localhost:3000 and sign in with
+#    PB_SEED_USER_EMAIL / PB_SEED_USER_PASSWORD
 ```
 
-The `pocketbook-web` container builds `PB_DATABASE_URL` from the `PB_POSTGRES_*` variables at runtime, then runs `prisma migrate deploy` and the idempotent seed before starting Next.js. Prisma 7 reads that datasource URL from `prisma.config.ts`, so the Docker runner image must ship that root config file alongside `prisma/`.
+On boot, the `pocketbook-web` container builds `PB_DATABASE_URL` from the `PB_POSTGRES_*` variables, runs `prisma migrate deploy`, then runs the idempotent seed before starting Next.js. Prisma 7 reads its datasource URL from `prisma.config.ts`, so the runner image ships that root config alongside `prisma/`.
+
+### Configuration
+
+| Variable | Required | Description |
+| --- | :---: | --- |
+| `PB_POSTGRES_PASSWORD` | ✅ | Postgres password (used to build the datasource URL). |
+| `PB_AUTH_SECRET` | ✅ | Auth.js session secret — `openssl rand -base64 32`. |
+| `PB_AUTH_URL` | ✅ | Full public URL of the instance (mapped to `AUTH_URL`). |
+| `PB_SEED_USER_EMAIL` | ✅ | Login email for the single seeded user. |
+| `PB_SEED_USER_PASSWORD` | ✅ | Login password for the seeded user. |
+| `PB_FX_SYNC_SECRET` | ✅ | Shared secret for the `/api/fx/sync` cron endpoint — `openssl rand -hex 32`. |
+| `PB_OLLAMA_BASE_URL` | – | Your Ollama base URL, e.g. `http://homelab.local:11434`. |
+| `PB_USER_DISPLAY_NAME` | – | Name shown in the sidebar header and login page. |
+| `PB_INSTANCE_NAME` | – | Optional label in the login footer (e.g. `home`, `work`). |
+| `AUTH_TRUST_HOST` | – | Set `true` for custom hostnames like `pocketbook.home`. |
+
+See [`.env.example`](.env.example) for the full annotated template and [`DEPLOY.md`](DEPLOY.md) for homelab deployment notes.
 
 ---
 
-## Ollama prerequisite
+## 🧠 Private AI insights (Ollama)
 
-Pocketbook connects to an existing Ollama instance — it does **not** run Ollama itself. In `.env`, point `PB_OLLAMA_BASE_URL` at your Ollama container or machine. Docker passes it into the app as `OLLAMA_BASE_URL`:
+Pocketbook connects to an **existing** Ollama instance — it does not run Ollama itself. Point `PB_OLLAMA_BASE_URL` at your container or machine; Docker passes it into the app as `OLLAMA_BASE_URL`:
 
 ```
 PB_OLLAMA_BASE_URL=http://homelab.local:11434
 ```
 
-Recommended models (pull on your Ollama instance): `llama3.1:8b`, `mistral:7b`, `qwen2.5:14b`.
+Recommended models to pull on your Ollama host: `llama3.1:8b`, `mistral:7b`, `qwen2.5:14b`.
 
-If Ollama is unreachable the app still works; the Insights screen shows "Unreachable" and the Generate button is disabled.
+If Ollama is unreachable the app still works — the Insights screen shows **"Unreachable"** and the Generate button is disabled. Nothing about your finances ever leaves your network.
 
 ---
 
-## CSV import
+## 📥 CSV import
 
 Bootstrap transactions from a spreadsheet export by placing a file at `seed/transactions.csv` before running `docker-compose up` (or `pnpm prisma db seed`).
 
-Column format:
-
-```
+```csv
 date,description,amount,currency,type,category_id,recurring_rule_name
 2026-01-05,Salary,450000,HUF,INCOME,salary,
 2026-01-06,Spar,-8900,HUF,EXPENSE,food,
@@ -91,13 +188,21 @@ date,description,amount,currency,type,category_id,recurring_rule_name
 - `category_id` — must match an existing category `id` from the seed
 - `recurring_rule_name` — optional; links the transaction to a rule by name
 
-The importer is **idempotent**: re-running it skips rows that already exist by `(date, description, amount)`.
-
-For ad-hoc imports after first boot: `pnpm tsx scripts/csv-import.ts`
+The importer is **idempotent**: re-running it skips rows that already exist by `(date, description, amount)`. For ad-hoc imports after first boot: `pnpm tsx scripts/csv-import.ts`.
 
 ---
 
-## Architecture
+## 🛠️ Local development
+
+```bash
+pnpm install
+cp .env.example .env          # set PB_DATABASE_URL for local dev
+pnpm prisma migrate dev
+pnpm prisma db seed
+pnpm dev                      # http://localhost:3000
+```
+
+Useful scripts: `pnpm test` (Vitest), `pnpm lint`, `pnpm db:generate`, `pnpm db:migrate`, `pnpm db:seed`.
 
 ```text
 app/                  Next.js App Router — pages and layouts
@@ -111,44 +216,12 @@ scripts/              Ad-hoc import and maintenance scripts
 other/                Design reference, mockups, handoff notes
 ```
 
-Data flow: server components fetch from Prisma directly -> pass props -> Server Actions mutate -> `revalidatePath` refreshes. Cron-callable API routes handle FX sync, monthly insights, and recurring rule reconciliation. No client-side data fetching for initial renders.
-
-Responsive layout: mobile `<768px` uses a sticky top bar, bottom tab bar, More sheet, and FAB. Tablet `768–1024px` uses a collapsible 76px/232px rail with touch-sized controls (iPad-landscape 1024 stays on the rail). The static 224px sidebar appears only above 1024px (`min-[1025px]:`). Desktop grid/span density generally keys off `lg` (1024), with page-specific tablet adaptations where the v5 tablet prototype needs different rhythm: the Dashboard goes four-up KPIs from `md` and reflows its cards into balanced pairs (Expenses‖Gauge, Renewals‖Recent, Reminder‖AI) via `md:order-*` before `lg:order-none` restores the desktop spans, and the Recurring budget summary goes side-by-side at `md` (768px) while rule grids stay two-up until `min-[1025px]`.
-
-Design-system authority:
-
-- `other/handoffs/v5-handoff/` is the canonical design contract for **v2** (the calm two-tone redesign). Its prototypes (`source/calm5/*.jsx`, desktop canonical) and token/component/screen specs (`0*.md`) are the structural source of truth for layout, class intent, and component composition. Where it disagrees with the older `other/design-reference/` mockups, v5 wins.
-- `app/globals.css` and live components are the canonical implementation.
-- `design-system/` is a generated compact audit/manual of the current implementation. Use it for orientation, but do not let it overrule `other/handoffs/v5-handoff/` without an explicit design decision.
-
-## Dependency policy
-
-The stack is not frozen at old major versions. Upgrade when the ecosystem has moved and the app can prove it still builds, migrates, and renders correctly. The lockfile decides exact installed packages; docs should describe the implemented major line and any exact versions that are operationally important.
-
-- **Pin exactly:** Next.js and `eslint-config-next` together, Docker Node base image major, Docker pnpm version, Prisma CLI in the runner image, PostgreSQL image major, and CI actions by major.
-- **Allow minor/patch drift through the lockfile:** React, Tailwind, Base UI, shadcn CLI, lucide, date-fns, Sonner, Recharts, zod, react-hook-form, and utility packages.
-- **Treat as upgrade projects:** Prisma major upgrades, Auth.js beta changes, React major upgrades, Tailwind major upgrades, and Recharts major upgrades. They touch generated clients, runtime contracts, or visual output, so they need a branch plus build/browser verification.
-
-Historical `pnpm outdated` notes worth considering after the Prisma 7 upgrade: Recharts 3 and other UI/runtime majors may still be available. Re-check before planning a dependency upgrade; dependency roulette is still roulette, even if the chips are semver-shaped.
-
-## Stack additions to consider
-
-- **Playwright:** browser smoke tests for login, dashboard, transaction add/edit, and Settings. This is the highest-value addition because the app is UI-heavy.
-- **Vitest:** focused tests for `lib/format.ts`, `lib/fx.ts`, aggregation helpers, and server-action validation.
-- **pino or structured logging:** cleaner production logs around auth, FX sync, Ollama streaming, and migrations.
-- **Sentry or OpenTelemetry, self-hosted if preferred:** optional, but useful once this runs unattended.
-- **Dependabot or Renovate:** scheduled dependency PRs with grouping rules for low-risk packages and manual approval for major framework/runtime upgrades.
+Contributing and architectural conventions live in [`AGENTS.md`](AGENTS.md); deployment specifics in [`DEPLOY.md`](DEPLOY.md).
 
 ---
 
-## Development
+## 📄 License
 
-```bash
-pnpm install
-cp .env.example .env         # fill in PB_DATABASE_URL for local dev
-pnpm prisma migrate dev
-pnpm prisma db seed
-pnpm dev
-```
-
-Open [http://localhost:3000](http://localhost:3000).
+[MIT](LICENSE) © Pocketbook
+</content>
+</invoke>
