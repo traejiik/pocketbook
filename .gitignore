@@ -41,6 +41,12 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# agent instructions
+AGENTS.md
+CLAUDE.md
+/.claude/
+/.codex/
+
 # dev-only scripts — never runs in production
 /prisma/seed-dev.ts
 
@@ -49,3 +55,10 @@ next-env.d.ts
 /PRODUCT.md
 /DESIGN.md
 /other
+
+# local tooling
+/graphify-out
+.graphifyignore
+.obsidian
+*.override.yml
+*graphify*
