@@ -49,8 +49,3 @@ next-env.d.ts
 /PRODUCT.md
 /DESIGN.md
 /other
-/graphify-out
-.graphifyignore
-.obsidian
-*.override.yml
-*graphify*

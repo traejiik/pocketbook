@@ -3,7 +3,7 @@ import nextConfig from 'eslint-config-next/core-web-vitals';
 const config = [
   ...nextConfig,
   {
-    ignores: ['.claude/', 'other/', 'node_modules/', '.next/'],
+    ignores: ['other/', 'node_modules/', '.next/'],
   },
   {
     rules: {

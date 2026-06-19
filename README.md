@@ -216,7 +216,7 @@ scripts/              Ad-hoc import and maintenance scripts
 other/                Design reference, mockups, handoff notes
 ```
 
-Contributing and architectural conventions live in [`AGENTS.md`](AGENTS.md); deployment specifics in [`DEPLOY.md`](DEPLOY.md).
+Deployment specifics live in [`DEPLOY.md`](DEPLOY.md).
 
 ---
 
