@@ -1,14 +1,14 @@
 export function fmtHUF(n: number, opts?: { signed?: boolean }): string {
   const sign = opts?.signed && n > 0 ? '+' : '';
   const abs = Math.round(Math.abs(n));
-  const formatted = abs.toLocaleString('hu-HU').replace(/,/g, ' ').replace(/ /g, ' ');
+  const formatted = abs.toLocaleString('hu-HU').replace(/ /g, ' ');
   return `${n < 0 ? '−' : sign}${formatted} Ft`;
 }
 
 export function fmtCur(n: number, cur: 'HUF' | 'USD' | 'EUR' | 'GBP'): string {
   const abs = Math.abs(n);
   const sign = n < 0 ? '−' : '';
-  if (cur === 'HUF') return `${sign}${Math.round(abs).toLocaleString('hu-HU').replace(/,/g, ' ')} Ft`;
+  if (cur === 'HUF') return fmtHUF(n);
   if (cur === 'USD') return `${sign}$${abs.toFixed(2)}`;
   if (cur === 'EUR') return `${sign}€${abs.toFixed(2)}`;
   return `${sign}£${abs.toFixed(2)}`;

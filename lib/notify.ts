@@ -7,8 +7,7 @@
  */
 
 export const DISCORD_GREEN = 0x2ecc71
-export const DISCORD_RED = 0xe74c3c
-export const DISCORD_BLURPLE = 0x5865f2
+const DISCORD_BLURPLE = 0x5865f2
 
 export type DiscordNotification = {
   title: string

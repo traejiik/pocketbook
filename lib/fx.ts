@@ -53,13 +53,6 @@ export async function toAnchor(amount: number, from: Currency): Promise<number |
   return rate !== null ? amount * rate : null;
 }
 
-export async function fromAnchor(amount: number, to: Currency): Promise<number | null> {
-  const anchor = await getAnchorCurrency();
-  if (to === anchor) return amount;
-  const rate = await resolveRate(anchor, to);
-  return rate !== null ? amount * rate : null;
-}
-
 export type FxLock = { fxRate: number | null; fxAnchor: string };
 
 // Snapshot the current `currency → anchor` rate so a transaction can freeze it at
