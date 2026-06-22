@@ -48,18 +48,21 @@ function monthKeyRange(monthKey: string): { start: Date; end: Date } {
   };
 }
 
+// First-of-month at UTC midnight, `offset` months from `now`. All date maths
+// runs in UTC so boundaries line up with how `@db.Date` columns store calendar
+// days — local-timezone constructors would slip a day in positive offsets.
+function utcMonthStart(now: Date, offset: number): Date {
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + offset, 1));
+}
+
 export const getCurrentMonthKpis = cache(async () => {
   const now = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth(), 1);
-  const end   = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-  return kpisForRange(start, end);
+  return kpisForRange(utcMonthStart(now, 0), utcMonthStart(now, 1));
 });
 
 export const getLastMonthKpis = cache(async () => {
   const now = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  const end   = new Date(now.getFullYear(), now.getMonth(), 1);
-  return kpisForRange(start, end);
+  return kpisForRange(utcMonthStart(now, -1), utcMonthStart(now, 0));
 });
 
 export const getMonthKpis = cache(async (monthKey: string) => {
@@ -89,9 +92,7 @@ async function expensesByCategoryForRange(start: Date, end: Date) {
 
 export const getExpensesByCategory = cache(async () => {
   const now = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth(), 1);
-  const end   = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-  return expensesByCategoryForRange(start, end);
+  return expensesByCategoryForRange(utcMonthStart(now, 0), utcMonthStart(now, 1));
 });
 
 export const getMonthExpensesByCategory = cache(async (monthKey: string) => {
@@ -100,10 +101,10 @@ export const getMonthExpensesByCategory = cache(async (monthKey: string) => {
 });
 
 export const getUpcomingRenewals = cache(async (daysAhead: number) => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const now = new Date();
+  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
   const horizon = new Date(today);
-  horizon.setDate(today.getDate() + daysAhead);
+  horizon.setUTCDate(today.getUTCDate() + daysAhead);
 
   const rules = await prisma.recurringRule.findMany({
     where: {
@@ -142,9 +143,9 @@ export const getMonthlyTrend = cache(async (months: number) => {
   const now = new Date();
 
   for (let i = months - 1; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const next = new Date(d.getFullYear(), d.getMonth() + 1, 1);
-    const label = d.toLocaleDateString('en-GB', { month: 'short' });
+    const d = utcMonthStart(now, -i);
+    const next = utcMonthStart(now, -i + 1);
+    const label = d.toLocaleDateString('en-GB', { month: 'short', timeZone: 'UTC' });
 
     const txs = await prisma.transaction.findMany({
       where: { date: { gte: d, lt: next } },
