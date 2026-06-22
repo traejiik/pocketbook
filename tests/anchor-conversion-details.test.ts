@@ -13,6 +13,7 @@ vi.mock('@/lib/fx', () => ({
   frozenToAnchor: vi.fn(async (amount: number, currency: string, fxRate: number | null) =>
     fxRate != null ? amount * fxRate : liveRate(amount, currency),
   ),
+  isCurrency: (value: string) => ['HUF', 'USD', 'EUR', 'GBP'].includes(value),
 }))
 
 const prismaMock = {

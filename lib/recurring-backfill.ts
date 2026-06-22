@@ -1,5 +1,15 @@
-type RecurringCycle = 'MONTHLY' | 'ANNUAL'
-type RuleKind = 'INCOME' | 'EXPENSE' | 'SAVINGS'
+import {
+  type RecurringCycle,
+  type RuleKind,
+  monthlyOccurrence,
+  annualOccurrence,
+  parseDateOnly,
+  formatDateOnly,
+  startOfUtcDay,
+  isAfter,
+  signedAmount,
+} from '@/lib/recurring-dates'
+
 type Currency = 'HUF' | 'USD' | 'EUR' | 'GBP'
 
 export type RecurringCatchUpInput = {
@@ -86,10 +96,6 @@ function backfillCount(cycle: RecurringCycle, enteredNextDue: Date, today: Date)
   return isAfter(enteredNextDue, today) ? 0 : 1
 }
 
-function signedAmount(amount: number, kind: RuleKind) {
-  return kind === 'INCOME' ? amount : -amount
-}
-
 function previousOccurrences(cycle: RecurringCycle, latest: Date, anchor: Date, count: number) {
   const dates: Date[] = []
   for (let i = count - 1; i >= 0; i--) {
@@ -133,38 +139,4 @@ function addOccurrences(cycle: RecurringCycle, date: Date, anchor: Date, amount:
     return monthlyOccurrence(date.getUTCFullYear(), date.getUTCMonth() + amount, anchor.getUTCDate())
   }
   return annualOccurrence(date.getUTCFullYear() + amount, anchor.getUTCMonth(), anchor.getUTCDate())
-}
-
-function monthlyOccurrence(year: number, month: number, day: number) {
-  const firstOfMonth = new Date(Date.UTC(year, month, 1))
-  const y = firstOfMonth.getUTCFullYear()
-  const m = firstOfMonth.getUTCMonth()
-  const lastDay = new Date(Date.UTC(y, m + 1, 0)).getUTCDate()
-  return new Date(Date.UTC(y, m, Math.min(day, lastDay)))
-}
-
-function annualOccurrence(year: number, month: number, day: number) {
-  const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate()
-  return new Date(Date.UTC(year, month, Math.min(day, lastDay)))
-}
-
-function parseDateOnly(value: string) {
-  const [year, month, day] = value.split('-').map(Number)
-  return new Date(Date.UTC(year, month - 1, day))
-}
-
-function formatDateOnly(date: Date) {
-  return [
-    date.getUTCFullYear(),
-    String(date.getUTCMonth() + 1).padStart(2, '0'),
-    String(date.getUTCDate()).padStart(2, '0'),
-  ].join('-')
-}
-
-function startOfUtcDay(date: Date) {
-  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()))
-}
-
-function isAfter(left: Date, right: Date) {
-  return left.getTime() > right.getTime()
 }

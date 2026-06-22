@@ -5,7 +5,11 @@ export type Currency = 'HUF' | 'USD' | 'EUR' | 'GBP';
 
 const CURRENCIES: Currency[] = ['HUF', 'USD', 'EUR', 'GBP'];
 
-const getAnchorCurrency = cache(async (): Promise<string> => {
+export function isCurrency(value: string): value is Currency {
+  return CURRENCIES.includes(value as Currency);
+}
+
+export const getAnchorCurrency = cache(async (): Promise<string> => {
   const settings = await prisma.appSettings.findFirst({ where: { id: 'singleton' } });
   return settings?.anchorCurrency ?? 'HUF';
 });

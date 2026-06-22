@@ -1,4 +1,4 @@
-import { toAnchor, type Currency } from '@/lib/fx'
+import { toAnchor, isCurrency } from '@/lib/fx'
 
 type RuleCategory = {
   id: string
@@ -25,10 +25,6 @@ export type RecurringRuleForView = {
 
 function toDateStr(d: Date) {
   return d.toISOString().split('T')[0]
-}
-
-function isCurrency(value: string): value is Currency {
-  return value === 'HUF' || value === 'USD' || value === 'EUR' || value === 'GBP'
 }
 
 export async function buildRecurringRuleViewModels(

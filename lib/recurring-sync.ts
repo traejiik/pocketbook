@@ -1,9 +1,17 @@
 import { prisma } from '@/lib/prisma'
 import { lockRate, type FxLock } from '@/lib/fx'
 import { notifyDiscord, DISCORD_GREEN } from '@/lib/notify'
+import {
+  type RecurringCycle,
+  type RuleKind,
+  monthlyOccurrence,
+  annualOccurrence,
+  parseDateOnly,
+  formatDateOnly,
+  startOfUtcDay,
+  signedAmount,
+} from '@/lib/recurring-dates'
 
-type RecurringCycle = 'MONTHLY' | 'ANNUAL'
-type RuleKind = 'INCOME' | 'EXPENSE' | 'SAVINGS'
 type Currency = 'HUF' | 'USD' | 'EUR' | 'GBP'
 
 type DueRule = {
@@ -127,7 +135,7 @@ export async function syncDueRecurringRules(today: Date = new Date()): Promise<R
           data: plan.transactions.map((transaction) => {
             const lock = lockByCurrency.get(transaction.currency)
             return {
-              date: dateOnlyStringToDate(transaction.date),
+              date: parseDateOnly(transaction.date),
               description: transaction.description,
               amount: transaction.amount,
               currency: transaction.currency,
@@ -146,7 +154,7 @@ export async function syncDueRecurringRules(today: Date = new Date()): Promise<R
       await tx.recurringRule.update({
         where: { id: plan.ruleId },
         data: {
-          nextDue: dateOnlyStringToDate(plan.nextDue),
+          nextDue: parseDateOnly(plan.nextDue),
           archived: plan.archived,
           installmentPaid: plan.installmentPaid,
         },
@@ -183,46 +191,11 @@ function formatSignedAmount(amount: number, currency: Currency) {
   return `${sign}${Math.abs(amount).toLocaleString('en-GB')} ${currency}`
 }
 
-function signedAmount(amount: number, kind: RuleKind) {
-  return kind === 'INCOME' ? amount : -amount
-}
-
-// All date maths runs in UTC. `@db.Date` columns store the UTC calendar day, so
-// building local-midnight Dates would shift the stored day in any positive-offset
-// timezone (e.g. Budapest). UTC throughout keeps storage timezone-independent.
+// Advance one cycle from `date`, anchored to the rule's original day-of-month so
+// month-length clamping stays stable. UTC maths lives in lib/recurring-dates.
 function nextOccurrence(cycle: RecurringCycle, date: Date, anchor: Date) {
   if (cycle === 'MONTHLY') {
     return monthlyOccurrence(date.getUTCFullYear(), date.getUTCMonth() + 1, anchor.getUTCDate())
   }
   return annualOccurrence(date.getUTCFullYear() + 1, anchor.getUTCMonth(), anchor.getUTCDate())
-}
-
-function monthlyOccurrence(year: number, month: number, day: number) {
-  const firstOfMonth = new Date(Date.UTC(year, month, 1))
-  const y = firstOfMonth.getUTCFullYear()
-  const m = firstOfMonth.getUTCMonth()
-  const lastDay = new Date(Date.UTC(y, m + 1, 0)).getUTCDate()
-  return new Date(Date.UTC(y, m, Math.min(day, lastDay)))
-}
-
-function annualOccurrence(year: number, month: number, day: number) {
-  const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate()
-  return new Date(Date.UTC(year, month, Math.min(day, lastDay)))
-}
-
-function dateOnlyStringToDate(value: string) {
-  const [year, month, day] = value.split('-').map(Number)
-  return new Date(Date.UTC(year, month - 1, day))
-}
-
-function formatDateOnly(date: Date) {
-  return [
-    date.getUTCFullYear(),
-    String(date.getUTCMonth() + 1).padStart(2, '0'),
-    String(date.getUTCDate()).padStart(2, '0'),
-  ].join('-')
-}
-
-function startOfUtcDay(date: Date) {
-  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()))
 }

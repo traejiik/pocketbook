@@ -1,6 +1,8 @@
 import { cache } from 'react';
 import { prisma } from './prisma';
 import { toAnchor, frozenToAnchor } from './fx';
+
+export { getAnchorCurrency } from './fx';
 import type { Category, RecurringRule } from '@prisma/client';
 
 export type RuleWithCategory = RecurringRule & { category: Category };
@@ -273,9 +275,4 @@ export const getRecurringBudgetSummary = cache(async (): Promise<RecurringBudget
     hasNormalisedAnnuals,
     expensesByCategory,
   }
-})
-
-export const getAnchorCurrency = cache(async (): Promise<string> => {
-  const s = await prisma.appSettings.findFirst({ where: { id: 'singleton' } })
-  return s?.anchorCurrency ?? 'HUF'
 })
