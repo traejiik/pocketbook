@@ -486,7 +486,7 @@ export function SettingsView({
                 Auto-sync dynamic rates daily at 03:00
               </div>
               <div className="flex items-center gap-3 self-end sm:self-auto">
-                <div className="text-[11px] text-muted-foreground mono">frankfurter.app · ECB feed</div>
+                <div className="text-[11px] text-muted-foreground mono">frankfurter.dev · ECB feed</div>
                 <Button
                   variant="outline"
                   size="sm"

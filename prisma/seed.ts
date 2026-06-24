@@ -63,12 +63,12 @@ async function main() {
   // to the anchor. Missing pairs make transactions in that currency drop out of
   // every aggregation (toAnchor → null), so all three ship with defaults.
   const fxData = [
-    { fromCurrency: 'HUF', toCurrency: 'USD', rate: 0.002791, mode: FxMode.AUTO, provider: 'frankfurter.app' },
-    { fromCurrency: 'USD', toCurrency: 'HUF', rate: 358.40,   mode: FxMode.AUTO, provider: 'frankfurter.app' },
-    { fromCurrency: 'HUF', toCurrency: 'EUR', rate: 0.002525, mode: FxMode.AUTO, provider: 'frankfurter.app' },
-    { fromCurrency: 'EUR', toCurrency: 'HUF', rate: 396.10,   mode: FxMode.AUTO, provider: 'frankfurter.app' },
-    { fromCurrency: 'HUF', toCurrency: 'GBP', rate: 0.002174, mode: FxMode.AUTO, provider: 'frankfurter.app' },
-    { fromCurrency: 'GBP', toCurrency: 'HUF', rate: 460.00,   mode: FxMode.AUTO, provider: 'frankfurter.app' },
+    { fromCurrency: 'HUF', toCurrency: 'USD', rate: 0.002791, mode: FxMode.AUTO, provider: 'frankfurter.dev' },
+    { fromCurrency: 'USD', toCurrency: 'HUF', rate: 358.40,   mode: FxMode.AUTO, provider: 'frankfurter.dev' },
+    { fromCurrency: 'HUF', toCurrency: 'EUR', rate: 0.002525, mode: FxMode.AUTO, provider: 'frankfurter.dev' },
+    { fromCurrency: 'EUR', toCurrency: 'HUF', rate: 396.10,   mode: FxMode.AUTO, provider: 'frankfurter.dev' },
+    { fromCurrency: 'HUF', toCurrency: 'GBP', rate: 0.002174, mode: FxMode.AUTO, provider: 'frankfurter.dev' },
+    { fromCurrency: 'GBP', toCurrency: 'HUF', rate: 460.00,   mode: FxMode.AUTO, provider: 'frankfurter.dev' },
   ];
 
   const existingRateCount = await prisma.exchangeRate.count();

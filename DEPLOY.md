@@ -135,7 +135,7 @@ NPM resolves `pocketbook-web` by container name over `core_net` — no IP addres
 ## Verify FX rate sync
 
 ```bash
-# Trigger manually to confirm it can reach frankfurter.app
+# Trigger manually to confirm it can reach frankfurter.dev
 docker compose exec pocketbook-web sh -lc \
   'wget -qO- --header="X-Sync-Secret: $FX_SYNC_SECRET" --post-data="" http://pocketbook-web:3000/api/fx/sync'
 # Expected response: {"synced": N}

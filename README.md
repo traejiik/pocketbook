@@ -107,7 +107,7 @@ Pick your anchor currency, manage tracked FX rates (dynamic or manual), change y
 | **Auth** | Auth.js v5 (`next-auth@beta`, credentials provider, single user) |
 | **Forms** | react-hook-form + zod |
 | **AI** | Local Ollama — `PB_OLLAMA_BASE_URL` in deploy env, passed to the app as `OLLAMA_BASE_URL` |
-| **FX rates** | [frankfurter.app](https://frankfurter.app) (ECB feed), auto-synced daily |
+| **FX rates** | [frankfurter.dev](https://frankfurter.dev) (ECB feed), auto-synced daily |
 | **Runtime / deploy** | Node 24 Alpine · pnpm 10.33.0 in Docker · Docker Compose · GHCR image releases |
 
 **Architecture in one line:** server components read from Prisma directly → pass props → Server Actions mutate → `revalidatePath` refreshes. The only REST routes are for Auth.js, SSE insights streaming, and secret-authenticated cron endpoints (FX sync, monthly insights, recurring sync). No client-side data fetching for initial renders.
