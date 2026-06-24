@@ -7,8 +7,9 @@ import { prisma } from '@/lib/prisma';
 import type { SerializedCategory, SerializedRecurringRule } from '@/components/forms/TransactionForm';
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const [renewals, categories, recurringRules, exchangeRates] = await Promise.all([
+  const [renewals, renewalsSoon, categories, recurringRules, exchangeRates] = await Promise.all([
     getUpcomingRenewals(30),
+    getUpcomingRenewals(7),
     prisma.category.findMany({ orderBy: { name: 'asc' } }),
     prisma.recurringRule.findMany({ where: { archived: false }, orderBy: { name: 'asc' } }),
     prisma.exchangeRate.findMany(),
@@ -29,7 +30,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <SessionProvider>
-      <NotificationsProvider renewalsCount={renewals.length}>
+      <NotificationsProvider renewalsCount={renewalsSoon.length}>
         <TransactionSheetProvider>
           <AppShell
             upcomingRenewalsCount={renewals.length}

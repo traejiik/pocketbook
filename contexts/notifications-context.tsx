@@ -31,8 +31,20 @@ const NotificationsContext = createContext<NotificationsValue | null>(null);
 
 let counter = 0;
 
+// Persists only the *dismissed* state of the recurring renewals signal — the
+// one notification that gets reseeded every load. The token is day + count, so
+// a new day or a changed renewal count resurfaces it as unread.
+const DISMISS_KEY = 'pb-renewals-dismissed';
+
+function renewalsToken(count: number): string | null {
+  if (count <= 0) return null;
+  const d = new Date();
+  return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}:${count}`;
+}
+
 // Session-local activity log: a seeded "renewals due" signal plus anything
-// toasts prepend. No backend persistence — mirrors the v5 prototype's bell.
+// toasts prepend. Only the renewals seed's read state is persisted (localStorage);
+// the rest mirrors the v5 prototype's ephemeral bell.
 export function NotificationsProvider({
   children,
   renewalsCount = 0,
@@ -40,13 +52,15 @@ export function NotificationsProvider({
   children: ReactNode;
   renewalsCount?: number;
 }) {
+  const token = renewalsToken(renewalsCount);
+
   const [items, setItems] = useState<AppNotification[]>(() =>
     renewalsCount > 0
       ? [
           {
             id: 'seed-renewals',
             icon: CalendarDays,
-            msg: `${renewalsCount} renewal${renewalsCount === 1 ? '' : 's'} due in the next 30 days`,
+            msg: `${renewalsCount} renewal${renewalsCount === 1 ? '' : 's'} due in the next 7 days`,
             time: 'Today',
             unread: true,
           },
@@ -54,10 +68,30 @@ export function NotificationsProvider({
       : [],
   );
 
-  const markAllRead = useCallback(
-    () => setItems((ns) => ns.map((n) => (n.unread ? { ...n, unread: false } : n))),
-    [],
-  );
+  // After hydration, honour a prior dismissal of the current renewals signal.
+  useEffect(() => {
+    if (!token) return;
+    try {
+      if (localStorage.getItem(DISMISS_KEY) === token) {
+        setItems((ns) =>
+          ns.map((n) => (n.id === 'seed-renewals' ? { ...n, unread: false } : n)),
+        );
+      }
+    } catch {
+      // localStorage unavailable (private mode / SSR) — fall back to session-only.
+    }
+  }, [token]);
+
+  const markAllRead = useCallback(() => {
+    setItems((ns) => ns.map((n) => (n.unread ? { ...n, unread: false } : n)));
+    if (token) {
+      try {
+        localStorage.setItem(DISMISS_KEY, token);
+      } catch {
+        // best-effort persistence only.
+      }
+    }
+  }, [token]);
 
   const push = useCallback((msg: string, icon: LucideIcon = CheckCircle2) => {
     counter += 1;
