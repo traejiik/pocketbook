@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { CalendarIcon, CheckIcon, ChevronDownIcon } from 'lucide-react';
+import { CheckIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { notify } from '@/lib/ui-notify';
 
@@ -32,6 +32,14 @@ import {
   DialogFooter,
   DialogClose,
 } from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { DatePicker } from '@/components/ui/date-picker';
 
 const formSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -144,6 +152,7 @@ export function TransactionForm({
   const categoryId = watch('categoryId');
   const dateVal = watch('date');
   const descVal = watch('description');
+  const recurringRuleId = watch('recurringRuleId');
 
   const eligibleCategories = categories.filter(c => c.kind === type);
 
@@ -156,6 +165,11 @@ export function TransactionForm({
   }, [type]);
 
   const eligibleRules = recurringRules.filter(r => r.kind === type);
+
+  const linkedRule = recurringRuleId ? eligibleRules.find(r => r.id === recurringRuleId) : null;
+  const recurringLabel = linkedRule
+    ? `${linkedRule.name} · ${linkedRule.cycle === 'MONTHLY' ? 'Monthly' : 'Annual'}`
+    : '— None —';
 
   const amtNum = parseFloat(amtStr?.replace(',', '.') ?? '0') || 0;
   const rate =
@@ -297,19 +311,19 @@ export function TransactionForm({
                     value={amtStr}
                     onChange={e => setValue('amount', e.target.value.replace(/[^0-9.,]/g, ''))}
                   />
-                  <div className="relative">
-                    <select
-                      {...register('currency')}
-                      aria-label="Currency"
-                      className="appearance-none h-11 xl:h-9 w-full pl-3 pr-7 bg-transparent border border-input rounded-md text-base xl:text-[13px] focus:outline-hidden focus:ring-2 focus:ring-ring/60"
-                    >
-                      <option>HUF</option>
-                      <option>EUR</option>
-                      <option>USD</option>
-                      <option>GBP</option>
-                    </select>
-                    <ChevronDownIcon className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
-                  </div>
+                  <Select
+                    value={currency}
+                    onValueChange={v => v && setValue('currency', v as FormValues['currency'])}
+                  >
+                    <SelectTrigger aria-label="Currency" className="h-9! w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {['HUF', 'EUR', 'USD', 'GBP'].map(c => (
+                        <SelectItem key={c} value={c}>{c}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 {currency !== anchorCurrency && amtNum > 0 && (
                   <div className="text-[11.5px] text-muted-foreground mono">
@@ -324,13 +338,10 @@ export function TransactionForm({
               {/* Date */}
               <div className="space-y-1.5">
                 <Label htmlFor="tx-date">Date</Label>
-                <Input
+                <DatePicker
                   id="tx-date"
-                  type="date"
-                  icon={<CalendarIcon className="w-4 h-4" />}
-                  {...register('date')}
                   value={dateVal}
-                  onChange={e => setValue('date', e.target.value)}
+                  onChange={v => setValue('date', v)}
                 />
               </div>
 
@@ -374,21 +385,22 @@ export function TransactionForm({
               {/* Link to recurring rule */}
               <div className="space-y-1.5">
                 <Label htmlFor="tx-recurring" hint="Optional">Link to recurring rule</Label>
-                <div className="relative">
-                  <select
-                    id="tx-recurring"
-                    {...register('recurringRuleId')}
-                    className="appearance-none h-11 xl:h-9 w-full pl-3 pr-7 bg-transparent border border-input rounded-md text-base xl:text-[13px] focus:outline-hidden focus:ring-2 focus:ring-ring/60"
-                  >
-                    <option value="">— None —</option>
+                <Select
+                  value={recurringRuleId ?? '__none__'}
+                  onValueChange={v => setValue('recurringRuleId', v === '__none__' ? null : v)}
+                >
+                  <SelectTrigger id="tx-recurring" className="h-9! w-full">
+                    <SelectValue>{recurringLabel}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">— None —</SelectItem>
                     {eligibleRules.map(r => (
-                      <option key={r.id} value={r.id}>
+                      <SelectItem key={r.id} value={r.id}>
                         {r.name} · {r.cycle === 'MONTHLY' ? 'Monthly' : 'Annual'}
-                      </option>
+                      </SelectItem>
                     ))}
-                  </select>
-                  <ChevronDownIcon className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
-                </div>
+                  </SelectContent>
+                </Select>
               </div>
 
               {/* Delete link — edit mode only */}

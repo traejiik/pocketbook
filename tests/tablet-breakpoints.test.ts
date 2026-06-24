@@ -198,7 +198,7 @@ describe('tablet breakpoint contract', () => {
     expect(source('app/(app)/insights/page.tsx')).toContain('px-4 lg:px-7 pb-9 pt-1');
   });
 
-  test('transaction form controls stay touch-sized through tablet widths', () => {
+  test('transaction form keeps touch-sized toggles but uniform-height inputs', () => {
     const form = source('components/forms/TransactionForm.tsx');
 
     expect(form).toContain("useIsMobile('(max-width: 1024px)'");
@@ -209,10 +209,17 @@ describe('tablet breakpoint contract', () => {
     expect(form).toContain('h-1.5 w-10 rounded-full bg-border');
     expect(form).toContain("{editingTx ? 'Edit transaction' : 'Add transaction'}");
     expect(form).toContain("{editingTx ? `id · ${editingTx.id}` : 'Record a one-off or recurring entry'}");
+    // Type segmented + category pills stay touch-sized on mobile/tablet, shrinking only at xl
     expect(form).toContain('h-11 xl:h-8');
-    expect(form).toContain('h-11 xl:h-9');
     expect(form).toContain('py-2 xl:py-1');
-    expect(form).toContain('text-base xl:text-[13px]');
+    // Currency + "link to recurring" are now shadcn Selects pinned to h-9 so they
+    // match the adjacent Input at every viewport (replaced the old native
+    // `<select>` that grew to h-11 below xl and broke row alignment).
+    expect(form).toContain('<Select');
+    expect(form).toContain('h-9! w-full');
+    expect(form).not.toContain('h-11 xl:h-9');
+    // Date is the shared shadcn DatePicker (Popover + Calendar), also h-9
+    expect(form).toContain('<DatePicker');
     expect(form).toContain('min-[1025px]:!w-[420px] min-[1025px]:!max-w-[420px]');
     expectBefore(form, 'htmlFor="tx-description"', 'htmlFor="tx-amount"');
     expectBefore(form, 'htmlFor="tx-amount"', 'htmlFor="tx-date"');
