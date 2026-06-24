@@ -21,6 +21,7 @@ export type RecurringRuleForView = {
   installmentEndsOn: Date | null
   archived: boolean
   category: RuleCategory
+  _count?: { transactions: number }
 }
 
 function toDateStr(d: Date) {
@@ -53,6 +54,7 @@ export async function buildRecurringRuleViewModels(
         archived: rule.archived,
         category: rule.category,
         anchorEquivalent,
+        hasTransactions: (rule._count?.transactions ?? 0) > 0,
       }
     }),
   )

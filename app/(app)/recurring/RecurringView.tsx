@@ -4,7 +4,7 @@ import { useState, useTransition, useEffect, useCallback, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Plus, ArrowUpDown, Check, RepeatIcon, Calendar, RotateCcw, ChevronDown } from 'lucide-react'
+import { Plus, ArrowUpDown, Check, RepeatIcon, Calendar, RotateCcw, ChevronDown, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Segmented } from '@/components/ui/segmented'
 import type { RecurringBudgetSummary } from '@/lib/aggregations'
@@ -22,9 +22,10 @@ import { Button } from '@/components/ui/button'
 import { Empty } from '@/components/ui/empty'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { DatePicker } from '@/components/ui/date-picker'
 import { toast } from 'sonner'
 import { notify } from '@/lib/ui-notify'
-import { upsertRecurringRule, archiveRecurringRule, unarchiveRecurringRule, type RecurringRuleInput } from '@/server-actions/recurring'
+import { upsertRecurringRule, archiveRecurringRule, unarchiveRecurringRule, deleteRecurringRule, type RecurringRuleInput } from '@/server-actions/recurring'
 import { useFabContext } from '@/contexts/fab-context'
 import { useIsMobile } from '@/hooks/use-is-mobile'
 import type { CardRule } from '@/components/finance/RecurringRuleCard'
@@ -48,6 +49,7 @@ export type SerialisedRule = {
   archived: boolean
   category: Category
   anchorEquivalent: number | null
+  hasTransactions: boolean
 }
 
 interface Props {
@@ -201,11 +203,13 @@ function ArchivedCompactRow({
   top,
   isPending,
   onRestore,
+  onDelete,
 }: {
   rule: SerialisedRule
   top: boolean
   isPending: boolean
   onRestore: (id: string) => void
+  onDelete?: (id: string, name: string) => void
 }) {
   const completed = isCompletedInstallment(rule)
   const RowIcon = completed || rule.cycle === 'ANNUAL' ? Calendar : RepeatIcon
@@ -229,14 +233,26 @@ function ArchivedCompactRow({
           Done
         </span>
       ) : (
-        <button
-          type="button"
-          disabled={isPending}
-          onClick={() => onRestore(rule.id)}
-          className="shrink-0 text-[12px] text-primary font-medium px-2 py-1 rounded-md hover:bg-accent/60 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-        >
-          Restore
-        </button>
+        <div className="shrink-0 flex items-center gap-1">
+          {onDelete && !rule.hasTransactions && (
+            <button
+              type="button"
+              disabled={isPending}
+              onClick={() => onDelete(rule.id, rule.name)}
+              className="text-[12px] text-destructive font-medium px-2 py-1 rounded-md hover:bg-destructive/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+            >
+              Delete
+            </button>
+          )}
+          <button
+            type="button"
+            disabled={isPending}
+            onClick={() => onRestore(rule.id)}
+            className="text-[12px] text-primary font-medium px-2 py-1 rounded-md hover:bg-accent/60 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+          >
+            Restore
+          </button>
+        </div>
       )}
     </div>
   )
@@ -286,6 +302,8 @@ export function RecurringView({ rules, archivedRules, categories, budget, anchor
   const cycle         = watch('cycle')
   const kind          = watch('kind')
   const categoryId    = watch('categoryId')
+  const nextDue       = watch('nextDue')
+  const installmentEndsOn = watch('installmentEndsOn')
   const eligibleRuleCategories = useMemo(
     () => categories.filter((c) => c.kind === kind),
     [categories, kind],
@@ -363,6 +381,18 @@ export function RecurringView({ rules, archivedRules, categories, budget, anchor
       await archiveRecurringRule(editing.id)
       notify.success(`Archived ${name}`)
       setSheetOpen(false)
+    })
+  }
+
+  function onDelete(id: string, name: string) {
+    startTransition(async () => {
+      const result = await deleteRecurringRule(id)
+      if (result && 'error' in result) {
+        toast.error(result.error)
+        return
+      }
+      notify.success(`Deleted ${name}`)
+      setSheetOpen(false) // no-op when invoked from the archived list
     })
   }
 
@@ -524,6 +554,7 @@ export function RecurringView({ rules, archivedRules, categories, budget, anchor
                     top={i > 0}
                     isPending={isPending}
                     onRestore={onRestore}
+                    onDelete={onDelete}
                   />
                 ))}
               </CalmCard>
@@ -537,6 +568,7 @@ export function RecurringView({ rules, archivedRules, categories, budget, anchor
                     anchorCurrency={anchorCurrency}
                     isPending={isPending}
                     onRestore={onRestore}
+                    onDelete={onDelete}
                   />
                 )}
                 {completed.length > 0 && (
@@ -589,7 +621,7 @@ export function RecurringView({ rules, archivedRules, categories, budget, anchor
               <div className="space-y-1.5">
                 <Label id="rule-currency-label">Currency</Label>
                 <Select value={currency} onValueChange={(v) => v && setValue('currency', v as 'HUF' | 'USD' | 'EUR' | 'GBP')}>
-                  <SelectTrigger aria-labelledby="rule-currency-label"><SelectValue /></SelectTrigger>
+                  <SelectTrigger aria-labelledby="rule-currency-label" className="h-9! w-full"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {['HUF', 'USD', 'EUR', 'GBP'].map((c) => (
                       <SelectItem key={c} value={c}>{c}</SelectItem>
@@ -625,13 +657,13 @@ export function RecurringView({ rules, archivedRules, categories, budget, anchor
 
             <div className="space-y-1.5">
               <Label htmlFor="rule-nextdue">Next due</Label>
-              <Input id="rule-nextdue" type="date" {...register('nextDue')} />
+              <DatePicker id="rule-nextdue" value={nextDue} onChange={(v) => setValue('nextDue', v)} />
             </div>
 
             <div className="space-y-1.5">
               <Label id="rule-category-label">Category</Label>
               <Select value={categoryId} onValueChange={(v: string | null) => { if (v) setValue('categoryId', v) }}>
-                <SelectTrigger aria-labelledby="rule-category-label" aria-describedby={errors.categoryId ? 'rule-category-error' : undefined}>
+                <SelectTrigger aria-labelledby="rule-category-label" aria-describedby={errors.categoryId ? 'rule-category-error' : undefined} className="h-9! w-full">
                   <SelectValue placeholder="Select category">
                     {categoryId
                       ? (categories.find(c => c.id === categoryId)?.name ?? undefined)
@@ -675,7 +707,7 @@ export function RecurringView({ rules, archivedRules, categories, budget, anchor
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="rule-endson">Ends on</Label>
-                  <Input id="rule-endson" type="date" {...register('installmentEndsOn')} />
+                  <DatePicker id="rule-endson" value={installmentEndsOn ?? ''} onChange={(v) => setValue('installmentEndsOn', v)} />
                 </div>
               </div>
             )}
@@ -683,9 +715,15 @@ export function RecurringView({ rules, archivedRules, categories, budget, anchor
 
           <SheetFooter className="flex flex-row gap-2 px-5 py-4 border-t border-border shrink-0">
             {editing && (
-              <Button variant="destructive" size="sm" onClick={onArchive} type="button" disabled={isPending}>
-                Archive
-              </Button>
+              editing.hasTransactions ? (
+                <Button variant="destructive" size="sm" onClick={onArchive} type="button" disabled={isPending}>
+                  Archive
+                </Button>
+              ) : (
+                <Button variant="destructive" size="sm" onClick={() => onDelete(editing.id, editing.name)} type="button" disabled={isPending}>
+                  Delete
+                </Button>
+              )
             )}
             <Button variant="outline" size="sm" onClick={() => setSheetOpen(false)} type="button" className="ml-auto" disabled={isPending}>
               Cancel
@@ -706,12 +744,14 @@ function ArchivedGroup({
   anchorCurrency,
   isPending,
   onRestore,
+  onDelete,
 }: {
   label: string
   rules: SerialisedRule[]
   anchorCurrency: string
   isPending: boolean
   onRestore: (id: string) => void
+  onDelete?: (id: string, name: string) => void
 }) {
   return (
     <div className="space-y-3">
@@ -786,15 +826,28 @@ function ArchivedGroup({
               )}
 
               {!completed && (
-                <button
-                  type="button"
-                  className="mt-1 w-full inline-flex items-center justify-center gap-1.5 h-8 rounded-[9px] text-[12px] text-muted-foreground hover:text-foreground border border-border/60 bg-card transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-                  disabled={isPending}
-                  onClick={() => onRestore(r.id)}
-                >
-                  <RotateCcw className="w-3.5 h-3.5" />
-                  Restore
-                </button>
+                <div className="mt-1 flex gap-2">
+                  <button
+                    type="button"
+                    className="flex-1 inline-flex items-center justify-center gap-1.5 h-8 rounded-[9px] text-[12px] text-muted-foreground hover:text-foreground border border-border/60 bg-card transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                    disabled={isPending}
+                    onClick={() => onRestore(r.id)}
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    Restore
+                  </button>
+                  {onDelete && !r.hasTransactions && (
+                    <button
+                      type="button"
+                      className="inline-flex items-center justify-center gap-1.5 h-8 px-3 rounded-[9px] text-[12px] text-destructive hover:bg-destructive/10 border border-border/60 bg-card transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                      disabled={isPending}
+                      onClick={() => onDelete(r.id, r.name)}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      Delete
+                    </button>
+                  )}
+                </div>
               )}
             </div>
           )

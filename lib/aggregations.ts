@@ -170,7 +170,7 @@ export const getMonthlyTrend = cache(async (months: number) => {
 export const getRecurringRules = cache(async () => {
   return prisma.recurringRule.findMany({
     where: { archived: false },
-    include: { category: true },
+    include: { category: true, _count: { select: { transactions: true } } },
     orderBy: { nextDue: 'asc' },
   });
 });
@@ -178,7 +178,7 @@ export const getRecurringRules = cache(async () => {
 export const getArchivedRecurringRules = cache(async () => {
   return prisma.recurringRule.findMany({
     where: { archived: true },
-    include: { category: true },
+    include: { category: true, _count: { select: { transactions: true } } },
     orderBy: { name: 'asc' },
   });
 });

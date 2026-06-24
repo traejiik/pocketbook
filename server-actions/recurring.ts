@@ -144,6 +144,25 @@ export async function archiveRecurringRule(id: string) {
   revalidatePath('/dashboard');
 }
 
+export async function deleteRecurringRule(id: string): Promise<{ ok: true } | { error: string }> {
+  await requireAuthenticatedUser();
+
+  // A rule that has logged charges is the parent of real ledger history — deleting it
+  // would orphan or cascade-destroy those transactions. Only never-charged rules
+  // (mistakes created and never run) may be hard-deleted; everything else archives.
+  const linkedCount = await prisma.transaction.count({ where: { recurringRuleId: id } });
+  if (linkedCount > 0) {
+    return { error: 'Rules with logged charges can only be archived.' };
+  }
+
+  await prisma.recurringRule.delete({ where: { id } });
+
+  revalidatePath('/recurring');
+  revalidatePath('/renewals');
+  revalidatePath('/dashboard');
+  return { ok: true };
+}
+
 export async function unarchiveRecurringRule(id: string): Promise<{ ok: true } | { error: string }> {
   await requireAuthenticatedUser();
 
