@@ -6,15 +6,21 @@ import { prisma } from '@/lib/prisma';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(req: Request) {
   const session = await auth();
   if (!session?.user) return new Response('Unauthorised', { status: 401 });
 
   const settings = await prisma.appSettings.findUnique({ where: { id: 'singleton' } });
   if (!settings) return new Response('Settings not found', { status: 500 });
 
-  const prompt = await buildInsightPrompt();
-  const monthCovered = new Date().toISOString().slice(0, 7);
+  // Optional ?month=YYYY-MM to generate for a specific month (the insights
+  // month picker). Falls back to the current month for on-demand generation.
+  const requested = new URL(req.url).searchParams.get('month');
+  const monthCovered = /^\d{4}-\d{2}$/.test(requested ?? '')
+    ? (requested as string)
+    : new Date().toISOString().slice(0, 7);
+
+  const prompt = await buildInsightPrompt(monthCovered);
 
   const encoder = new TextEncoder();
 
@@ -51,6 +57,10 @@ export async function GET() {
             },
           });
           savedId = record.id;
+          // One insight per month: replace any earlier note for this month.
+          await prisma.aiInsight.deleteMany({
+            where: { monthCovered, id: { not: record.id } },
+          });
         }
 
         controller.enqueue(

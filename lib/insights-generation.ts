@@ -95,7 +95,7 @@ export async function generateAndSaveInsight(options: {
   const user = await prisma.user.findFirst()
   if (!user) throw new Error('No user found')
 
-  return prisma.aiInsight.create({
+  const record = await prisma.aiInsight.create({
     data: {
       userId: user.id,
       monthCovered: options.monthCovered,
@@ -103,4 +103,12 @@ export async function generateAndSaveInsight(options: {
       content,
     },
   })
+
+  // One insight per month: the freshly generated note replaces any earlier
+  // (e.g. mid-month) notes for the same month.
+  await prisma.aiInsight.deleteMany({
+    where: { monthCovered: options.monthCovered, id: { not: record.id } },
+  })
+
+  return record
 }

@@ -1,14 +1,20 @@
 'use client';
 
-import { useState, useCallback } from 'react';
-import { Sparkles, ChevronRight, ThumbsUp, ThumbsDown, RefreshCw } from 'lucide-react';
+import { useState, useCallback, useMemo } from 'react';
+import { Sparkles, ChevronRight, ThumbsUp, ThumbsDown, RefreshCw, Calendar, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from '@/components/ui/dropdown-menu';
 import { setInsightFeedback } from '@/server-actions/insights';
 import { cn } from '@/lib/utils';
 import { fmtDate } from '@/lib/format';
 
-type StreamState = 'ready' | 'loading' | 'streaming' | 'done' | 'error';
+type GenState = 'loading' | 'streaming' | 'done' | 'error';
 
 type HistoryItem = {
   id: string;
@@ -23,97 +29,173 @@ type Props = {
   ollamaUrl: string;
   ollamaModel: string;
   history: HistoryItem[];
+  currentMonth: string; // YYYY-MM
 };
 
-export function InsightCard({ ollamaUrl, ollamaModel, history }: Props) {
-  const [state, setState] = useState<StreamState>('ready');
-  const [text, setText] = useState('');
-  const [savedId, setSavedId] = useState<string | null>(null);
-  const [feedback, setFeedback] = useState<string | null>(null);
-  const [meta, setMeta] = useState<{ tokens: number; elapsed: string } | null>(null);
-  const [errorMsg, setErrorMsg] = useState('');
-  const [activeHistory, setActiveHistory] = useState<HistoryItem | null>(null);
+// "2026-06" -> "June 2026"
+function monthLabel(key: string): string {
+  const [year, month] = key.split('-').map(Number);
+  return new Date(Date.UTC(year, month - 1, 1)).toLocaleDateString('en-GB', {
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  });
+}
+
+export function InsightCard({ ollamaUrl, ollamaModel, history, currentMonth }: Props) {
+  const [items, setItems] = useState<HistoryItem[]>(history);
+  const [selectedMonth, setSelectedMonth] = useState(currentMonth);
   const [model] = useState(ollamaModel);
 
-  const generate = useCallback(async () => {
-    setActiveHistory(null);
-    setState('loading');
-    setText('');
-    setSavedId(null);
-    setFeedback(null);
-    setMeta(null);
-    setErrorMsg('');
+  // A single in-flight (or just-finished) generation, tied to one month.
+  const [gen, setGen] = useState<{
+    month: string;
+    state: GenState;
+    text: string;
+    id: string | null;
+    tokens: number;
+    elapsed: string;
+    errorMsg: string;
+  } | null>(null);
+  const [feedback, setFeedback] = useState<string | null>(null);
 
-    const es = new EventSource('/api/insights/stream');
+  const savedForSelected = useMemo(
+    () => items.find(i => i.monthCovered === selectedMonth) ?? null,
+    [items, selectedMonth],
+  );
+
+  // Months offered in the picker: every month with a note, plus the current month.
+  const pickerMonths = useMemo(() => {
+    const set = new Set(items.map(i => i.monthCovered));
+    set.add(currentMonth);
+    return [...set].sort((a, b) => b.localeCompare(a));
+  }, [items, currentMonth]);
+
+  const isLive = gen?.month === selectedMonth;
+  const busy = gen?.state === 'loading' || gen?.state === 'streaming';
+
+  const generate = useCallback((month: string) => {
+    setFeedback(null);
+    setGen({ month, state: 'loading', text: '', id: null, tokens: 0, elapsed: '', errorMsg: '' });
+
+    const es = new EventSource(`/api/insights/stream?month=${month}`);
+    let fullText = '';
 
     es.onmessage = (e) => {
       const data = JSON.parse(e.data);
 
       if (data.error) {
-        setErrorMsg(data.error);
-        setState('error');
+        setGen(g => g && g.month === month ? { ...g, state: 'error', errorMsg: data.error } : g);
         es.close();
         return;
       }
 
       if (data.delta !== undefined) {
-        setState('streaming');
-        setText(prev => prev + data.delta);
+        fullText += data.delta;
+        setGen(g => g && g.month === month
+          ? { ...g, state: 'streaming', text: fullText }
+          : g);
       }
 
       if (data.done && data.saved) {
-        if (data.id) setSavedId(data.id);
-        setMeta({ tokens: data.tokens, elapsed: data.elapsed });
-        setState('done');
+        setGen(g => g && g.month === month
+          ? { ...g, state: 'done', id: data.id ?? null, tokens: data.tokens, elapsed: data.elapsed }
+          : g);
+        // Reflect the new note in the in-page history (replace any same-month entry).
+        setItems(prev => [
+          { id: data.id ?? month, monthCovered: month, content: fullText, modelUsed: model, generatedAt: new Date().toISOString(), feedback: null },
+          ...prev.filter(p => p.monthCovered !== month),
+        ]);
         es.close();
       }
     };
 
     es.onerror = () => {
-      setErrorMsg('Could not connect to the streaming endpoint.');
-      setState('error');
+      setGen(g => g && g.month === month
+        ? { ...g, state: 'error', errorMsg: 'Could not connect to the streaming endpoint.' }
+        : g);
       es.close();
     };
-  }, []);
-
+  }, [model]);
 
   const handleFeedback = async (value: 'helpful' | 'not-useful') => {
-    if (savedId) {
-      await setInsightFeedback(savedId, value);
-    }
+    if (gen?.id) await setInsightFeedback(gen.id, value);
     setFeedback(value);
   };
 
-  const displayItem = activeHistory ?? null;
-  const displayText = displayItem ? displayItem.content : text;
+  // Resolve what to render for the selected month.
+  const showLive = isLive && gen;
+  const displayText = showLive ? gen.text : (savedForSelected?.content ?? '');
   const paragraphs = displayText.split('\n\n').filter(Boolean);
+
+  const hasNote = showLive ? gen.state !== 'error' : !!savedForSelected;
+  const generateLabel = hasNote ? 'Regenerate' : 'Generate';
+  const GenerateIcon = hasNote ? RefreshCw : Sparkles;
+
+  // Status line + dot
+  const statusDot =
+    gen?.state === 'loading' && isLive ? 'bg-warning animate-pulse'
+    : gen?.state === 'streaming' && isLive ? 'bg-primary animate-pulse'
+    : gen?.state === 'done' && isLive ? 'bg-income'
+    : gen?.state === 'error' && isLive ? 'bg-destructive'
+    : savedForSelected ? 'bg-income'
+    : 'bg-muted-foreground/40';
+
+  const statusText =
+    isLive && gen?.state === 'loading' ? `Connecting to Ollama at ${ollamaUrl}…`
+    : isLive && gen?.state === 'streaming' ? `Streaming response from ${model}`
+    : isLive && gen?.state === 'done' ? `Generated · ${gen.tokens.toLocaleString()} tokens · ${gen.elapsed}s`
+    : isLive && gen?.state === 'error' ? gen.errorMsg
+    : savedForSelected ? `Viewing ${monthLabel(selectedMonth)} · ${fmtDate(savedForSelected.generatedAt)}`
+    : `No insight for ${monthLabel(selectedMonth)} yet`;
+
+  const generatedAt = showLive && gen.state === 'done' ? new Date()
+    : savedForSelected?.generatedAt ?? null;
+
+  const previousNotes = items.filter(i => i.monthCovered !== selectedMonth);
 
   return (
     <div className="space-y-4">
+      {/* Controls */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="text-[12.5px] text-muted-foreground">
+          Conversational commentary on {monthLabel(selectedMonth)} · generated locally
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => generate(selectedMonth)}
+            disabled={busy}
+          >
+            <GenerateIcon className="w-3.5 h-3.5 mr-1.5" />
+            {generateLabel}
+          </Button>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger render={<Button variant="outline" size="sm" />}>
+              <Calendar className="w-3.5 h-3.5 mr-1.5" />
+              {monthLabel(selectedMonth)}
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {pickerMonths.map(m => (
+                <DropdownMenuItem key={m} onClick={() => setSelectedMonth(m)}>
+                  <Check className={cn('w-3.5 h-3.5 mr-1.5', m === selectedMonth ? 'opacity-100' : 'opacity-0')} />
+                  {monthLabel(m)}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
+
       {/* Status bar */}
       <div className="calm-card p-3 flex items-center justify-between text-[12px]">
         <div className="flex items-center gap-2.5">
-          <span className={cn(
-            'w-2 h-2 rounded-full shrink-0',
-            state === 'loading' && 'bg-warning animate-pulse',
-            state === 'streaming' && 'bg-primary animate-pulse',
-            state === 'done' && 'bg-income',
-            state === 'ready' && 'bg-muted-foreground/40',
-            state === 'error' && 'bg-destructive',
-          )} />
-          <span className="text-muted-foreground">
-            {state === 'loading' && `Connecting to Ollama at ${ollamaUrl}…`}
-            {state === 'streaming' && `Streaming response from ${model}`}
-            {state === 'done' && meta && `Generated · ${meta.tokens.toLocaleString()} tokens · ${meta.elapsed}s`}
-            {state === 'done' && !meta && 'Generated'}
-            {state === 'ready' && 'Ready to generate'}
-            {state === 'error' && errorMsg}
-            {displayItem && `Viewing ${displayItem.monthCovered} · ${fmtDate(displayItem.generatedAt)}`}
-          </span>
+          <span className={cn('w-2 h-2 rounded-full shrink-0', statusDot)} />
+          <span className="text-muted-foreground">{statusText}</span>
         </div>
-        <div className="mono text-muted-foreground text-[11px]">
-          {model}
-        </div>
+        <div className="mono text-muted-foreground text-[11px]">{model}</div>
       </div>
 
       {/* Main note card */}
@@ -129,20 +211,16 @@ export function InsightCard({ ollamaUrl, ollamaModel, history }: Props) {
               <Sparkles className="w-4 h-4" />
             </div>
             <div>
-              <div className="text-[13px] font-medium">
-                {displayItem
-                  ? `${displayItem.monthCovered} summary`
-                  : `${new Date().toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })} summary`}
-              </div>
+              <div className="text-[13px] font-medium">{monthLabel(selectedMonth)} summary</div>
               <div className="text-[11.5px] text-muted-foreground">
                 A note from your finance assistant
-                {displayItem && ` · generated ${fmtDate(displayItem.generatedAt)}`}
+                {generatedAt && ` · generated ${fmtDate(generatedAt)}`}
               </div>
             </div>
           </div>
 
           {/* Loading state — skeletons */}
-          {state === 'loading' && !displayItem && (
+          {isLive && gen?.state === 'loading' && (
             <div className="space-y-3">
               <Skeleton className="h-3.5 w-[92%]" />
               <Skeleton className="h-3.5 w-[88%]" />
@@ -162,7 +240,7 @@ export function InsightCard({ ollamaUrl, ollamaModel, history }: Props) {
           )}
 
           {/* Ready / empty state */}
-          {state === 'ready' && !displayItem && (
+          {!hasNote && !(isLive && gen?.state === 'loading') && !(isLive && gen?.state === 'error') && (
             <div className="py-8 text-center text-muted-foreground">
               <Sparkles className="w-8 h-8 mx-auto mb-3 opacity-30" />
               <p className="text-[13px]">No insight generated yet for this month.</p>
@@ -170,8 +248,8 @@ export function InsightCard({ ollamaUrl, ollamaModel, history }: Props) {
             </div>
           )}
 
-          {/* Streamed / done text */}
-          {(state === 'streaming' || state === 'done' || displayItem) && paragraphs.length > 0 && (
+          {/* Streamed / saved text */}
+          {paragraphs.length > 0 && (
             <div
               className="space-y-4 text-[14px] leading-[1.7] text-foreground/90"
               style={{ textWrap: 'pretty' } as React.CSSProperties}
@@ -179,7 +257,7 @@ export function InsightCard({ ollamaUrl, ollamaModel, history }: Props) {
               {paragraphs.map((p, i) => (
                 <p key={i}>
                   {p}
-                  {state === 'streaming' && i === paragraphs.length - 1 && (
+                  {showLive && gen.state === 'streaming' && i === paragraphs.length - 1 && (
                     <span className="inline-block w-[7px] h-[16px] bg-primary/80 align-middle ml-0.5 animate-pulse" />
                   )}
                 </p>
@@ -188,17 +266,17 @@ export function InsightCard({ ollamaUrl, ollamaModel, history }: Props) {
           )}
 
           {/* Error state */}
-          {state === 'error' && (
+          {isLive && gen?.state === 'error' && (
             <div className="py-6 text-center">
-              <p className="text-[13px] text-destructive">{errorMsg}</p>
+              <p className="text-[13px] text-destructive">{gen.errorMsg}</p>
               <p className="text-[12px] text-muted-foreground mt-1">
                 Make sure Ollama is running at <span className="mono">{ollamaUrl}</span>
               </p>
             </div>
           )}
 
-          {/* Done footer */}
-          {state === 'done' && !displayItem && (
+          {/* Done footer — feedback on a freshly generated note */}
+          {showLive && gen.state === 'done' && (
             <div className="mt-7 pt-5 border-t border-border flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Button
@@ -223,7 +301,7 @@ export function InsightCard({ ollamaUrl, ollamaModel, history }: Props) {
                 </Button>
               </div>
               <div className="text-[11px] text-muted-foreground">
-                {feedback ? 'Feedback saved' : `Saved to /insights/${new Date().toISOString().slice(0, 7)}`}
+                {feedback ? 'Feedback saved' : `Saved to /insights/${selectedMonth}`}
               </div>
             </div>
           )}
@@ -231,18 +309,18 @@ export function InsightCard({ ollamaUrl, ollamaModel, history }: Props) {
       </div>
 
       {/* History */}
-      {history.length > 0 && (
+      {previousNotes.length > 0 && (
         <div>
           <div className="text-[11px] uppercase tracking-[0.08em] text-muted-foreground font-medium mb-2">
             Previous notes
           </div>
           <div className="calm-card divide-y divide-border/40 overflow-hidden">
-            {history.map(item => (
+            {previousNotes.map(item => (
               <button
                 key={item.id}
                 type="button"
                 className="w-full text-left px-5 py-3 hover:bg-accent/40 transition-colors flex items-center gap-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-inset"
-                onClick={() => setActiveHistory(activeHistory?.id === item.id ? null : item)}
+                onClick={() => setSelectedMonth(item.monthCovered)}
               >
                 <div className="text-[13px] font-medium w-[140px] shrink-0">{item.monthCovered}</div>
                 <div className="text-[12px] text-muted-foreground flex-1 truncate">
@@ -255,16 +333,6 @@ export function InsightCard({ ollamaUrl, ollamaModel, history }: Props) {
               </button>
             ))}
           </div>
-        </div>
-      )}
-
-      {/* Regenerate button for when viewing history or after done */}
-      {(state === 'done' || state === 'error' || activeHistory) && (
-        <div className="flex justify-end">
-          <Button variant="outline" size="sm" onClick={generate}>
-            <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
-            Regenerate
-          </Button>
         </div>
       )}
     </div>

@@ -21,11 +21,20 @@ export async function POST(request: Request) {
   // that just ended — generating for the current month here would produce an
   // insight over a day's worth (or less) of data.
   const now = new Date()
+  // First day of the current month = the moment `monthCovered` finished. Any
+  // insight generated at/after this is "final" (computed over the whole month).
+  const monthEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1))
   const monthCovered = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1))
     .toISOString()
     .slice(0, 7)
-  const existing = await prisma.aiInsight.findFirst({ where: { monthCovered } })
-  if (existing) {
+  // Skip only when a final insight already exists (retry-safe). A note generated
+  // mid-month over partial data is stale once the month closes, so it gets
+  // regenerated and replaced rather than kept.
+  const latest = await prisma.aiInsight.findFirst({
+    where: { monthCovered },
+    orderBy: { generatedAt: 'desc' },
+  })
+  if (latest && latest.generatedAt >= monthEnd) {
     return Response.json({ generated: false, skipped: true })
   }
 
