@@ -1,12 +1,15 @@
 'use client'
 
-import { useState, useTransition, useEffect, useCallback } from 'react'
-import { Plus, Pencil, Trash2 } from 'lucide-react'
+import { useState, useTransition, useEffect, useCallback, type ReactNode } from 'react'
+import { Plus, Pencil, Trash2, ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
 import { upsertCategory, deleteCategory } from '@/server-actions/categories'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog'
+import {
+  Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter,
+} from '@/components/ui/sheet'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
@@ -14,6 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { fmtAnchor } from '@/lib/format'
 import { useFabContext } from '@/contexts/fab-context'
 import { hexToRgba } from '@/lib/colors'
+import { useIsMobile } from '@/hooks/use-is-mobile'
 
 type KindType = 'INCOME' | 'EXPENSE' | 'SAVINGS'
 
@@ -56,6 +60,7 @@ interface EditState {
   name: string
   color: string
   kind: KindType
+  txCount?: number
 }
 
 interface DeleteState {
@@ -69,6 +74,7 @@ export function CategoriesView({ categories, anchorCurrency = 'HUF' }: Props) {
   const [deleteDialog, setDeleteDialog] = useState<DeleteState | null>(null)
   const [replacementId, setReplacementId] = useState('')
   const [isPending, startTransition] = useTransition()
+  const useBottomSheet = useIsMobile('(max-width: 1024px)', true)
 
   const { registerFabAction, clearFabAction } = useFabContext()
   const openNewExpense = useCallback(() => {
@@ -86,7 +92,15 @@ export function CategoriesView({ categories, anchorCurrency = 'HUF' }: Props) {
   }
 
   function openEdit(c: CategoryRow) {
-    setEditDialog({ id: c.id, name: c.name, color: c.color, kind: c.kind })
+    setEditDialog({ id: c.id, name: c.name, color: c.color, kind: c.kind, txCount: c.txCount })
+  }
+
+  function deleteFromEdit() {
+    if (!editDialog?.id) return
+    const { id, name, txCount } = editDialog
+    setEditDialog(null)
+    setDeleteDialog({ id, name, txCount: txCount ?? 0 })
+    setReplacementId('')
   }
 
   function openDelete(c: CategoryRow) {
@@ -126,6 +140,66 @@ export function CategoriesView({ categories, anchorCurrency = 'HUF' }: Props) {
     })
   }
 
+  // Shared edit form body — rendered in a Dialog (desktop) or bottom Sheet (mobile/tablet)
+  const editFields: ReactNode = (
+    <>
+      <div className="space-y-1.5">
+        <Label>Name</Label>
+        <Input
+          value={editDialog?.name ?? ''}
+          onChange={(e) => setEditDialog((d) => d ? { ...d, name: e.target.value } : d)}
+          placeholder="e.g. Food & Groceries"
+        />
+      </div>
+
+      <div className="space-y-1.5">
+        <Label>Colour</Label>
+        <div className="flex flex-wrap gap-1 mt-1">
+          {PALETTE.map((hex) => (
+            <button
+              key={hex}
+              type="button"
+              aria-label={hex}
+              aria-pressed={editDialog?.color === hex}
+              onClick={() => setEditDialog((d) => d ? { ...d, color: hex } : d)}
+              className="w-9 h-9 flex items-center justify-center rounded-md transition-[box-shadow] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+            >
+              <span
+                className="w-6 h-6 rounded-[5px] block border-2"
+                style={{
+                  background: hex,
+                  borderColor: editDialog?.color === hex ? hex : 'transparent',
+                  boxShadow: editDialog?.color === hex ? `0 0 0 2px hsl(var(--background)), 0 0 0 4px ${hex}` : undefined,
+                }}
+              />
+            </button>
+          ))}
+        </div>
+        <Input
+          value={editDialog?.color ?? ''}
+          onChange={(e) => setEditDialog((d) => d ? { ...d, color: e.target.value } : d)}
+          placeholder="#3FBF7F"
+          className="mt-2 font-mono text-[13px]"
+        />
+      </div>
+
+      <div className="space-y-1.5">
+        <Label>Kind</Label>
+        <Select
+          value={editDialog?.kind ?? 'EXPENSE'}
+          onValueChange={(v) => v && setEditDialog((d) => d ? { ...d, kind: v as KindType } : d)}
+        >
+          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="INCOME">Income</SelectItem>
+            <SelectItem value="EXPENSE">Expense</SelectItem>
+            <SelectItem value="SAVINGS">Savings</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+    </>
+  )
+
   return (
     <div className="px-4 lg:px-7 pb-9 pt-1 max-w-[1320px] mx-auto">
       <div className="space-y-7">
@@ -156,47 +230,69 @@ export function CategoriesView({ categories, anchorCurrency = 'HUF' }: Props) {
             </div>
             <div className="calm-card divide-y divide-border/40 overflow-hidden">
               {list.map((category) => (
-                <div
-                  key={category.id}
-                  className="grid grid-cols-[44px_1fr_80px_60px] sm:grid-cols-[44px_1fr_110px_150px_72px] items-center px-4 sm:px-5 py-3.5 group hover:bg-accent/40 transition-colors"
-                >
-                  <div className="flex items-center">
+                <div key={category.id}>
+                  {/* Desktop row — hover-reveal edit/delete (canonical) */}
+                  <div className="hidden min-[1025px]:grid grid-cols-[44px_1fr_110px_150px_72px] items-center px-5 py-3.5 group hover:bg-accent/40 transition-colors">
+                    <div className="flex items-center">
+                      <span
+                        className="w-8 h-8 rounded-[9px] border border-border/40 flex items-center justify-center"
+                        style={{ background: hexToRgba(category.color, 0.14) }}
+                      >
+                        <span className="w-3 h-3 rounded-full" style={{ background: category.color }} />
+                      </span>
+                    </div>
+                    <div>
+                      <div className="text-[13.5px] font-medium">{category.name}</div>
+                      <div className="text-[11px] text-muted-foreground">{kindLabel(category.kind)}</div>
+                    </div>
+                    <div className="text-[12px] text-muted-foreground tabular">{category.txCount} txns</div>
+                    <div className="text-right tabular text-[12.5px] text-foreground/85">
+                      {category.txTotalHUF > 0
+                        ? fmtAnchor(category.txTotalHUF, anchorCurrency)
+                        : <span className="text-muted-foreground">—</span>
+                      }
+                    </div>
+                    <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
+                      <button
+                        type="button"
+                        onClick={() => openEdit(category)}
+                        aria-label={`Edit ${category.name}`}
+                        className="p-2 rounded text-muted-foreground hover:text-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => openDelete(category)}
+                        aria-label={`Delete ${category.name}`}
+                        className="p-2 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Mobile / tablet row — tap anywhere to edit */}
+                  <button
+                    type="button"
+                    onClick={() => openEdit(category)}
+                    aria-label={`Edit ${category.name} category`}
+                    className="min-[1025px]:hidden w-full flex items-center gap-3 px-4 py-3.5 text-left active:bg-accent/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-inset"
+                  >
                     <span
-                      className="w-8 h-8 rounded-[9px] border border-border/40 flex items-center justify-center"
+                      className="w-9 h-9 shrink-0 rounded-[9px] border border-border/40 flex items-center justify-center"
                       style={{ background: hexToRgba(category.color, 0.14) }}
                     >
                       <span className="w-3 h-3 rounded-full" style={{ background: category.color }} />
                     </span>
-                  </div>
-                  <div>
-                    <div className="text-[13.5px] font-medium">{category.name}</div>
-                    <div className="text-[11px] text-muted-foreground">{kindLabel(category.kind)}</div>
-                  </div>
-                  <div className="text-[12px] text-muted-foreground tabular">{category.txCount} txns</div>
-                  <div className="hidden sm:block text-right tabular text-[12.5px] text-foreground/85">
-                    {category.txTotalHUF > 0
-                      ? fmtAnchor(category.txTotalHUF, anchorCurrency)
-                      : <span className="text-muted-foreground">—</span>
-                    }
-                  </div>
-                  <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
-                    <button
-                      type="button"
-                      onClick={() => openEdit(category)}
-                      aria-label={`Edit ${category.name}`}
-                      className="p-2 rounded text-muted-foreground hover:text-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                    >
-                      <Pencil className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => openDelete(category)}
-                      aria-label={`Delete ${category.name}`}
-                      className="p-2 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[13.5px] font-medium truncate">{category.name}</div>
+                      <div className="text-[11px] text-muted-foreground">
+                        {kindLabel(category.kind)} · <span className="tabular">{category.txCount}</span> txns
+                      </div>
+                    </div>
+                    <ChevronRight className="w-4 h-4 shrink-0 text-muted-foreground/60" />
+                  </button>
                 </div>
               ))}
               <button
@@ -213,76 +309,53 @@ export function CategoriesView({ categories, anchorCurrency = 'HUF' }: Props) {
       })}
       </div>
 
-      {/* Edit / create dialog */}
-      <Dialog open={editDialog !== null} onOpenChange={(open) => !open && setEditDialog(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{editDialog?.id ? 'Edit category' : 'New category'}</DialogTitle>
-          </DialogHeader>
-          <div className="px-4 space-y-4 pb-2">
-            <div className="space-y-1.5">
-              <Label>Name</Label>
-              <Input
-                value={editDialog?.name ?? ''}
-                onChange={(e) => setEditDialog((d) => d ? { ...d, name: e.target.value } : d)}
-                placeholder="e.g. Food & Groceries"
-              />
+      {/* Edit / create — bottom sheet on mobile/tablet, dialog on desktop */}
+      {useBottomSheet ? (
+        <Sheet open={editDialog !== null} onOpenChange={(open) => !open && setEditDialog(null)}>
+          <SheetContent side="bottom" className="w-full mx-auto max-w-[560px] max-h-[92dvh] !rounded-t-[24px]">
+            <SheetHeader>
+              <SheetTitle>{editDialog?.id ? 'Edit category' : 'New category'}</SheetTitle>
+            </SheetHeader>
+            <div className="px-4 space-y-4 pb-2 overflow-y-auto">
+              {editFields}
             </div>
-
-            <div className="space-y-1.5">
-              <Label>Colour</Label>
-              <div className="flex flex-wrap gap-1 mt-1">
-                {PALETTE.map((hex) => (
-                  <button
-                    key={hex}
-                    type="button"
-                    aria-label={hex}
-                    aria-pressed={editDialog?.color === hex}
-                    onClick={() => setEditDialog((d) => d ? { ...d, color: hex } : d)}
-                    className="w-9 h-9 flex items-center justify-center rounded-md transition-[box-shadow] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-                  >
-                    <span
-                      className="w-6 h-6 rounded-[5px] block border-2"
-                      style={{
-                        background: hex,
-                        borderColor: editDialog?.color === hex ? hex : 'transparent',
-                        boxShadow: editDialog?.color === hex ? `0 0 0 2px hsl(var(--background)), 0 0 0 4px ${hex}` : undefined,
-                      }}
-                    />
-                  </button>
-                ))}
-              </div>
-              <Input
-                value={editDialog?.color ?? ''}
-                onChange={(e) => setEditDialog((d) => d ? { ...d, color: e.target.value } : d)}
-                placeholder="#3FBF7F"
-                className="mt-2 font-mono text-[13px]"
-              />
+            <SheetFooter className="flex-row items-center gap-2">
+              {editDialog?.id && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={deleteFromEdit}
+                  disabled={isPending}
+                  className="mr-auto text-destructive hover:text-destructive hover:bg-destructive/10"
+                >
+                  Delete
+                </Button>
+              )}
+              <Button variant="outline" size="sm" onClick={() => setEditDialog(null)} disabled={isPending}>Cancel</Button>
+              <Button size="sm" onClick={submitEdit} disabled={isPending}>
+                {editDialog?.id ? 'Save changes' : 'Create'}
+              </Button>
+            </SheetFooter>
+          </SheetContent>
+        </Sheet>
+      ) : (
+        <Dialog open={editDialog !== null} onOpenChange={(open) => !open && setEditDialog(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{editDialog?.id ? 'Edit category' : 'New category'}</DialogTitle>
+            </DialogHeader>
+            <div className="px-4 space-y-4 pb-2">
+              {editFields}
             </div>
-
-            <div className="space-y-1.5">
-              <Label>Kind</Label>
-              <Select
-                value={editDialog?.kind ?? 'EXPENSE'}
-                onValueChange={(v) => v && setEditDialog((d) => d ? { ...d, kind: v as KindType } : d)}
-              >
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="INCOME">Income</SelectItem>
-                  <SelectItem value="EXPENSE">Expense</SelectItem>
-                  <SelectItem value="SAVINGS">Savings</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setEditDialog(null)} disabled={isPending}>Cancel</Button>
-            <Button size="sm" onClick={submitEdit} disabled={isPending}>
-              {editDialog?.id ? 'Save changes' : 'Create'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            <DialogFooter>
+              <Button variant="outline" size="sm" onClick={() => setEditDialog(null)} disabled={isPending}>Cancel</Button>
+              <Button size="sm" onClick={submitEdit} disabled={isPending}>
+                {editDialog?.id ? 'Save changes' : 'Create'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
 
       {/* Delete / reassign dialog */}
       <Dialog open={deleteDialog !== null} onOpenChange={(open) => !open && setDeleteDialog(null)}>
