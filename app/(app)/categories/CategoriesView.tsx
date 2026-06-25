@@ -2,6 +2,7 @@
 
 import { useState, useTransition, useEffect, useCallback, type ReactNode } from 'react'
 import { Plus, Pencil, Trash2, ChevronRight } from 'lucide-react'
+import { HexColorPicker } from 'react-colorful'
 import { toast } from 'sonner'
 import { upsertCategory, deleteCategory } from '@/server-actions/categories'
 import {
@@ -14,6 +15,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { fmtAnchor } from '@/lib/format'
 import { useFabContext } from '@/contexts/fab-context'
 import { hexToRgba } from '@/lib/colors'
@@ -175,12 +177,31 @@ export function CategoriesView({ categories, anchorCurrency = 'HUF' }: Props) {
             </button>
           ))}
         </div>
-        <Input
-          value={editDialog?.color ?? ''}
-          onChange={(e) => setEditDialog((d) => d ? { ...d, color: e.target.value } : d)}
-          placeholder="#3FBF7F"
-          className="mt-2 font-mono text-[13px]"
-        />
+        <div className="mt-2 flex items-center gap-2">
+          <Popover>
+            <PopoverTrigger
+              type="button"
+              aria-label="Open colour picker"
+              className="size-9 shrink-0 rounded-md border-2 border-border transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+              style={{ background: editDialog?.color ?? 'transparent' }}
+            />
+            <PopoverContent
+              align="start"
+              className="w-auto p-3 [&_.react-colorful]:w-48! [&_.react-colorful__saturation]:rounded-md [&_.react-colorful__hue]:mt-3 [&_.react-colorful__hue]:h-3 [&_.react-colorful__hue]:rounded-full [&_.react-colorful__pointer]:size-4 [&_.react-colorful__pointer]:border-2"
+            >
+              <HexColorPicker
+                color={editDialog?.color ?? '#000000'}
+                onChange={(color) => setEditDialog((d) => d ? { ...d, color } : d)}
+              />
+            </PopoverContent>
+          </Popover>
+          <Input
+            value={editDialog?.color ?? ''}
+            onChange={(e) => setEditDialog((d) => d ? { ...d, color: e.target.value } : d)}
+            placeholder="#3FBF7F"
+            className="font-mono text-[13px]"
+          />
+        </div>
       </div>
 
       <div className="space-y-1.5">
