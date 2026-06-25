@@ -204,7 +204,10 @@ To restore, first copy the dump into the db container
 
 ## Subsequent updates (CI/CD flow)
 
-After a push to `main` triggers a new GHCR build:
+Releases are cut automatically: a PR that bumps the `package.json` version, once merged into
+`main`, makes `release.yml` create the `vX.Y.Z` tag + GitHub release, which in turn triggers
+`docker-publish.yml` to build and push the GHCR image. (See README → "Releases" for the
+authoring flow.) Once a new GHCR build appears in the Actions tab:
 
 ```bash
 docker compose pull
