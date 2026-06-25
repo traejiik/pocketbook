@@ -218,6 +218,14 @@ other/                Design reference, mockups, handoff notes
 
 Deployment specifics live in [`DEPLOY.md`](DEPLOY.md).
 
+### Releases
+
+`main` is always deployable and protected — work happens on short-lived `feat/`·`fix/`·`chore/`
+branches that PR into `main` (PR checks must pass to merge). To ship, **bump the version in
+`package.json`** as part of the PR. On merge, CI tags `vX.Y.Z`, publishes a GitHub release, and
+builds + pushes the `ghcr.io/traejiik/pocketbook-web` image automatically — no manual tagging or
+releasing. PRs that don't change the version merge without cutting a release.
+
 ---
 
 ## 📄 License
