@@ -205,9 +205,10 @@ To restore, first copy the dump into the db container
 ## Subsequent updates (CI/CD flow)
 
 Releases are cut automatically: a PR that bumps the `package.json` version, once merged into
-`main`, makes `release.yml` create the `vX.Y.Z` tag + GitHub release, which in turn triggers
-`docker-publish.yml` to build and push the GHCR image. (See README → "Releases" for the
-authoring flow.) Once a new GHCR build appears in the Actions tab:
+`main`, makes `release.yml` create the `vX.Y.Z` tag + GitHub release and then build and push
+the GHCR image from a dependent `docker` job in the same workflow. (See README → "Releases" for
+the authoring flow.) To rebuild an existing tag's image, trigger `release.yml` manually via
+`workflow_dispatch` with that tag. Once a new GHCR build appears in the Actions tab:
 
 ```bash
 docker compose pull

@@ -3,6 +3,12 @@ name: Create release on version change
 on:
   push:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to (re)build the Docker image for, e.g. v2.7.0"
+        required: true
+        type: string
 
 concurrency:
   group: release-${{ github.ref }}
@@ -13,6 +19,12 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+      major_minor: ${{ steps.version.outputs.major_minor }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
+      build: ${{ steps.guard.outputs.build }}
 
     steps:
       - name: Checkout
@@ -20,40 +32,95 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Read version
+      - name: Resolve version
         id: version
         run: |
-          VERSION="$(jq -r .version package.json)"
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            TAG="${{ inputs.tag }}"
+            VERSION="${TAG#v}"
+          else
+            VERSION="$(jq -r .version package.json)"
+            TAG="v$VERSION"
+          fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "major_minor=$(echo "$VERSION" | cut -d. -f1-2)" >> "$GITHUB_OUTPUT"
           if [[ "$VERSION" == *-* ]]; then
             echo "prerelease=true" >> "$GITHUB_OUTPUT"
           else
             echo "prerelease=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Skip if release already exists
+      - name: Create release / decide whether to build
         id: guard
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG="${{ steps.version.outputs.tag }}"
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            echo "exists=true" >> "$GITHUB_OUTPUT"
-            echo "Release $TAG already exists — nothing to do."
-          else
-            echo "exists=false" >> "$GITHUB_OUTPUT"
-            echo "Release $TAG does not exist — will create it."
+
+          # Manual rebuild: the release must already exist; only (re)build the image.
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            if ! gh release view "$TAG" >/dev/null 2>&1; then
+              echo "::error::Release $TAG does not exist — nothing to rebuild."
+              exit 1
+            fi
+            echo "build=true" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
 
-      - name: Create release
-        if: steps.guard.outputs.exists == 'false'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          TAG="${{ steps.version.outputs.tag }}"
-          FLAGS=(--title "$TAG" --generate-notes --target "$GITHUB_SHA")
-          if [[ "${{ steps.version.outputs.prerelease }}" == "true" ]]; then
-            FLAGS+=(--prerelease)
+          # Push to main: create the release if the tag does not exist yet.
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists — nothing to do."
+            echo "build=false" >> "$GITHUB_OUTPUT"
+          else
+            FLAGS=(--title "$TAG" --generate-notes --target "$GITHUB_SHA")
+            if [[ "${{ steps.version.outputs.prerelease }}" == "true" ]]; then
+              FLAGS+=(--prerelease)
+            fi
+            gh release create "$TAG" "${FLAGS[@]}"
+            echo "build=true" >> "$GITHUB_OUTPUT"
           fi
-          gh release create "$TAG" "${FLAGS[@]}"
+
+  docker:
+    needs: release
+    if: needs.release.outputs.build == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout release tag
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.release.outputs.tag }}
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ghcr.io/traejiik/pocketbook-web
+          tags: |
+            type=raw,value=${{ needs.release.outputs.version }}
+            type=raw,value=${{ needs.release.outputs.major_minor }},enable=${{ needs.release.outputs.prerelease == 'false' }}
+            type=raw,value=latest,enable=${{ needs.release.outputs.prerelease == 'false' }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
