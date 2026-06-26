@@ -6,6 +6,7 @@ import { SearchIcon, XIcon, RepeatIcon } from 'lucide-react';
 import { CalmCard } from '@/components/finance/CalmCard';
 import { CategoryAvatar } from '@/components/finance/CategoryAvatar';
 import { Segmented } from '@/components/ui/segmented';
+import { PaginationControls } from '@/components/ui/pagination';
 import { MonthNetStrip } from './MonthNetStrip';
 import { fmtCur, fmtDate, fmtAnchor, dayOfWeek } from '@/lib/format';
 import { cn } from '@/lib/utils';
@@ -383,6 +384,9 @@ interface MobileTransactionsProps {
   anchorCurrency: string;
   toHuf: (tx: SerializedTx) => number;
   onRowClick: (tx: SerializedTx) => void;
+  page: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
 }
 
 export function MobileTransactions({
@@ -402,6 +406,9 @@ export function MobileTransactions({
   anchorCurrency,
   toHuf,
   onRowClick,
+  page,
+  totalPages,
+  onPageChange,
 }: MobileTransactionsProps) {
   return (
     <TransactionSearchFrame
@@ -455,6 +462,8 @@ export function MobileTransactions({
           <div className="text-[11px] text-muted-foreground mono px-0.5 mt-3">
             {baseCount} transaction{baseCount === 1 ? '' : 's'}
           </div>
+
+          <PaginationControls page={page} totalPages={totalPages} onChange={onPageChange} className="mt-1" />
         </>
       )}
     />

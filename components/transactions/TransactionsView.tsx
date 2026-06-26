@@ -16,6 +16,7 @@ import { CalmCard } from '@/components/finance/CalmCard';
 import { CategoryAvatar } from '@/components/finance/CategoryAvatar';
 import { MonthNetStrip } from '@/components/transactions/MonthNetStrip';
 import { MobileTransactions, TransactionSearchFrame } from '@/components/transactions/MobileTransactions';
+import { PaginationControls } from '@/components/ui/pagination';
 import { TransactionForm, type SerializedCategory, type SerializedRecurringRule } from '@/components/forms/TransactionForm';
 
 export interface SerializedTx {
@@ -95,6 +96,7 @@ function rowLabelFor(tx: SerializedTx): string {
 
 const DESKTOP_GRID = 'grid-cols-[110px_1fr_220px_150px_130px_36px]';
 const TABLET_GRID = 'grid-cols-[80px_1fr_190px_130px]';
+const PAGE_SIZE = 20;
 
 export function TransactionsView({
   transactions,
@@ -140,6 +142,13 @@ export function TransactionsView({
 
   const [catFilter, setCatFilter] = useState('all');
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+
+  // Client-side pagination (20/page). Reset to the first page whenever the
+  // filtered set changes underneath us — month nav, search, or type/category.
+  const [page, setPage] = useState(1);
+  useEffect(() => {
+    setPage(1);
+  }, [search, typeFilter, catFilter, currentMonthISO]);
 
   // Optimistic layer — new/edited rows appear instantly before the server round-trip
   const [optimisticTxs, addOptimistic] = useOptimistic(
@@ -191,7 +200,12 @@ export function TransactionsView({
     });
   }, [optimisticTxs, search, typeFilter, catFilter]);
 
-  const groups = useMemo(() => buildGroups(filtered), [filtered]);
+  const desktopTotalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const desktopPage = Math.min(page, desktopTotalPages);
+  const groups = useMemo(
+    () => buildGroups(filtered.slice((desktopPage - 1) * PAGE_SIZE, desktopPage * PAGE_SIZE)),
+    [filtered, desktopPage],
+  );
 
   const net = useMemo(
     () => filtered.reduce((sum, t) => sum + toHUF(t, fxRates), 0),
@@ -208,7 +222,12 @@ export function TransactionsView({
     }),
     [optimisticTxs, typeFilter, catFilter],
   );
-  const mobileBaseGroups = useMemo(() => buildGroups(mobileBaseList), [mobileBaseList]);
+  const baseTotalPages = Math.max(1, Math.ceil(mobileBaseList.length / PAGE_SIZE));
+  const basePage = Math.min(page, baseTotalPages);
+  const mobileBaseGroups = useMemo(
+    () => buildGroups(mobileBaseList.slice((basePage - 1) * PAGE_SIZE, basePage * PAGE_SIZE)),
+    [mobileBaseList, basePage],
+  );
   const mobileNet = useMemo(
     () => mobileBaseList.reduce((sum, t) => sum + toHUF(t, fxRates), 0),
     [mobileBaseList, fxRates],
@@ -296,6 +315,9 @@ export function TransactionsView({
           anchorCurrency={anchorCurrency}
           toHuf={toHuf}
           onRowClick={handleRowClick}
+          page={basePage}
+          totalPages={baseTotalPages}
+          onPageChange={setPage}
         />
       </div>
 
@@ -398,6 +420,8 @@ export function TransactionsView({
               <div className="mono text-[11.5px] text-muted-foreground px-0.5">
                 {mobileBaseList.length} transaction{mobileBaseList.length === 1 ? '' : 's'}
               </div>
+
+              <PaginationControls page={basePage} totalPages={baseTotalPages} onChange={setPage} className="mt-1" />
             </>
           )}
         />
@@ -529,6 +553,8 @@ export function TransactionsView({
               <div className="mt-3 text-[11.5px] text-muted-foreground">
                 {filtered.length} transaction{filtered.length === 1 ? '' : 's'}
               </div>
+
+              <PaginationControls page={desktopPage} totalPages={desktopTotalPages} onChange={setPage} className="mt-2" />
             </>
           )}
         />

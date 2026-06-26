@@ -239,7 +239,10 @@ describe('tablet breakpoint contract', () => {
     expect(recurring).toContain('!rounded-t-[24px]');
     expect(recurring).toContain('h-1.5 w-10 rounded-full bg-border');
     expect(recurring).toContain('function CompactRuleRow');
-    expect(recurring).toContain('<CalmCard className="overflow-hidden md:hidden">');
+    // The mobile compact card is wrapped in a md:hidden div so the 10-per-kind
+    // pagination control can sit beneath it on phones only.
+    expect(recurring).toContain('<div className="md:hidden">');
+    expect(recurring).toContain('<CalmCard className="overflow-hidden">');
     expect(recurring).toContain("label: `Expenses • ${expenseRules.length}`");
     expect(recurring).toContain("label: `Income • ${incomeRules.length}`");
     expect(recurring).toContain("label: `Savings • ${savingsRules.length}`");

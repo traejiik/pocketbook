@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { Sparkles, ChevronRight, ThumbsUp, ThumbsDown, RefreshCw, Calendar, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { PaginationControls } from '@/components/ui/pagination';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   DropdownMenu,
@@ -153,6 +154,14 @@ export function InsightCard({ ollamaUrl, ollamaModel, history, currentMonth }: P
     : savedForSelected?.generatedAt ?? null;
 
   const previousNotes = items.filter(i => i.monthCovered !== selectedMonth);
+
+  // Paginate the history list, 5 per page; reset when the list shifts beneath us.
+  const NOTES_PER_PAGE = 5;
+  const [notesPage, setNotesPage] = useState(1);
+  useEffect(() => { setNotesPage(1); }, [selectedMonth, items]);
+  const notesTotalPages = Math.max(1, Math.ceil(previousNotes.length / NOTES_PER_PAGE));
+  const notesPg = Math.min(notesPage, notesTotalPages);
+  const pagedNotes = previousNotes.slice((notesPg - 1) * NOTES_PER_PAGE, notesPg * NOTES_PER_PAGE);
 
   return (
     <div className="space-y-4">
@@ -315,7 +324,7 @@ export function InsightCard({ ollamaUrl, ollamaModel, history, currentMonth }: P
             Previous notes
           </div>
           <div className="calm-card divide-y divide-border/40 overflow-hidden">
-            {previousNotes.map(item => (
+            {pagedNotes.map(item => (
               <button
                 key={item.id}
                 type="button"
@@ -333,6 +342,7 @@ export function InsightCard({ ollamaUrl, ollamaModel, history, currentMonth }: P
               </button>
             ))}
           </div>
+          <PaginationControls page={notesPg} totalPages={notesTotalPages} onChange={setNotesPage} className="mt-3" />
         </div>
       )}
     </div>
