@@ -177,14 +177,18 @@ export function CategoriesView({ categories, anchorCurrency = 'HUF' }: Props) {
             </button>
           ))}
         </div>
-        <div className="mt-2 flex items-center gap-2">
+        <div className="mt-5 flex items-center gap-2">
           <Popover>
             <PopoverTrigger
               type="button"
-              aria-label="Open colour picker"
-              className="size-9 shrink-0 rounded-md border-2 border-border transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-              style={{ background: editDialog?.color ?? 'transparent' }}
-            />
+              className="inline-flex h-9 shrink-0 items-center gap-2 rounded-[10px] border border-border bg-background pl-1 pr-3 text-[13px] font-medium transition-colors hover:bg-muted hover:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+            >
+              <span
+                className="size-6 rounded-full border border-border/50"
+                style={{ background: editDialog?.color ?? 'transparent' }}
+              />
+              Pick colour
+            </PopoverTrigger>
             <PopoverContent
               align="start"
               className="w-auto p-3 [&_.react-colorful]:w-48! [&_.react-colorful__saturation]:rounded-md [&_.react-colorful__hue]:mt-3 [&_.react-colorful__hue]:h-3 [&_.react-colorful__hue]:rounded-full [&_.react-colorful__pointer]:size-4 [&_.react-colorful__pointer]:border-2"
@@ -199,7 +203,7 @@ export function CategoriesView({ categories, anchorCurrency = 'HUF' }: Props) {
             value={editDialog?.color ?? ''}
             onChange={(e) => setEditDialog((d) => d ? { ...d, color: e.target.value } : d)}
             placeholder="#3FBF7F"
-            className="font-mono text-[13px]"
+            className="flex-1 font-mono text-[13px]"
           />
         </div>
       </div>
