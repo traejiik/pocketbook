@@ -20,6 +20,7 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
 import { Empty } from '@/components/ui/empty'
+import { PaginationControls } from '@/components/ui/pagination'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { DatePicker } from '@/components/ui/date-picker'
@@ -282,6 +283,22 @@ export function RecurringView({ rules, archivedRules, categories, budget, anchor
       }
     })
 
+  // Mobile-only pagination (10 rules per kind, plus the archived list).
+  const RULES_PER_PAGE = 10
+  const [mobilePage, setMobilePage] = useState(1)
+  const [archivedPage, setArchivedPage] = useState(1)
+  useEffect(() => { setMobilePage(1) }, [tab, sortKey])
+  useEffect(() => { if (!showArchived) setArchivedPage(1) }, [showArchived])
+
+  const listTotalPages = Math.max(1, Math.ceil(list.length / RULES_PER_PAGE))
+  const listPage = Math.min(mobilePage, listTotalPages)
+  const pagedList = list.slice((listPage - 1) * RULES_PER_PAGE, listPage * RULES_PER_PAGE)
+
+  const archivedAll = [...restorable, ...completed]
+  const archivedTotalPages = Math.max(1, Math.ceil(archivedAll.length / RULES_PER_PAGE))
+  const archivedPg = Math.min(archivedPage, archivedTotalPages)
+  const pagedArchived = archivedAll.slice((archivedPg - 1) * RULES_PER_PAGE, archivedPg * RULES_PER_PAGE)
+
   const expenseRules = rules.filter((r) => r.kind === 'EXPENSE')
   const incomeRules  = rules.filter((r) => r.kind === 'INCOME')
   const savingsRules = rules.filter((r) => r.kind === 'SAVINGS')
@@ -496,16 +513,19 @@ export function RecurringView({ rules, archivedRules, categories, budget, anchor
         />
       ) : (
         <>
-          <CalmCard className="overflow-hidden md:hidden">
-            {list.map((r) => (
-              <CompactRuleRow
-                key={r.id}
-                rule={r}
-                anchorCurrency={anchorCurrency}
-                onEdit={openEdit}
-              />
-            ))}
-          </CalmCard>
+          <div className="md:hidden">
+            <CalmCard className="overflow-hidden">
+              {pagedList.map((r) => (
+                <CompactRuleRow
+                  key={r.id}
+                  rule={r}
+                  anchorCurrency={anchorCurrency}
+                  onEdit={openEdit}
+                />
+              ))}
+            </CalmCard>
+            <PaginationControls page={listPage} totalPages={listTotalPages} onChange={setMobilePage} className="mt-3" />
+          </div>
           <div className="hidden md:grid grid-cols-1 md:grid-cols-2 min-[1025px]:grid-cols-3 gap-4">
             {list.map((r) => (
               <RecurringRuleCard
@@ -546,18 +566,21 @@ export function RecurringView({ rules, archivedRules, categories, budget, anchor
           {showArchived && (
             <>
               {/* Mobile — compact flat rows, paused then completed */}
-              <CalmCard className="mt-3 overflow-hidden md:hidden">
-                {[...restorable, ...completed].map((r, i) => (
-                  <ArchivedCompactRow
-                    key={r.id}
-                    rule={r}
-                    top={i > 0}
-                    isPending={isPending}
-                    onRestore={onRestore}
-                    onDelete={onDelete}
-                  />
-                ))}
-              </CalmCard>
+              <div className="md:hidden">
+                <CalmCard className="mt-3 overflow-hidden">
+                  {pagedArchived.map((r, i) => (
+                    <ArchivedCompactRow
+                      key={r.id}
+                      rule={r}
+                      top={i > 0}
+                      isPending={isPending}
+                      onRestore={onRestore}
+                      onDelete={onDelete}
+                    />
+                  ))}
+                </CalmCard>
+                <PaginationControls page={archivedPg} totalPages={archivedTotalPages} onChange={setArchivedPage} className="mt-3" />
+              </div>
 
               {/* Tablet/desktop — grouped cards */}
               <div className="mt-3 space-y-5 hidden md:block">

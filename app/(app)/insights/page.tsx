@@ -6,7 +6,7 @@ import { InsightCardClient } from '@/components/insights/InsightCardClient';
 export default async function AiInsightsPage() {
   const [settings, history] = await Promise.all([
     prisma.appSettings.findUnique({ where: { id: 'singleton' } }),
-    prisma.aiInsight.findMany({ orderBy: { generatedAt: 'desc' }, take: 12 }),
+    prisma.aiInsight.findMany({ orderBy: { generatedAt: 'desc' }, take: 60 }),
   ]);
 
   const ollamaUrl = settings?.ollamaUrl ?? 'http://ollama:11434';
