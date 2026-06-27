@@ -4,9 +4,17 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-check-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   check:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     services:
       postgres:
@@ -53,6 +61,21 @@ jobs:
 
       - name: Validate Prisma schema
         run: pnpm prisma validate
+
+      - name: Create shadow database
+        env:
+          PGPASSWORD: pocketbook
+        run: psql -h localhost -U pocketbook -d pocketbook -c 'CREATE DATABASE prisma_shadow;'
+
+      - name: Check schema/migration drift
+        env:
+          PB_DATABASE_URL: postgresql://pocketbook:pocketbook@localhost:5432/pocketbook
+        run: >-
+          pnpm prisma migrate diff
+          --from-migrations prisma/migrations
+          --to-schema-datamodel prisma/schema.prisma
+          --shadow-database-url postgresql://pocketbook:pocketbook@localhost:5432/prisma_shadow
+          --exit-code
 
       - name: Run migrations (dry run)
         env:
