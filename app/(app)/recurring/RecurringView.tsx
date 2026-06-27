@@ -524,7 +524,6 @@ export function RecurringView({ rules, archivedRules, categories, budget, anchor
                 />
               ))}
             </CalmCard>
-            <PaginationControls page={listPage} totalPages={listTotalPages} onChange={setMobilePage} className="mt-3" />
           </div>
           <div className="hidden md:grid grid-cols-1 md:grid-cols-2 min-[1025px]:grid-cols-3 gap-4">
             {list.map((r) => (
@@ -549,6 +548,8 @@ export function RecurringView({ rules, archivedRules, categories, budget, anchor
         <Plus className="w-4 h-4" />
         New rule
       </button>
+
+      <PaginationControls page={listPage} totalPages={listTotalPages} onChange={setMobilePage} className="md:hidden mt-3" />
 
       {/* Archived rules — paused/removed (restorable) and completed installments (terminal) */}
       {archivedRules.length > 0 && (
@@ -736,7 +737,7 @@ export function RecurringView({ rules, archivedRules, categories, budget, anchor
             )}
           </form>
 
-          <SheetFooter className="flex flex-row gap-2 px-5 py-4 border-t border-border shrink-0">
+          <SheetFooter className="flex flex-row gap-2 px-5 pt-4 pb-[max(env(safe-area-inset-bottom),1rem)] border-t border-border shrink-0">
             {editing && (
               editing.hasTransactions ? (
                 <Button variant="destructive" size="sm" onClick={onArchive} type="button" disabled={isPending}>

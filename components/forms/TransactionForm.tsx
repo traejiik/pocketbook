@@ -418,7 +418,7 @@ export function TransactionForm({
             </div>
 
             {/* Sticky footer */}
-            <div className="px-5 py-4 border-t border-border flex items-center justify-between bg-secondary/15 shrink-0">
+            <div className="px-5 pt-4 pb-[max(env(safe-area-inset-bottom),1rem)] border-t border-border flex items-center justify-between bg-secondary/15 shrink-0">
               <div className="text-[11.5px] text-muted-foreground">
                 {editingTx
                   ? <span className="inline-flex items-center gap-1.5"><CheckIcon className="w-3.5 h-3.5 text-income" />Autosaved drafts</span>

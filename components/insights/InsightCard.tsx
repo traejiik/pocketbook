@@ -166,11 +166,11 @@ export function InsightCard({ ollamaUrl, ollamaModel, history, currentMonth }: P
   return (
     <div className="space-y-4">
       {/* Controls */}
-      <div className="flex items-center justify-between gap-3">
-        <div className="text-[12.5px] text-muted-foreground">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="text-[12.5px] text-muted-foreground text-balance">
           Conversational commentary on {monthLabel(selectedMonth)} · generated locally
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <Button
             variant="outline"
             size="sm"
@@ -199,12 +199,12 @@ export function InsightCard({ ollamaUrl, ollamaModel, history, currentMonth }: P
       </div>
 
       {/* Status bar */}
-      <div className="calm-card p-3 flex items-center justify-between text-[12px]">
-        <div className="flex items-center gap-2.5">
+      <div className="calm-card p-3 flex items-center justify-between gap-3 text-[12px]">
+        <div className="flex items-center gap-2.5 min-w-0">
           <span className={cn('w-2 h-2 rounded-full shrink-0', statusDot)} />
-          <span className="text-muted-foreground">{statusText}</span>
+          <span className="text-muted-foreground truncate">{statusText}</span>
         </div>
-        <div className="mono text-muted-foreground text-[11px]">{model}</div>
+        <div className="mono text-muted-foreground text-[11px] shrink-0">{model}</div>
       </div>
 
       {/* Main note card */}

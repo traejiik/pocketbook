@@ -68,7 +68,7 @@ export function MobileNav({ onAdd, upcomingRenewalsCount = 0 }: MobileNavProps) 
     <>
       <nav
         aria-label="Main navigation"
-        className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-card/95 backdrop-blur border-t border-border/55 pb-[env(safe-area-inset-bottom)]"
+        className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-card/95 backdrop-blur border-t border-border/55 pb-[max(env(safe-area-inset-bottom),0.5rem)]"
       >
         <div className="flex items-stretch h-16">
           {TABS.map((t) => (
