@@ -62,25 +62,19 @@ jobs:
       - name: Validate Prisma schema
         run: pnpm prisma validate
 
-      - name: Create shadow database
+      - name: Run migrations (dry run)
         env:
-          PGPASSWORD: pocketbook
-        run: psql -h localhost -U pocketbook -d pocketbook -c 'CREATE DATABASE prisma_shadow;'
+          PB_DATABASE_URL: postgresql://pocketbook:pocketbook@localhost:5432/pocketbook
+        run: pnpm prisma migrate deploy
 
       - name: Check schema/migration drift
         env:
           PB_DATABASE_URL: postgresql://pocketbook:pocketbook@localhost:5432/pocketbook
         run: >-
           pnpm prisma migrate diff
-          --from-migrations prisma/migrations
-          --to-schema-datamodel prisma/schema.prisma
-          --shadow-database-url postgresql://pocketbook:pocketbook@localhost:5432/prisma_shadow
+          --from-config-datasource
+          --to-schema=prisma/schema.prisma
           --exit-code
-
-      - name: Run migrations (dry run)
-        env:
-          PB_DATABASE_URL: postgresql://pocketbook:pocketbook@localhost:5432/pocketbook
-        run: pnpm prisma migrate deploy
 
       - name: Build
         env:
