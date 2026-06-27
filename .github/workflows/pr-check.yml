@@ -4,9 +4,17 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-check-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   check:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     services:
       postgres:
@@ -58,6 +66,15 @@ jobs:
         env:
           PB_DATABASE_URL: postgresql://pocketbook:pocketbook@localhost:5432/pocketbook
         run: pnpm prisma migrate deploy
+
+      - name: Check schema/migration drift
+        env:
+          PB_DATABASE_URL: postgresql://pocketbook:pocketbook@localhost:5432/pocketbook
+        run: >-
+          pnpm prisma migrate diff
+          --from-config-datasource
+          --to-schema=prisma/schema.prisma
+          --exit-code
 
       - name: Build
         env:
