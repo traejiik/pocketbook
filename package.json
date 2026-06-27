@@ -16,6 +16,9 @@
     "db:migrate": "prisma migrate dev",
     "db:seed": "tsx prisma/seed.ts",
     "db:backfill-fx": "tsx prisma/backfill-fx.ts",
+    "dev:ollama": "node scripts/mock-ollama.mjs",
+    "dev:ai": "node scripts/mock-ollama.mjs & MOCK_PID=$!; trap 'kill $MOCK_PID' EXIT INT TERM; next dev",
+    "ollama:local": "tsx scripts/use-local-ollama.ts",
     "graph:update": "sh scripts/graphify-update.sh",
     "graph:labels": "sh scripts/graphify-update.sh --labels-only"
   },
