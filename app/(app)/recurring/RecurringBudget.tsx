@@ -129,7 +129,7 @@ function CommittedCard({
       {/* category composition */}
       {segs.length > 0 && (
         <div className="mt-5 pt-4 pb-3 border-t border-border/50">
-          <div className="text-[10px] mono uppercase tracking-[0.12em] text-muted-foreground mb-2.5">Where it goes</div>
+          <div className="text-[11px] mono uppercase tracking-[0.12em] text-muted-foreground mb-2.5">Where it goes</div>
           <div className="h-2.5 rounded-full overflow-hidden flex gap-px bg-secondary">
             {segs.map((s) => (
               <div key={s.key} title={`${s.name} · ${huf(s.v)} Ft`} style={{ width: `${(s.v / expTotal) * 100}%`, background: s.color }} />

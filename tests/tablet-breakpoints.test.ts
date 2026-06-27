@@ -258,7 +258,7 @@ describe('tablet breakpoint contract', () => {
   test('focused v5 polish contracts stay in place across supporting screens', () => {
     const timeline = source('components/finance/TimelineStrip.tsx');
     expect(timeline).toContain('calm-card p-6');
-    expect(timeline).toContain('text-[10px] mono uppercase tracking-[0.12em]');
+    expect(timeline).toContain('text-[11px] mono uppercase tracking-[0.12em]');
     expect(timeline).toContain('Math.min(98');
     expect(timeline).toContain('boxShadow: \'0 0 0 3px hsl(var(--card))\'');
 
@@ -266,7 +266,7 @@ describe('tablet breakpoint contract', () => {
     // 4e7eeff removed the fixed max-w-[860px] inner column so categories now
     // flows in the shared responsive page container.
     expect(categories).toContain('max-w-[1320px] mx-auto');
-    expect(categories).toContain('text-[10px] mono uppercase tracking-[0.12em]');
+    expect(categories).toContain('text-[11px] mono uppercase tracking-[0.12em]');
     expect(categories).toContain('kindLabel(category.kind)');
     expect(categories).not.toContain('category.color.toUpperCase()');
 

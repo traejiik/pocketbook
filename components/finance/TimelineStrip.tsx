@@ -19,7 +19,7 @@ interface TimelineStripProps {
 export function TimelineStrip({ events, horizon, anchorCurrency = 'HUF' }: TimelineStripProps) {
   return (
     <div className="calm-card p-6">
-      <div className="text-[10px] mono uppercase tracking-[0.12em] text-muted-foreground mb-5">
+      <div className="text-[11px] mono uppercase tracking-[0.12em] text-muted-foreground mb-5">
         Cash-out timeline
       </div>
       <div className="relative h-14">

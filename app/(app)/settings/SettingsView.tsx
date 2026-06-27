@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition, useRef, useEffect } from 'react';
+import { useState, useTransition, useRef, useEffect, useId } from 'react';
 import { useRouter } from 'next/navigation';
 import { DollarSign, Lock, Sparkles, Check, AlertTriangle, RefreshCw, Plus, Trash2, Edit, Repeat, Database, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -188,6 +188,9 @@ export function SettingsView({
   const [anchor, setAnchor] = useState(initialAnchor);
   const [pendingAnchor, setPendingAnchor] = useState<string | null>(null);
   const [rates, setRates] = useState(initialRates);
+
+  const modelLabelId = useId();
+  const newCurrencyId = useId();
 
   // For each unordered pair {A,B} keep only the record with the higher rate
   // so we never show both EUR→HUF and HUF→EUR, and the base is always the stronger currency.
@@ -411,6 +414,7 @@ export function SettingsView({
                         <div className="flex gap-1">
                           <Input
                             type="number"
+                            aria-label={`Manual rate ${r.from} to ${r.to}`}
                             value={r.rate}
                             onChange={e => handleRateChange(idx, parseFloat(e.target.value) || 0)}
                             className="h-9 text-[12px] mono"
@@ -456,6 +460,7 @@ export function SettingsView({
                         <div className="flex gap-1">
                           <Input
                             type="number"
+                            aria-label={`Manual rate ${r.from} to ${r.to}`}
                             value={r.rate}
                             onChange={e => handleRateChange(idx, parseFloat(e.target.value) || 0)}
                             className="h-9 text-base mono"
@@ -577,11 +582,13 @@ export function SettingsView({
             <div className="h-px bg-border" />
             {ollamaConnected ? (
               <div>
-                <Label>Default model</Label>
-                <div className="space-y-2 mt-2">
+                <Label id={modelLabelId}>Default model</Label>
+                <div role="radiogroup" aria-labelledby={modelLabelId} className="space-y-2 mt-2">
                   {ollamaModels.map(m => (
                     <button
                       key={m.name}
+                      role="radio"
+                      aria-checked={model === m.name}
                       onClick={() => handleModelChange(m.name)}
                       className={cn(
                         'w-full text-left p-3 rounded-md border transition-colors flex items-center gap-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
@@ -714,8 +721,9 @@ export function SettingsView({
             <DialogTitle>Add tracked currency</DialogTitle>
           </DialogHeader>
           <div>
-            <Label>Currency code (3 letters)</Label>
+            <Label htmlFor={newCurrencyId}>Currency code (3 letters)</Label>
             <Input
+              id={newCurrencyId}
               placeholder="e.g. CHF"
               value={newCurrencyCode}
               onChange={e => setNewCurrencyCode(e.target.value.toUpperCase())}
