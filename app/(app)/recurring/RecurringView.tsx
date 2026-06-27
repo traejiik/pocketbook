@@ -500,7 +500,7 @@ export function RecurringView({ rules, archivedRules, categories, budget, anchor
         />
       </div>
 
-      <div className="text-[10px] mono uppercase tracking-[0.12em] text-muted-foreground px-0.5">
+      <div className="text-[11px] mono uppercase tracking-[0.12em] text-muted-foreground px-0.5">
         {ruleCountLabel}
       </div>
 
@@ -737,7 +737,7 @@ export function RecurringView({ rules, archivedRules, categories, budget, anchor
             )}
           </form>
 
-          <SheetFooter className="flex flex-row gap-2 px-5 pt-4 pb-[max(env(safe-area-inset-bottom),1rem)] border-t border-border shrink-0">
+          <SheetFooter className="flex flex-row gap-2 pl-[max(env(safe-area-inset-left),1.5rem)] pr-[max(env(safe-area-inset-right),1.5rem)] pt-4 pb-[max(env(safe-area-inset-bottom),1rem)] border-t border-border shrink-0">
             {editing && (
               editing.hasTransactions ? (
                 <Button variant="destructive" size="sm" onClick={onArchive} type="button" disabled={isPending}>
@@ -779,7 +779,7 @@ function ArchivedGroup({
 }) {
   return (
     <div className="space-y-3">
-      <div className="text-[10px] mono uppercase tracking-[0.12em] text-muted-foreground px-0.5">
+      <div className="text-[11px] mono uppercase tracking-[0.12em] text-muted-foreground px-0.5">
         {label} · {rules.length}
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 min-[1025px]:grid-cols-3 gap-4">

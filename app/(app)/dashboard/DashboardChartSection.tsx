@@ -75,7 +75,7 @@ export function DashboardChartSection({ byCategory, trend6mo, totalExpense, anch
           }
         />
         {topLabel && (
-          <div className="mt-4 text-[10px] mono uppercase tracking-[0.12em] text-muted-foreground">{topLabel}</div>
+          <div className="mt-4 text-[11px] mono uppercase tracking-[0.12em] text-muted-foreground">{topLabel}</div>
         )}
         <div className={`${topLabel ? 'mt-3' : 'mt-5'} space-y-3`}>
           {topCats.map((b) => {
@@ -159,7 +159,7 @@ export function DashboardChartSection({ byCategory, trend6mo, totalExpense, anch
                 </>
               )}
               {topLabel && (
-                <span className="ml-auto mono text-[10px] uppercase tracking-[0.12em]">{topLabel}</span>
+                <span className="ml-auto mono text-[11px] uppercase tracking-[0.12em]">{topLabel}</span>
               )}
               <Link
                 href="/categories"

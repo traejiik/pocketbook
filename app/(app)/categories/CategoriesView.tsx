@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition, useEffect, useCallback, type ReactNode } from 'react'
+import { useState, useTransition, useEffect, useCallback, useId, type ReactNode } from 'react'
 import { Plus, Pencil, Trash2, ChevronRight } from 'lucide-react'
 import { HexColorPicker } from 'react-colorful'
 import { toast } from 'sonner'
@@ -78,6 +78,12 @@ export function CategoriesView({ categories, anchorCurrency = 'HUF' }: Props) {
   const [isPending, startTransition] = useTransition()
   const useBottomSheet = useIsMobile('(max-width: 1024px)', true)
 
+  const nameId = useId()
+  const colourLabelId = useId()
+  const hexId = useId()
+  const kindLabelId = useId()
+  const moveLabelId = useId()
+
   const { registerFabAction, clearFabAction } = useFabContext()
   const openNewExpense = useCallback(() => {
     setEditDialog({ name: '', color: PALETTE[0], kind: 'EXPENSE' })
@@ -146,8 +152,9 @@ export function CategoriesView({ categories, anchorCurrency = 'HUF' }: Props) {
   const editFields: ReactNode = (
     <>
       <div className="space-y-1.5">
-        <Label>Name</Label>
+        <Label htmlFor={nameId}>Name</Label>
         <Input
+          id={nameId}
           value={editDialog?.name ?? ''}
           onChange={(e) => setEditDialog((d) => d ? { ...d, name: e.target.value } : d)}
           placeholder="e.g. Food & Groceries"
@@ -155,8 +162,8 @@ export function CategoriesView({ categories, anchorCurrency = 'HUF' }: Props) {
       </div>
 
       <div className="space-y-1.5">
-        <Label>Colour</Label>
-        <div className="flex flex-wrap gap-1 mt-1">
+        <Label id={colourLabelId}>Colour</Label>
+        <div role="group" aria-labelledby={colourLabelId} className="flex flex-wrap gap-1 mt-1">
           {PALETTE.map((hex) => (
             <button
               key={hex}
@@ -164,7 +171,7 @@ export function CategoriesView({ categories, anchorCurrency = 'HUF' }: Props) {
               aria-label={hex}
               aria-pressed={editDialog?.color === hex}
               onClick={() => setEditDialog((d) => d ? { ...d, color: hex } : d)}
-              className="w-9 h-9 flex items-center justify-center rounded-md transition-[box-shadow] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+              className="w-10 h-10 flex items-center justify-center rounded-md transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
             >
               <span
                 className="w-6 h-6 rounded-[5px] block border-2"
@@ -200,6 +207,8 @@ export function CategoriesView({ categories, anchorCurrency = 'HUF' }: Props) {
             </PopoverContent>
           </Popover>
           <Input
+            id={hexId}
+            aria-label="Hex colour value"
             value={editDialog?.color ?? ''}
             onChange={(e) => setEditDialog((d) => d ? { ...d, color: e.target.value } : d)}
             placeholder="#3FBF7F"
@@ -209,12 +218,12 @@ export function CategoriesView({ categories, anchorCurrency = 'HUF' }: Props) {
       </div>
 
       <div className="space-y-1.5">
-        <Label>Kind</Label>
+        <Label id={kindLabelId}>Kind</Label>
         <Select
           value={editDialog?.kind ?? 'EXPENSE'}
           onValueChange={(v) => v && setEditDialog((d) => d ? { ...d, kind: v as KindType } : d)}
         >
-          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectTrigger aria-labelledby={kindLabelId}><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="INCOME">Income</SelectItem>
             <SelectItem value="EXPENSE">Expense</SelectItem>
@@ -247,7 +256,7 @@ export function CategoriesView({ categories, anchorCurrency = 'HUF' }: Props) {
           <div key={g}>
             <div className="flex items-center gap-2 mb-3">
               <span className="w-1.5 h-1.5 rounded-full" style={{ background: KIND_TONE_VAR[g] }} />
-              <h2 className="text-[10px] mono uppercase tracking-[0.12em] text-muted-foreground font-medium">
+              <h2 className="text-[11px] mono uppercase tracking-[0.12em] text-muted-foreground font-medium">
                 {KIND_LABELS[g]}
               </h2>
               <span className="mono text-[11px] text-muted-foreground">{list.length}</span>
@@ -344,7 +353,7 @@ export function CategoriesView({ categories, anchorCurrency = 'HUF' }: Props) {
             <div className="px-4 space-y-4 pb-2 overflow-y-auto">
               {editFields}
             </div>
-            <SheetFooter className="flex-row items-center gap-2">
+            <SheetFooter className="flex-row items-center gap-2 pl-[max(env(safe-area-inset-left),1.25rem)] pr-[max(env(safe-area-inset-right),1.25rem)] pb-[max(env(safe-area-inset-bottom),1rem)]">
               {editDialog?.id && (
                 <Button
                   variant="ghost"
@@ -396,9 +405,9 @@ export function CategoriesView({ categories, anchorCurrency = 'HUF' }: Props) {
                   Choose a replacement category before deleting.
                 </p>
                 <div className="space-y-1.5">
-                  <Label>Move transactions to</Label>
+                  <Label id={moveLabelId}>Move transactions to</Label>
                   <Select value={replacementId} onValueChange={(v) => setReplacementId(v ?? '')}>
-                    <SelectTrigger><SelectValue placeholder="Select replacement" /></SelectTrigger>
+                    <SelectTrigger aria-labelledby={moveLabelId}><SelectValue placeholder="Select replacement" /></SelectTrigger>
                     <SelectContent>
                       {categories
                         .filter((c) => c.id !== deleteDialog?.id)

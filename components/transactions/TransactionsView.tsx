@@ -353,7 +353,7 @@ export function TransactionsView({
           ledger={(
             <>
               <CalmCard className="overflow-hidden">
-                <div className={cn('grid gap-4 items-center px-5 h-10 text-[10px] mono uppercase tracking-[0.12em] text-muted-foreground border-b border-border/45', TABLET_GRID)} aria-hidden="true">
+                <div className={cn('grid gap-4 items-center px-5 h-10 text-[11px] mono uppercase tracking-[0.12em] text-muted-foreground border-b border-border/45', TABLET_GRID)} aria-hidden="true">
                   <span>Date</span>
                   <span>Description</span>
                   <span>Category</span>
@@ -487,7 +487,7 @@ export function TransactionsView({
           ledger={(
             <>
               <CalmCard className="overflow-hidden">
-                <div className={cn('grid gap-3 items-center px-6 h-11 text-[10px] mono uppercase tracking-[0.12em] text-muted-foreground border-b border-border/45', DESKTOP_GRID)} aria-hidden="true">
+                <div className={cn('grid gap-3 items-center px-6 h-11 text-[11px] mono uppercase tracking-[0.12em] text-muted-foreground border-b border-border/45', DESKTOP_GRID)} aria-hidden="true">
                   <span>Date</span>
                   <span>Description</span>
                   <span>Category</span>
