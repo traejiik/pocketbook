@@ -353,7 +353,7 @@ export function CategoriesView({ categories, anchorCurrency = 'HUF' }: Props) {
             <div className="px-4 space-y-4 pb-2 overflow-y-auto">
               {editFields}
             </div>
-            <SheetFooter className="flex-row items-center gap-2 pl-[max(env(safe-area-inset-left),1.25rem)] pr-[max(env(safe-area-inset-right),1.25rem)] pb-[max(env(safe-area-inset-bottom),1rem)]">
+            <SheetFooter className="flex-row items-center gap-2 pl-[max(env(safe-area-inset-left),1.25rem)] pr-[max(env(safe-area-inset-right),1.25rem)] pb-[calc(env(safe-area-inset-bottom)+2.5rem)]">
               {editDialog?.id && (
                 <Button
                   variant="ghost"

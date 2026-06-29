@@ -32,7 +32,7 @@ describe('tablet breakpoint contract', () => {
     expect(appShell).toContain('className="hidden min-[1025px]:flex"');
     expect(appShell).toContain('<Header displayName={displayName} className="hidden md:flex" />');
     expect(appShell).toContain('<MobileTopBar displayName={displayName} />');
-    expect(appShell).toContain('pb-[calc(6rem+env(safe-area-inset-bottom))] overflow-x-hidden md:pb-0');
+    expect(appShell).toContain('pb-[calc(6.75rem+env(safe-area-inset-bottom))] overflow-x-hidden md:pb-0');
 
     expect(tabletRail).toContain("const STORAGE_KEY = 'pb-rail-collapsed';");
     expect(tabletRail).toContain("collapsed ? 'w-[76px]' : 'w-[232px]'");
