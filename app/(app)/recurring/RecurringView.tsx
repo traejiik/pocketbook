@@ -737,7 +737,7 @@ export function RecurringView({ rules, archivedRules, categories, budget, anchor
             )}
           </form>
 
-          <SheetFooter className="flex flex-row gap-2 pl-[max(env(safe-area-inset-left),1.5rem)] pr-[max(env(safe-area-inset-right),1.5rem)] pt-4 pb-[max(env(safe-area-inset-bottom),1rem)] border-t border-border shrink-0">
+          <SheetFooter className="flex flex-row gap-2 pl-[max(env(safe-area-inset-left),1.5rem)] pr-[max(env(safe-area-inset-right),1.5rem)] pt-4 pb-[calc(env(safe-area-inset-bottom)+2.5rem)] border-t border-border shrink-0">
             {editing && (
               editing.hasTransactions ? (
                 <Button variant="destructive" size="sm" onClick={onArchive} type="button" disabled={isPending}>

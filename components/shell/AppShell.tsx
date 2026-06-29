@@ -102,7 +102,7 @@ export function AppShell({
           <MobileTopBar displayName={displayName} />
           <main
             id="main-content"
-            className="pt-2 pb-[calc(6rem+env(safe-area-inset-bottom))] overflow-x-hidden md:pb-0 md:flex-1 md:min-h-0 md:overflow-y-auto md:overscroll-contain"
+            className="pt-2 pb-[calc(6.75rem+env(safe-area-inset-bottom))] overflow-x-hidden md:pb-0 md:flex-1 md:min-h-0 md:overflow-y-auto md:overscroll-contain"
           >
             {children}
           </main>
