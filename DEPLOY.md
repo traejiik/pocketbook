@@ -51,15 +51,33 @@ the lines from `stack.env.example` and fill in every value.
 > **Shared Postgres stacks**: only `PB_POSTGRES_PASSWORD` is used — there is no unprefixed
 > `POSTGRES_PASSWORD` to collide with another postgres service sharing the same stack environment.
 
-### Optional: host-side fallback env file
+### Resilience: last-known-good env cache (automatic)
 
-If your Portainer setup ever redeploys the stack without re-applying the panel variables
-(some versions do this on GitOps auto-updates), the container boot-loops at `validate-env`.
-To make boots survive that: copy `stack.env.example` to
-`${PB_DOCKER_DIR:-/opt/docker}/pocketbook/stack.env` on the host, fill in the values, and
-uncomment the `/run/pb-stack.env` volume line in the compose. `entrypoint.sh` sources the
-file only for variables the environment did **not** deliver — panel values always win, the
-file is just a safety net. Keep it `chmod 600`.
+Some Portainer versions redeploy a stack without re-applying the panel variables (seen on
+GitOps auto-updates and Portainer restarts). Pocketbook survives that the way most
+self-hosted apps do — by persisting its config in its own data volume:
+
+- After every **successful** boot, `entrypoint.sh` writes the validated config to
+  `${PB_DOCKER_DIR:-/opt/docker}/pocketbook/data/.env-cache` (`chmod 600`, owned by the
+  container user).
+- On a boot where the environment is missing values, the gaps are filled from that cache
+  and the app starts normally. **A value delivered by the environment always wins** — the
+  cache never overrides the panel, it only fills what the panel failed to deliver.
+- When the cache had to plug holes, a warning is posted to `PB_DISCORD_WEBHOOK` /
+  `PB_ALERT_WEBHOOK` (if set) so you know the panel delivery broke even though the app
+  stayed up. Fix the panel at your convenience.
+- The `fx-sync` and `db-backup` sidecars read the same cache when their panel secrets are
+  missing, so nightly cron calls and backups keep working too.
+
+No operator setup is required. The only boot that can still fail at `validate-env` is the
+very first one (nothing has ever been validated, so there is nothing to fall back on).
+To rotate a secret, change it in the panel and redeploy — the cache is rewritten on the
+next successful boot. To invalidate the cache manually, delete the file on the host; it
+reappears after the next good boot.
+
+> **Optional extra**: a manually maintained `stack.env` file mounted at `/run/pb-stack.env`
+> is still supported (see the commented volume line in the compose) for operators who want
+> an explicit host-side source of truth, but the automatic cache makes it unnecessary.
 
 ---
 
@@ -241,7 +259,8 @@ docker compose down -v                    # ⚠ DESTRUCTIVE — also removes the
 | `PrismaClientInitializationError` on first request | DB not yet healthy — check `docker compose ps` and wait for `pocketbook-db` to show `healthy` |
 | `stage=prisma-migrate` with `datasource.url property is required` | Stale/broken image missing `prisma.config.ts` in the runner — pull/redeploy `v1.0.7` or newer |
 | `stage=fx-backfill` on startup | The FX-lock backfill failed after migration/seed. Read the captured output in `startup-failures.log`; do not bypass it, because unlocked historical transactions would continue to drift. |
-| `auth url is needed` / boot loop | `AUTH_URL`/`AUTH_SECRET` not reaching the container — with the bundled compose, set `PB_AUTH_URL`/`PB_AUTH_SECRET` in the panel (a bare `AUTH_URL` in the panel is ignored, since that compose only interpolates `PB_*`) |
+| `auth url is needed` / boot loop | `AUTH_URL`/`AUTH_SECRET` not reaching the container — with the bundled compose, set `PB_AUTH_URL`/`PB_AUTH_SECRET` in the panel (a bare `AUTH_URL` in the panel is ignored, since that compose only interpolates `PB_*`). After one successful boot this can only happen on a fresh install: later boots fall back to the env cache (see Resilience above) |
+| Discord warning "booted from cached env" | The app is up, but the last redeploy arrived without the panel variables — open the stack in Portainer, verify the environment panel still has its values, and redeploy |
 | AI insights load forever | Ollama unreachable — verify `PB_OLLAMA_BASE_URL` in the panel and that Ollama is on `core_net` |
 | FX sync returns 401 | `PB_FX_SYNC_SECRET` in the panel doesn't match the header sent by the `fx-sync` sidecar |
 | Monthly insights return 401 | Same secret — `PB_FX_SYNC_SECRET` is shared between FX sync and monthly insights |
@@ -262,8 +281,9 @@ cat ${PB_DOCKER_DIR:-/opt/docker}/pocketbook/data/startup-failures.log
 ```
 
 The `stage=` field tells you where it died: `validate-env` (a required var is missing —
-listed by its resolved name), `wait-for-db` (DB never became reachable — check
-`docker logs pocketbook-db`), `prisma-migrate`, `seed`, or `fx-backfill`.
+listed by its resolved name; after the first successful boot this only happens when both
+the panel **and** the env cache are empty), `wait-for-db` (DB never became reachable —
+check `docker logs pocketbook-db`), `prisma-migrate`, `seed`, or `fx-backfill`.
 
 > **`Permission denied` creating `startup-failures.log`?** The container runs as uid 1001, so the
 > host data dir must be writable by it. If it isn't, the report falls back to the container-local
@@ -281,7 +301,8 @@ Set `PB_DISCORD_WEBHOOK` in the panel to a Discord webhook URL
 (Discord → Server Settings → Integrations → Webhooks → New Webhook → Copy URL). When set:
 
 - **`pocketbook-web`** posts a message if startup fails (same trigger as `PB_ALERT_WEBHOOK`,
-  but with the JSON payload Discord requires).
+  but with the JSON payload Discord requires), and a warning when a boot had to restore
+  variables from the env cache because the stack environment did not deliver them.
 - **`fx-sync` sidecar** posts a message whenever a nightly cron call fails (non-2xx or
   unreachable): FX sync (03:00), monthly insights (03:05 on the 1st), and recurring
   sync (03:10). The message includes the job name and the response body, so an HTTP 500

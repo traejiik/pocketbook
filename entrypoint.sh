@@ -104,6 +104,36 @@ export SEED_USER_EMAIL="${SEED_USER_EMAIL:-$PB_SEED_USER_EMAIL}"
 export SEED_USER_PASSWORD="${SEED_USER_PASSWORD:-$PB_SEED_USER_PASSWORD}"
 export PB_POSTGRES_PASSWORD="${PB_POSTGRES_PASSWORD:-$POSTGRES_PASSWORD}"
 
+# ---------------------------------------------------------------------------
+# Last-known-good env cache (app-managed, no operator setup).
+#
+# Portainer redeploys sometimes arrive without the stack's environment panel
+# values (e.g. on GitOps auto-updates), which used to boot-loop the app at
+# validate-env. Postgres survives that because it only needs its password at
+# first init and persists it in its data volume — this gives the app the same
+# property: after every successful validation the resolved config is written
+# to $ENV_CACHE on the persistent /data volume (chmod 600), and a boot whose
+# environment is missing values restores them from there. A value delivered
+# by the environment always wins; the cache only fills gaps.
+# Delete the file on the host to invalidate it (rewritten on next good boot).
+# ---------------------------------------------------------------------------
+ENV_CACHE="${PB_ENV_CACHE:-/data/.env-cache}"
+CACHE_KEYS="AUTH_URL AUTH_SECRET FX_SYNC_SECRET OLLAMA_BASE_URL SEED_USER_EMAIL SEED_USER_PASSWORD PB_POSTGRES_PASSWORD PB_USER_DISPLAY_NAME PB_INSTANCE_NAME PB_ALERT_WEBHOOK PB_DISCORD_WEBHOOK"
+
+STAGE="restore-env-cache"
+restored=""
+if [ -f "$ENV_CACHE" ]; then
+  while IFS='=' read -r key value; do
+    case "$key" in ''|\#*|*[!A-Za-z0-9_]*) continue ;; esac
+    eval "current=\${$key:-}"
+    if [ -z "$current" ] && [ -n "$value" ]; then
+      export "$key=$value"
+      restored="$restored $key"
+    fi
+  done < "$ENV_CACHE"
+  [ -n "$restored" ] && say "WARNING: environment did not deliver:$restored — restored from last known good config ($ENV_CACHE). Check the Portainer stack environment panel."
+fi
+
 # Fail fast with one clear message listing every missing required var.
 STAGE="validate-env"
 missing=""
@@ -116,7 +146,35 @@ if [ -n "$missing" ]; then
   say "ERROR: missing required variables (set them in the Portainer stack environment panel):"
   say "  $missing"
   say "Either name form works: pass the bare name via compose, or the PB_ name via the panel. See DEPLOY.md."
+  [ -f "$ENV_CACHE" ] || say "No env cache existed at $ENV_CACHE to fall back on — it is written after each successful boot."
   exit 1
+fi
+
+# Config is valid — persist it for the next boot. Best-effort: if /data is not
+# writable by uid 1001 the cache is skipped and startup continues unaffected.
+STAGE="write-env-cache"
+write_env_cache() {
+  ( umask 077 && : > "$ENV_CACHE.tmp" ) 2>/dev/null || return 1
+  for k in $CACHE_KEYS; do
+    eval "val=\${$k:-}"
+    [ -n "$val" ] && printf '%s=%s\n' "$k" "$val" >> "$ENV_CACHE.tmp"
+  done
+  mv -f "$ENV_CACHE.tmp" "$ENV_CACHE" 2>/dev/null
+}
+if ! write_env_cache; then
+  rm -f "$ENV_CACHE.tmp" 2>/dev/null || true
+  say "NOTE: could not write $ENV_CACHE — env cache disabled (is /data writable by uid 1001?)"
+fi
+
+# If the cache had to plug holes, the app is up but the deploy pipeline is
+# broken — tell the operator via the same channels as a startup failure.
+if [ -n "$restored" ]; then
+  if [ -n "$PB_ALERT_WEBHOOK" ]; then
+    RESTORED="$restored" node -e "const u=process.env.PB_ALERT_WEBHOOK,h=require(u.indexOf('https')===0?'https':'http'),d='pocketbook-web WARNING: booted from cached env — Portainer panel did not deliver:'+process.env.RESTORED;const r=h.request(u,{method:'POST'},()=>process.exit(0));r.setTimeout(3000,()=>process.exit(0));r.on('error',()=>process.exit(0));r.end(d);" 2>/dev/null || true
+  fi
+  if [ -n "$PB_DISCORD_WEBHOOK" ]; then
+    RESTORED="$restored" node -e "const u=process.env.PB_DISCORD_WEBHOOK,h=require(u.indexOf('https')===0?'https':'http'),b=JSON.stringify({username:'Pocketbook',embeds:[{title:'⚠️ pocketbook-web booted from cached env',description:'The stack environment did not deliver:'+process.env.RESTORED+' — values were restored from the last known good config. Check the Portainer stack environment panel.',color:16763904,footer:{text:'Pocketbook · entrypoint'}}]});const r=h.request(u,{method:'POST',headers:{'Content-Type':'application/json','Content-Length':Buffer.byteLength(b)}},()=>process.exit(0));r.setTimeout(3000,()=>process.exit(0));r.on('error',()=>process.exit(0));r.end(b);" 2>/dev/null || true
+  fi
 fi
 
 export PB_DATABASE_URL="postgresql://${PB_POSTGRES_USER}:${PB_POSTGRES_PASSWORD}@pocketbook-db:5432/${PB_POSTGRES_DB}"

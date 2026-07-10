@@ -64,11 +64,14 @@ services:
       # fails. Leave unset to disable.
       - PB_DISCORD_WEBHOOK=${PB_DISCORD_WEBHOOK:-}
     volumes:
+      # /data also holds the app-managed env cache (.env-cache, chmod 600):
+      # entrypoint.sh saves the validated config after every good boot and
+      # restores any variable a later redeploy fails to deliver, so a Portainer
+      # redeploy that loses the panel env no longer boot-loops the app.
       - ${PB_DOCKER_DIR:-/opt/docker}/pocketbook/data:/data
-      # Optional: host-side fallback for the panel variables. entrypoint.sh
-      # sources this file for any variable the environment did not deliver, so
-      # a stack redeploy that loses the panel env doesn't boot-loop the app.
-      # Create the file from stack.env.example, then uncomment:
+      # Optional extra: a manually maintained host-side fallback file. Not
+      # needed with the env cache; kept for operators who want an explicit
+      # source of truth. Create from stack.env.example, then uncomment:
       # - ${PB_DOCKER_DIR:-/opt/docker}/pocketbook/stack.env:/run/pb-stack.env:ro
     networks:
       - core_net
@@ -84,6 +87,11 @@ services:
       # optional: when set, a failed cron call posts a message to Discord.
       - PB_FX_SYNC_SECRET=${PB_FX_SYNC_SECRET:-}
       - PB_DISCORD_WEBHOOK=${PB_DISCORD_WEBHOOK:-}
+    volumes:
+      # Read-only view of the web app's env cache: if a stack redeploy arrives
+      # without the panel variables, secrets fall back to the last known good
+      # config saved by pocketbook-web (see its /data volume comment).
+      - ${PB_DOCKER_DIR:-/opt/docker}/pocketbook/data:/data:ro
     # Secrets are baked into files at container start because busybox crond does
     # not reliably pass container env through to cron jobs. Every `$` below is
     # written `$$` so compose interpolation leaves it for the container shell.
@@ -91,8 +99,12 @@ services:
       - sh
       - -c
       - |
-        printf '%s' "$$PB_FX_SYNC_SECRET" > /etc/pb-sync-secret
-        printf '%s' "$$PB_DISCORD_WEBHOOK" > /etc/pb-discord-webhook
+        secret="$$PB_FX_SYNC_SECRET"
+        [ -n "$$secret" ] || secret="$$(sed -n 's/^FX_SYNC_SECRET=//p' /data/.env-cache 2>/dev/null)"
+        webhook="$$PB_DISCORD_WEBHOOK"
+        [ -n "$$webhook" ] || webhook="$$(sed -n 's/^PB_DISCORD_WEBHOOK=//p' /data/.env-cache 2>/dev/null)"
+        printf '%s' "$$secret" > /etc/pb-sync-secret
+        printf '%s' "$$webhook" > /etc/pb-discord-webhook
         cat <<'PBJOB' > /usr/local/bin/pb-job
         #!/bin/sh
         # pb-job <name> <url> — POST a cron endpoint; on failure, notify Discord.
@@ -137,12 +149,18 @@ services:
     # Nightly 02:30 UTC custom-format pg_dump, verified with `pg_restore --list`,
     # newest 14 kept. Same conventions as fx-sync: secrets baked to files for
     # crond, every runtime `$` written as `$$` for compose interpolation.
+    # Like fx-sync, missing panel secrets fall back to the env cache the web
+    # app maintains on the (already mounted) /data volume.
     command:
       - sh
       - -c
       - |
-        printf '%s' "$$PB_POSTGRES_PASSWORD" > /etc/pb-pgpass
-        printf '%s' "$$PB_DISCORD_WEBHOOK" > /etc/pb-discord-webhook
+        pgpass="$$PB_POSTGRES_PASSWORD"
+        [ -n "$$pgpass" ] || pgpass="$$(sed -n 's/^PB_POSTGRES_PASSWORD=//p' /data/.env-cache 2>/dev/null)"
+        webhook="$$PB_DISCORD_WEBHOOK"
+        [ -n "$$webhook" ] || webhook="$$(sed -n 's/^PB_DISCORD_WEBHOOK=//p' /data/.env-cache 2>/dev/null)"
+        printf '%s' "$$pgpass" > /etc/pb-pgpass
+        printf '%s' "$$webhook" > /etc/pb-discord-webhook
         cat <<'PBBACKUP' > /usr/local/bin/pb-backup
         #!/bin/sh
         # pb-backup — dump, verify, record, rotate; notify Discord either way.
