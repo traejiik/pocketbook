@@ -137,6 +137,8 @@ docker-compose up -d
 
 On boot, the `pocketbook-web` container builds `PB_DATABASE_URL` from the `PB_POSTGRES_*` variables, runs `prisma migrate deploy`, runs the idempotent seed, and then backfills any transaction FX locks that are still missing before starting Next.js. Prisma 7 reads its datasource URL from `prisma.config.ts`, so the runner image ships that root config alongside `prisma/`; the bundled backfill runs inside the same entrypoint environment.
 
+After every successful boot the validated configuration is persisted to `.env-cache` on the `/data` volume (`chmod 600`); if a later redeploy arrives without its environment variables (a known Portainer panel quirk), the entrypoint restores the missing values from that cache instead of boot-looping — environment values always win, and a Discord/webhook warning is posted whenever the cache had to be used. See `DEPLOY.md` → *Resilience* for details.
+
 ### Configuration
 
 | Variable | Required | Description |
