@@ -5,20 +5,25 @@ import { readFileSync, existsSync } from 'fs';
 import { resolve } from 'path';
 import { importTransactions } from '../lib/import-transactions';
 
-// Load .env.local so SEED_USER_* vars are available when run via tsx directly.
-try {
-  const envPath = resolve(process.cwd(), '.env.local');
-  const contents = readFileSync(envPath, 'utf-8');
-  for (const line of contents.split('\n')) {
-    const eq = line.indexOf('=');
-    if (eq > 0 && !line.startsWith('#')) {
-      const k = line.slice(0, eq).trim();
-      const v = line.slice(eq + 1).trim();
-      if (k && !(k in process.env)) process.env[k] = v;
+// Load .env.local then .env so SEED_USER_* and PB_DATABASE_URL are available when
+// run via tsx directly. `.env` matters because that is where PB_DATABASE_URL
+// actually lives (see .env.example); reading only .env.local made `pnpm db:seed`
+// fail locally for anyone who never created that optional override file.
+// Earlier files win, and real environment variables win over both.
+for (const file of ['.env.local', '.env']) {
+  try {
+    const contents = readFileSync(resolve(process.cwd(), file), 'utf-8');
+    for (const line of contents.split('\n')) {
+      const eq = line.indexOf('=');
+      if (eq > 0 && !line.startsWith('#')) {
+        const k = line.slice(0, eq).trim();
+        const v = line.slice(eq + 1).trim();
+        if (k && !(k in process.env)) process.env[k] = v;
+      }
     }
+  } catch {
+    // File may not exist — rely on the environment already set.
   }
-} catch {
-  // No .env.local — rely on environment already set.
 }
 
 const connectionString = process.env.PB_DATABASE_URL;

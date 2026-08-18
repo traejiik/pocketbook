@@ -208,6 +208,10 @@ pnpm dev                      # http://localhost:3000
 
 Useful scripts: `pnpm test` (Vitest), `pnpm lint`, `pnpm db:generate`, `pnpm db:migrate`, `pnpm db:seed`, and `pnpm db:backfill-fx` (local FX-lock diagnostics).
 
+Prisma 7 does not load `.env` implicitly, and the Prisma CLI runs outside Next.js — so `prisma.config.ts` reads `.env.local` then `.env` itself to pick up `PB_DATABASE_URL`. Real environment variables always take precedence, and a missing file is not an error, which is why the Docker runner (where `entrypoint.sh` exports the variable) is unaffected. The same loader lives in `prisma/seed.ts` and `prisma/backfill-fx.ts` for the scripts that `tsx` runs directly.
+
+> **Careful with `pnpm db:migrate` when switching branches.** It runs `prisma migrate dev`, which treats a migration that is applied to the database but absent from `prisma/migrations/` as drift and offers to **reset the database, losing all data**. That happens whenever you apply a migration on a feature branch and then check out a branch without it. Answer no, and use `pnpm exec prisma migrate status` to inspect, or `pnpm exec prisma migrate deploy` to apply pending migrations without any reset path.
+
 ```text
 app/                  Next.js App Router — pages and layouts
 components/           UI primitives and finance-specific components
