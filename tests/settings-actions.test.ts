@@ -16,7 +16,7 @@ vi.mock('@/lib/prisma', () => ({
   },
 }))
 vi.mock('@/lib/frankfurter', () => ({ syncAllAutoRates: vi.fn() }))
-vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
+vi.mock('next/cache', () => ({ revalidatePath: vi.fn(), revalidateTag: vi.fn() }))
 
 describe('clearAllData', () => {
   beforeEach(() => {

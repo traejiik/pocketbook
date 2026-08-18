@@ -2,9 +2,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const syncAllAutoRates = vi.fn()
 const findUnique = vi.fn()
+const revalidateTag = vi.fn()
 
 vi.mock('@/lib/frankfurter', () => ({ syncAllAutoRates }))
 vi.mock('@/lib/prisma', () => ({ prisma: { appSettings: { findUnique } } }))
+vi.mock('next/cache', () => ({ revalidateTag, unstable_cache: vi.fn() }))
 
 describe('POST /api/fx/sync', () => {
   beforeEach(() => {
@@ -49,5 +51,29 @@ describe('POST /api/fx/sync', () => {
     }))
     expect(await res.json()).toEqual({ synced: 3 })
     expect(syncAllAutoRates).toHaveBeenCalledOnce()
+  })
+
+  // Recurring rules convert at the live rate, so a cron rate change has to bust
+  // the cached renewal / recurring-budget reads or they serve the old rate.
+  it('busts the fx cache tag when rates actually changed', async () => {
+    findUnique.mockResolvedValue({ fxAutoSync: true })
+    syncAllAutoRates.mockResolvedValue(3)
+    const { POST } = await import('@/app/api/fx/sync/route')
+    await POST(new Request('http://local/api/fx/sync', {
+      method: 'POST',
+      headers: { 'x-sync-secret': 'test-secret' },
+    }))
+    expect(revalidateTag).toHaveBeenCalledWith('pb-fx', { expire: 0 })
+  })
+
+  it('does not bust the fx cache tag when nothing synced', async () => {
+    findUnique.mockResolvedValue({ fxAutoSync: true })
+    syncAllAutoRates.mockResolvedValue(0)
+    const { POST } = await import('@/app/api/fx/sync/route')
+    await POST(new Request('http://local/api/fx/sync', {
+      method: 'POST',
+      headers: { 'x-sync-secret': 'test-secret' },
+    }))
+    expect(revalidateTag).not.toHaveBeenCalled()
   })
 })

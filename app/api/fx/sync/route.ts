@@ -1,5 +1,6 @@
 import { syncAllAutoRates } from '@/lib/frankfurter';
 import { prisma } from '@/lib/prisma';
+import { CACHE_TAGS, revalidateFinanceTags } from '@/lib/cache';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,5 +18,8 @@ export async function POST(request: Request) {
   }
 
   const synced = await syncAllAutoRates();
+  // Recurring rules convert at the live rate, so a cron rate change moves the
+  // renewal and recurring-budget totals that are now cached between requests.
+  if (synced > 0) revalidateFinanceTags(CACHE_TAGS.fx);
   return Response.json({ synced });
 }

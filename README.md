@@ -110,7 +110,9 @@ Pick your anchor currency, manage tracked FX rates (dynamic or manual), change y
 | **FX rates** | [frankfurter.dev](https://frankfurter.dev) (ECB feed), auto-synced daily |
 | **Runtime / deploy** | Node 24 Alpine · pnpm 10.33.0 in Docker · Docker Compose · GHCR image releases |
 
-**Architecture in one line:** server components read from Prisma directly → pass props → Server Actions mutate → `revalidatePath` refreshes. The only REST routes are for Auth.js, SSE insights streaming, and secret-authenticated cron endpoints (FX sync, monthly insights, recurring sync). No client-side data fetching for initial renders.
+**Architecture in one line:** server components read from Prisma directly → pass props → Server Actions mutate → `revalidatePath` + `revalidateTag` refresh. The only REST routes are for Auth.js, SSE insights streaming, and secret-authenticated cron endpoints (FX sync, monthly insights, recurring sync). No client-side data fetching for initial renders.
+
+The heavier aggregation reads (KPIs, expenses-by-category, monthly trend, upcoming renewals, category stats, recurring budget) are cached between requests with `unstable_cache` and invalidated by tag on write — see `lib/cache.ts`.
 
 ---
 

@@ -3,12 +3,16 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => ({
   syncDueRecurringRules: vi.fn(),
   revalidatePath: vi.fn(),
+  revalidateTag: vi.fn(),
 }))
 
 vi.mock('@/lib/recurring-sync', () => ({
   syncDueRecurringRules: mocks.syncDueRecurringRules,
 }))
-vi.mock('next/cache', () => ({ revalidatePath: mocks.revalidatePath }))
+vi.mock('next/cache', () => ({
+  revalidatePath: mocks.revalidatePath,
+  revalidateTag: mocks.revalidateTag,
+}))
 
 describe('POST /api/recurring/sync', () => {
   beforeEach(() => {

@@ -3,6 +3,7 @@
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
+import { CACHE_TAGS, revalidateFinanceTags } from '@/lib/cache';
 import { requireAuthenticatedUser } from '@/lib/require-auth';
 import { planRecurringCatchUp, resumeNextDue } from '@/lib/recurring-backfill';
 
@@ -72,6 +73,7 @@ export async function upsertRecurringRule(input: RecurringRuleInput): Promise<Re
 
   if (id) {
     await prisma.recurringRule.update({ where: { id }, data });
+    revalidateFinanceTags(CACHE_TAGS.recurring);
     revalidatePath('/recurring');
     revalidatePath('/renewals');
     revalidatePath('/dashboard');
@@ -116,6 +118,11 @@ export async function upsertRecurringRule(input: RecurringRuleInput): Promise<Re
     return created;
   });
 
+  // A new rule can backfill catch-up charges, which touches the ledger as well.
+  revalidateFinanceTags(
+    CACHE_TAGS.recurring,
+    ...(catchUp.transactions.length > 0 ? [CACHE_TAGS.transactions] : []),
+  );
   revalidatePath('/recurring');
   revalidatePath('/renewals');
   revalidatePath('/dashboard');
@@ -139,6 +146,7 @@ export async function archiveRecurringRule(id: string) {
 
   await prisma.recurringRule.update({ where: { id }, data: { archived: true } });
 
+  revalidateFinanceTags(CACHE_TAGS.recurring);
   revalidatePath('/recurring');
   revalidatePath('/renewals');
   revalidatePath('/dashboard');
@@ -157,6 +165,7 @@ export async function deleteRecurringRule(id: string): Promise<{ ok: true } | { 
 
   await prisma.recurringRule.delete({ where: { id } });
 
+  revalidateFinanceTags(CACHE_TAGS.recurring);
   revalidatePath('/recurring');
   revalidatePath('/renewals');
   revalidatePath('/dashboard');
@@ -186,6 +195,7 @@ export async function unarchiveRecurringRule(id: string): Promise<{ ok: true } |
     data: { archived: false, nextDue: dateOnlyStringToDate(nextDue) },
   });
 
+  revalidateFinanceTags(CACHE_TAGS.recurring);
   revalidatePath('/recurring');
   revalidatePath('/renewals');
   revalidatePath('/dashboard');

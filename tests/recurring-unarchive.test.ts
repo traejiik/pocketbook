@@ -2,11 +2,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const authMock = vi.fn()
 const revalidatePathMock = vi.fn()
+const revalidateTagMock = vi.fn()
 const ruleFindUnique = vi.fn()
 const ruleUpdate = vi.fn()
 
 vi.mock('@/lib/auth', () => ({ auth: authMock }))
-vi.mock('next/cache', () => ({ revalidatePath: revalidatePathMock }))
+vi.mock('next/cache', () => ({
+  revalidatePath: revalidatePathMock,
+  revalidateTag: revalidateTagMock,
+}))
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     recurringRule: { findUnique: ruleFindUnique, update: ruleUpdate },

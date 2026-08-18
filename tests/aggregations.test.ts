@@ -24,6 +24,15 @@ vi.mock('@/lib/fx', () => ({
   frozenToAnchor: vi.fn(async (amount: number) => amount),
 }))
 
+// `unstable_cache` throws without a Next.js incremental cache, and caching is not
+// what these tests are about — pass straight through to the underlying read so the
+// boundaries handed to Prisma stay observable. The cache layer itself is covered in
+// aggregation-cache.test.ts.
+vi.mock('next/cache', () => ({
+  unstable_cache: <T>(fn: T) => fn,
+  revalidateTag: vi.fn(),
+}))
+
 import {
   getCurrentMonthKpis,
   getLastMonthKpis,
