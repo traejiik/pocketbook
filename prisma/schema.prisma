@@ -88,6 +88,11 @@ model RecurringRule {
   installmentEndsOn DateTime?      @db.Date
   archived          Boolean        @default(false)
   transactions      Transaction[]
+
+  // `getUpcomingRenewals` and `getRecurringRules` both filter on `archived` and
+  // then range/sort on `nextDue`. Equality column first lets Postgres seek to the
+  // `archived = false` prefix and read `nextDue` already ordered.
+  @@index([archived, nextDue])
 }
 
 model ExchangeRate {

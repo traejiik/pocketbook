@@ -232,33 +232,52 @@ export const getRecentTransactions = cache(async (limit: number) => {
   });
 });
 
+// Bucket key for a `@db.Date` value. Prisma hands those back as UTC midnight, so
+// reading the UTC parts is what lines a row up with the UTC month boundaries above.
+function utcMonthKey(d: Date): string {
+  return `${d.getUTCFullYear()}-${d.getUTCMonth()}`;
+}
+
 // `latestMonthIso` is the first-of-month UTC boundary the window ends on, passed in
 // by the caller so the window is pinned by the cache key rather than by `new Date()`.
+//
+// One query spans the whole window and the months are split in memory. Fetching
+// per month inside the loop meant `months` sequential round-trips (the `await`
+// suspends the loop body, so query n+1 does not leave the process until query n
+// has returned) over disjoint slices of one table — the same rows, N times the
+// latency.
 async function monthlyTrendFrom(latestMonthIso: string, months: number) {
   const latest = new Date(latestMonthIso);
-  const results: { month: string; net: number }[] = [];
+  const windowStart = utcMonthStart(latest, -(months - 1));
+  const windowEnd = utcMonthStart(latest, 1);
 
+  // Seed a slot per month up front so months with no transactions still emit a
+  // zero point rather than dropping out of the chart. Insertion order is oldest →
+  // newest, which is the order the chart renders in.
+  const buckets = new Map<string, { month: string; net: number }>();
   for (let i = months - 1; i >= 0; i--) {
     const d = utcMonthStart(latest, -i);
-    const next = utcMonthStart(latest, -i + 1);
-    const label = d.toLocaleDateString('en-GB', { month: 'short', timeZone: 'UTC' });
-
-    const txs = await prisma.transaction.findMany({
-      where: { date: { gte: d, lt: next } },
+    buckets.set(utcMonthKey(d), {
+      month: d.toLocaleDateString('en-GB', { month: 'short', timeZone: 'UTC' }),
+      net: 0,
     });
-
-    let net = 0;
-    for (const t of txs) {
-      const amt = await txToAnchor(t);
-      if (amt === null) continue;
-      if (t.type === 'INCOME')  net += amt;
-      if (t.type === 'EXPENSE') net -= amt;
-      if (t.type === 'SAVINGS') net -= amt;
-    }
-    results.push({ month: label, net: Math.round(net) });
   }
 
-  return results;
+  const txs = await prisma.transaction.findMany({
+    where: { date: { gte: windowStart, lt: windowEnd } },
+  });
+
+  for (const t of txs) {
+    const bucket = buckets.get(utcMonthKey(t.date));
+    if (!bucket) continue;   // outside the window; the `where` already excludes these
+    const amt = await txToAnchor(t);
+    if (amt === null) continue;
+    if (t.type === 'INCOME')  bucket.net += amt;
+    if (t.type === 'EXPENSE') bucket.net -= amt;
+    if (t.type === 'SAVINGS') bucket.net -= amt;
+  }
+
+  return [...buckets.values()].map((b) => ({ month: b.month, net: Math.round(b.net) }));
 }
 
 const cachedMonthlyTrend = cachedAggregation(
