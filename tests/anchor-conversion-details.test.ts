@@ -26,6 +26,13 @@ const prismaMock = {
 
 vi.mock('@/lib/prisma', () => ({ prisma: prismaMock }))
 
+// Pass-through: `unstable_cache` needs a Next.js incremental cache to exist, and
+// these tests assert conversion maths rather than caching behaviour.
+vi.mock('next/cache', () => ({
+  unstable_cache: <T>(fn: T) => fn,
+  revalidateTag: vi.fn(),
+}))
+
 describe('anchor conversion detail amounts', () => {
   it('serialises recurring rules with converted anchor equivalents', async () => {
     const rules = [

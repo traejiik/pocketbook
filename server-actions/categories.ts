@@ -3,6 +3,7 @@
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
+import { CACHE_TAGS, revalidateFinanceTags } from '@/lib/cache';
 import { requireAuthenticatedUser } from '@/lib/require-auth';
 import { Prisma } from '@prisma/client';
 
@@ -33,6 +34,7 @@ export async function upsertCategory(input: CategoryInput): Promise<{ ok: true }
     throw e;
   }
 
+  revalidateFinanceTags(CACHE_TAGS.categories);
   revalidatePath('/categories');
   revalidatePath('/dashboard');
   revalidatePath('/transactions');
@@ -63,6 +65,8 @@ export async function deleteCategory(id: string, replacementId?: string) {
     await prisma.category.delete({ where: { id } });
   }
 
+  // Deleting a used category reassigns both transactions and recurring rules.
+  revalidateFinanceTags(CACHE_TAGS.categories, CACHE_TAGS.transactions, CACHE_TAGS.recurring);
   revalidatePath('/categories');
   revalidatePath('/dashboard');
   revalidatePath('/transactions');

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const authMock = vi.fn()
 const revalidatePathMock = vi.fn()
+const revalidateTagMock = vi.fn()
 const txFindUnique = vi.fn()
 const txCreate = vi.fn()
 const txUpdate = vi.fn()
@@ -17,7 +18,10 @@ const transactionClient = {
 }
 
 vi.mock('@/lib/auth', () => ({ auth: authMock }))
-vi.mock('next/cache', () => ({ revalidatePath: revalidatePathMock }))
+vi.mock('next/cache', () => ({
+  revalidatePath: revalidatePathMock,
+  revalidateTag: revalidateTagMock,
+}))
 // FX lock is exercised in fx-lock.test.ts; stub it here so reconciliation tests
 // stay isolated from rate lookups.
 vi.mock('@/lib/fx', () => ({

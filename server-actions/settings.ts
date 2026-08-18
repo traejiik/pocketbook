@@ -6,6 +6,7 @@ import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
 import { syncAllAutoRates } from '@/lib/frankfurter';
 import { lockRate } from '@/lib/fx';
+import { CACHE_TAGS, revalidateFinanceTags } from '@/lib/cache';
 import { requireAuthenticatedUser } from '@/lib/require-auth';
 
 const currencySchema = z.enum(['HUF', 'USD', 'EUR', 'GBP']);
@@ -47,6 +48,9 @@ export async function setAnchorCurrency(code: string) {
     ),
   );
 
+  // The anchor moved *and* every transaction was re-locked to it, so both the FX
+  // and transaction reads are now wrong.
+  revalidateFinanceTags(CACHE_TAGS.fx, CACHE_TAGS.transactions);
   revalidatePath('/', 'layout');
 }
 
@@ -63,6 +67,7 @@ export async function setExchangeRate(input: {
     update: { rate, mode, updatedAt: new Date() },
     create: { fromCurrency: from, toCurrency: to, rate, mode },
   });
+  revalidateFinanceTags(CACHE_TAGS.fx);
   revalidatePath('/', 'layout');
 }
 
@@ -77,6 +82,7 @@ export async function addTrackedCurrency(code: string) {
     update: {},
     create: { fromCurrency: code, toCurrency: anchor, rate: 1, mode: 'MANUAL' },
   });
+  revalidateFinanceTags(CACHE_TAGS.fx);
   revalidatePath('/settings');
 }
 
@@ -85,6 +91,7 @@ export async function removeTrackedCurrency(from: string, to: string) {
   await prisma.exchangeRate.deleteMany({
     where: { fromCurrency: from, toCurrency: to },
   });
+  revalidateFinanceTags(CACHE_TAGS.fx);
   revalidatePath('/settings');
 }
 
@@ -129,6 +136,7 @@ export async function changePassword(input: { current: string; next: string }) {
 export async function forceFxSync(): Promise<{ synced: number }> {
   await requireAuthenticatedUser();
   const synced = await syncAllAutoRates();
+  revalidateFinanceTags(CACHE_TAGS.fx);
   revalidatePath('/settings');
   return { synced };
 }
@@ -139,6 +147,7 @@ export async function clearAllData(): Promise<void> {
   await prisma.transaction.deleteMany();
   await prisma.recurringRule.deleteMany();
   await prisma.category.deleteMany();
+  revalidateFinanceTags(CACHE_TAGS.transactions, CACHE_TAGS.recurring, CACHE_TAGS.categories);
   revalidatePath('/', 'layout');
 }
 

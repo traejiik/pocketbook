@@ -4,13 +4,17 @@ const mocks = vi.hoisted(() => ({
   auth: vi.fn(),
   syncDueRecurringRules: vi.fn(),
   revalidatePath: vi.fn(),
+  revalidateTag: vi.fn(),
 }))
 
 vi.mock('@/lib/auth', () => ({ auth: mocks.auth }))
 vi.mock('@/lib/recurring-sync', () => ({
   syncDueRecurringRules: mocks.syncDueRecurringRules,
 }))
-vi.mock('next/cache', () => ({ revalidatePath: mocks.revalidatePath }))
+vi.mock('next/cache', () => ({
+  revalidatePath: mocks.revalidatePath,
+  revalidateTag: mocks.revalidateTag,
+}))
 
 describe('syncDueRecurringRulesAction', () => {
   beforeEach(() => {

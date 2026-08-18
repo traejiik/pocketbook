@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache';
 import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { lockRate } from '@/lib/fx';
+import { CACHE_TAGS, revalidateFinanceTags } from '@/lib/cache';
 import { requireAuthenticatedUser } from '@/lib/require-auth';
 
 const txSchema = z.object({
@@ -92,6 +93,9 @@ export async function upsertTransaction(input: TxInput) {
     });
   }
 
+  // `reconcileInstallmentRule` can move a rule's paid count / archived flag, so the
+  // recurring reads are invalidated here too, not just the transaction ones.
+  revalidateFinanceTags(CACHE_TAGS.transactions, CACHE_TAGS.recurring);
   revalidatePath('/transactions');
   revalidatePath('/dashboard');
   revalidatePath('/renewals');
@@ -113,6 +117,9 @@ export async function deleteTransaction(id: string) {
     if (existing?.recurringRuleId) await reconcileInstallmentRule(tx, existing.recurringRuleId);
   });
 
+  // `reconcileInstallmentRule` can move a rule's paid count / archived flag, so the
+  // recurring reads are invalidated here too, not just the transaction ones.
+  revalidateFinanceTags(CACHE_TAGS.transactions, CACHE_TAGS.recurring);
   revalidatePath('/transactions');
   revalidatePath('/dashboard');
   revalidatePath('/renewals');

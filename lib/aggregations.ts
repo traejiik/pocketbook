@@ -1,11 +1,25 @@
 import { cache } from 'react';
 import { prisma } from './prisma';
 import { toAnchor, frozenToAnchor } from './fx';
+import { CACHE_TAGS, cachedAggregation } from './cache';
 
 export { getAnchorCurrency } from './fx';
 import type { Category, RecurringRule } from '@prisma/client';
 
 export type RuleWithCategory = RecurringRule & { category: Category };
+
+// Each heavy read below is wrapped twice, and the layers do different jobs:
+//
+//   cache(...)              — React per-request memoisation. Dedupes the repeat
+//                             calls a single render makes (the app layout and the
+//                             dashboard both ask for 30-day renewals).
+//   cachedAggregation(...)  — Next.js `unstable_cache`. Survives *between*
+//                             requests until a write revalidates its tags.
+//
+// The `unstable_cache` layer is only applied to the reads that scan rows and then
+// run a per-row async FX conversion. Single trivial queries (`getRecentTransactions`,
+// `getCategories`, the AI-insight lookups) stay on React `cache` alone — routing
+// a `take: 4` query through the incremental cache costs more than it saves.
 
 type FrozenTx = { amount: number | { toString(): string }; currency: string; fxRate: unknown; fxAnchor: string | null };
 
@@ -57,19 +71,28 @@ function utcMonthStart(now: Date, offset: number): Date {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + offset, 1));
 }
 
+// The month boundaries are resolved by the callers and passed in as ISO strings so
+// they land in the cache key — a range computed from `new Date()` *inside* the
+// cached callback would freeze the current month into the entry.
+const cachedKpisForRange = cachedAggregation(
+  ['kpis-for-range'],
+  [CACHE_TAGS.transactions, CACHE_TAGS.fx],
+  (startIso: string, endIso: string) => kpisForRange(new Date(startIso), new Date(endIso)),
+);
+
 export const getCurrentMonthKpis = cache(async () => {
   const now = new Date();
-  return kpisForRange(utcMonthStart(now, 0), utcMonthStart(now, 1));
+  return cachedKpisForRange(utcMonthStart(now, 0).toISOString(), utcMonthStart(now, 1).toISOString());
 });
 
 export const getLastMonthKpis = cache(async () => {
   const now = new Date();
-  return kpisForRange(utcMonthStart(now, -1), utcMonthStart(now, 0));
+  return cachedKpisForRange(utcMonthStart(now, -1).toISOString(), utcMonthStart(now, 0).toISOString());
 });
 
 export const getMonthKpis = cache(async (monthKey: string) => {
   const { start, end } = monthKeyRange(monthKey);
-  return kpisForRange(start, end);
+  return cachedKpisForRange(start.toISOString(), end.toISOString());
 });
 
 async function expensesByCategoryForRange(start: Date, end: Date) {
@@ -92,19 +115,55 @@ async function expensesByCategoryForRange(start: Date, end: Date) {
     .sort((a, b) => b.value - a.value);
 }
 
+// Category name/colour are denormalised into the result, so category edits have to
+// bust this alongside transaction writes.
+const cachedExpensesByCategoryForRange = cachedAggregation(
+  ['expenses-by-category-for-range'],
+  [CACHE_TAGS.transactions, CACHE_TAGS.categories, CACHE_TAGS.fx],
+  (startIso: string, endIso: string) => expensesByCategoryForRange(new Date(startIso), new Date(endIso)),
+);
+
 export const getExpensesByCategory = cache(async () => {
   const now = new Date();
-  return expensesByCategoryForRange(utcMonthStart(now, 0), utcMonthStart(now, 1));
+  return cachedExpensesByCategoryForRange(
+    utcMonthStart(now, 0).toISOString(),
+    utcMonthStart(now, 1).toISOString(),
+  );
 });
 
 export const getMonthExpensesByCategory = cache(async (monthKey: string) => {
   const { start, end } = monthKeyRange(monthKey);
-  return expensesByCategoryForRange(start, end);
+  return cachedExpensesByCategoryForRange(start.toISOString(), end.toISOString());
 });
 
-export const getUpcomingRenewals = cache(async (daysAhead: number) => {
-  const now = new Date();
-  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+// `Date` and Prisma `Decimal` do not survive the cache's JSON round-trip, so the
+// cached read emits plain values and `getUpcomingRenewals` rehydrates the two
+// calendar dates its callers call `Date` methods on. `amount` stays a number —
+// every consumer already read it through `Number(...)`.
+type SerialisedRenewalRule =
+  Omit<RuleWithCategory, 'amount' | 'nextDue' | 'installmentEndsOn'> & {
+    amount: number;
+    nextDue: string;
+    installmentEndsOn: string | null;
+  };
+
+export type UpcomingRenewalRule =
+  Omit<SerialisedRenewalRule, 'nextDue' | 'installmentEndsOn'> & {
+    nextDue: Date;
+    installmentEndsOn: Date | null;
+  };
+
+export type UpcomingRenewal = {
+  rule: UpcomingRenewalRule;
+  daysAway: number;
+  hufEquivalent: number | null;  // null when no FX path exists — never coerce to 0
+};
+
+async function upcomingRenewalsFrom(
+  todayIso: string,
+  daysAhead: number,
+): Promise<{ rule: SerialisedRenewalRule; daysAway: number; hufEquivalent: number | null }[]> {
+  const today = new Date(todayIso);
   const horizon = new Date(today);
   horizon.setUTCDate(today.getUTCDate() + daysAhead);
 
@@ -118,18 +177,51 @@ export const getUpcomingRenewals = cache(async (daysAhead: number) => {
     orderBy: { nextDue: 'asc' },
   });
 
-  const results = await Promise.all(
+  return Promise.all(
     rules.map(async (rule) => {
       const hufEquivalent = await toAnchor(
         Math.abs(Number(rule.amount)),
         rule.currency as 'HUF' | 'USD' | 'EUR' | 'GBP',
       );
       const daysAway = Math.round((rule.nextDue.getTime() - today.getTime()) / 86_400_000);
-      return { rule, daysAway, hufEquivalent };  // hufEquivalent is number | null
+      return {
+        rule: {
+          ...rule,
+          amount: Number(rule.amount),
+          nextDue: rule.nextDue.toISOString(),
+          installmentEndsOn: rule.installmentEndsOn ? rule.installmentEndsOn.toISOString() : null,
+        },
+        daysAway,
+        hufEquivalent,
+      };
     }),
   );
+}
 
-  return results;
+// Recurring converts live (rules carry no frozen rate), so this depends on FX too.
+const cachedUpcomingRenewals = cachedAggregation(
+  ['upcoming-renewals'],
+  [CACHE_TAGS.recurring, CACHE_TAGS.categories, CACHE_TAGS.fx],
+  upcomingRenewalsFrom,
+);
+
+export const getUpcomingRenewals = cache(async (daysAhead: number): Promise<UpcomingRenewal[]> => {
+  const now = new Date();
+  // `daysAway` is measured from today, so today's date is part of the cache key:
+  // entries roll over naturally at UTC midnight instead of going stale by a day.
+  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+
+  const rows = await cachedUpcomingRenewals(today.toISOString(), daysAhead);
+
+  return rows.map(({ rule, daysAway, hufEquivalent }) => ({
+    rule: {
+      ...rule,
+      nextDue: new Date(rule.nextDue),
+      installmentEndsOn: rule.installmentEndsOn ? new Date(rule.installmentEndsOn) : null,
+    },
+    daysAway,
+    hufEquivalent,
+  }));
 });
 
 export const getRecentTransactions = cache(async (limit: number) => {
@@ -140,13 +232,15 @@ export const getRecentTransactions = cache(async (limit: number) => {
   });
 });
 
-export const getMonthlyTrend = cache(async (months: number) => {
+// `latestMonthIso` is the first-of-month UTC boundary the window ends on, passed in
+// by the caller so the window is pinned by the cache key rather than by `new Date()`.
+async function monthlyTrendFrom(latestMonthIso: string, months: number) {
+  const latest = new Date(latestMonthIso);
   const results: { month: string; net: number }[] = [];
-  const now = new Date();
 
   for (let i = months - 1; i >= 0; i--) {
-    const d = utcMonthStart(now, -i);
-    const next = utcMonthStart(now, -i + 1);
+    const d = utcMonthStart(latest, -i);
+    const next = utcMonthStart(latest, -i + 1);
     const label = d.toLocaleDateString('en-GB', { month: 'short', timeZone: 'UTC' });
 
     const txs = await prisma.transaction.findMany({
@@ -165,6 +259,17 @@ export const getMonthlyTrend = cache(async (months: number) => {
   }
 
   return results;
+}
+
+const cachedMonthlyTrend = cachedAggregation(
+  ['monthly-trend'],
+  [CACHE_TAGS.transactions, CACHE_TAGS.fx],
+  monthlyTrendFrom,
+);
+
+export const getMonthlyTrend = cache(async (months: number) => {
+  const now = new Date();
+  return cachedMonthlyTrend(utcMonthStart(now, 0).toISOString(), months);
 });
 
 export const getRecurringRules = cache(async () => {
@@ -187,7 +292,7 @@ export const getCategories = cache(async () => {
   return prisma.category.findMany({ orderBy: { name: 'asc' } });
 });
 
-export const getCategoriesWithStats = cache(async () => {
+async function categoriesWithStats() {
   const cats = await prisma.category.findMany({ orderBy: { name: 'asc' } });
   const txCounts = await prisma.transaction.groupBy({
     by: ['categoryId'],
@@ -211,7 +316,17 @@ export const getCategoriesWithStats = cache(async () => {
     txCount: countMap.get(c.id) ?? 0,
     txTotalHUF: Math.round(sumMap.get(c.id) ?? 0),
   }));
-});
+}
+
+// All-time and unbounded, so this is the read that benefits most from caching as
+// history grows. `Category` has no date columns, so the result is JSON-safe as-is.
+const cachedCategoriesWithStats = cachedAggregation(
+  ['categories-with-stats'],
+  [CACHE_TAGS.transactions, CACHE_TAGS.categories, CACHE_TAGS.fx],
+  categoriesWithStats,
+);
+
+export const getCategoriesWithStats = cache(() => cachedCategoriesWithStats());
 
 export const getLastAiInsight = cache(async () => {
   return prisma.aiInsight.findFirst({ orderBy: { generatedAt: 'desc' } });
@@ -231,7 +346,7 @@ export type RecurringBudgetSummary = {
   expensesByCategory: { categoryId: string; name: string; color: string; amount: number }[]
 }
 
-export const getRecurringBudgetSummary = cache(async (): Promise<RecurringBudgetSummary> => {
+async function recurringBudgetSummary(): Promise<RecurringBudgetSummary> {
   const rules = await prisma.recurringRule.findMany({
     where: { archived: false },
     include: { category: true },
@@ -275,4 +390,15 @@ export const getRecurringBudgetSummary = cache(async (): Promise<RecurringBudget
     hasNormalisedAnnuals,
     expensesByCategory,
   }
-})
+}
+
+// Recurring rules convert at the live rate (no frozen lock), so FX moves this.
+const cachedRecurringBudgetSummary = cachedAggregation(
+  ['recurring-budget-summary'],
+  [CACHE_TAGS.recurring, CACHE_TAGS.categories, CACHE_TAGS.fx],
+  recurringBudgetSummary,
+)
+
+export const getRecurringBudgetSummary = cache(
+  (): Promise<RecurringBudgetSummary> => cachedRecurringBudgetSummary(),
+)

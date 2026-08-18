@@ -1,5 +1,6 @@
 import { syncDueRecurringRules } from '@/lib/recurring-sync'
 import { revalidatePath } from 'next/cache'
+import { CACHE_TAGS, revalidateFinanceTags } from '@/lib/cache'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,6 +14,7 @@ export async function POST(request: Request) {
 
   const result = await syncDueRecurringRules()
   if (result.rulesProcessed > 0) {
+    revalidateFinanceTags(CACHE_TAGS.transactions, CACHE_TAGS.recurring)
     revalidatePath('/transactions')
     revalidatePath('/dashboard')
     revalidatePath('/renewals')
