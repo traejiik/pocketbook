@@ -25,6 +25,17 @@ export function fmtDate(iso: string | Date, opts?: { short?: boolean }): string 
   return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
+/** `YYYY-MM` for a date, read from its local parts (matches how the month filter is displayed). */
+export function monthKeyOf(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+/** Step a `YYYY-MM` key by whole months. Rolls the year over in both directions. */
+export function shiftMonthKey(key: string, delta: number): string {
+  const [y, m] = key.split('-').map(Number);
+  return monthKeyOf(new Date(y, m - 1 + delta, 1));
+}
+
 export function dayOfWeek(iso: string | Date): string {
   const d = typeof iso === 'string' ? new Date(iso.includes('T') ? iso : iso + 'T00:00') : iso;
   return d.toLocaleDateString('en-GB', { weekday: 'short' });
