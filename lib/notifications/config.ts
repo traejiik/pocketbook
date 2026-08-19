@@ -1,5 +1,5 @@
 import { chmod, mkdir, readFile, rename, writeFile } from 'node:fs/promises'
-import { dirname } from 'node:path'
+import { dirname, join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
 
@@ -12,8 +12,13 @@ import {
 
 export const NOTIFICATION_CONFIG_PATH = '/data/notifications.json'
 
-export function notificationConfigPath(): string {
-  return process.env.PB_NOTIFICATION_CONFIG_PATH ?? NOTIFICATION_CONFIG_PATH
+export function notificationConfigPath(
+  env: NodeJS.ProcessEnv = process.env,
+  cwd = process.cwd(),
+): string {
+  if (env.PB_NOTIFICATION_CONFIG_PATH) return env.PB_NOTIFICATION_CONFIG_PATH
+  if (env.NODE_ENV === 'production') return NOTIFICATION_CONFIG_PATH
+  return join(cwd, '.data', 'notifications.json')
 }
 
 export const DEFAULT_NOTIFICATION_CONFIG: NotificationConfigV1 = {
