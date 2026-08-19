@@ -5,8 +5,8 @@ import { CACHE_TAGS, revalidateFinanceTags } from '@/lib/cache'
 export const dynamic = 'force-dynamic'
 
 export async function POST(request: Request) {
-  const secret = request.headers.get('x-sync-secret')
-  const expected = process.env.FX_SYNC_SECRET
+  const secret = request.headers.get('x-internal-job-token')
+  const expected = process.env.PB_INTERNAL_JOB_TOKEN
 
   if (!expected || secret !== expected) {
     return Response.json({ error: 'Unauthorised' }, { status: 401 })

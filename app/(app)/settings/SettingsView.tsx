@@ -26,6 +26,10 @@ import {
   clearAllData,
 } from '@/server-actions/settings';
 import { uploadTransactionCsv } from '@/server-actions/import';
+import type { PublicNotificationSettings } from '@/lib/notifications/types';
+import type { BackupStatus } from '@/lib/operations/backup';
+import { NotificationSettings } from './NotificationSettings';
+import { BackupSettings } from './BackupSettings';
 
 type Rate = {
   id: string;
@@ -46,8 +50,10 @@ type Props = {
   ollamaModel: string;
   ollamaModels: Array<{ name: string; size: number }>;
   autoInsightsMonthly: boolean;
+  notificationSettings: PublicNotificationSettings;
+  backupStatus: BackupStatus | null;
+  nextBackupRun: string;
   dbSize: string;
-  lastBackup: string;
   version: string;
 };
 
@@ -181,8 +187,10 @@ export function SettingsView({
   ollamaModel: initialModel,
   ollamaModels,
   autoInsightsMonthly: initialAutoInsights,
+  notificationSettings,
+  backupStatus,
+  nextBackupRun,
   dbSize,
-  lastBackup,
   version,
 }: Props) {
   const [anchor, setAnchor] = useState(initialAnchor);
@@ -625,12 +633,18 @@ export function SettingsView({
           </div>
         </section>
 
+        {/* ── Notifications ────────────────────────────────────────── */}
+        <NotificationSettings initialSettings={notificationSettings} />
+
+        {/* ── Database backups ─────────────────────────────────────── */}
+        <BackupSettings status={backupStatus} nextRun={nextBackupRun} />
+
         {/* ── Import Data ───────────────────────────────────────────── */}
         <ImportSection />
 
         {/* ── About ─────────────────────────────────────────────────── */}
         <section id="about">
-          <div className="calm-card p-6 grid grid-cols-3 gap-5 text-[12px]">
+          <div className="calm-card p-6 grid grid-cols-2 gap-5 text-[12px]">
             <div>
               <div className="text-[10.5px] uppercase tracking-[0.08em] text-muted-foreground font-medium">Version</div>
               <div className="mono text-foreground/85 mt-1">{version}</div>
@@ -638,10 +652,6 @@ export function SettingsView({
             <div>
               <div className="text-[10.5px] uppercase tracking-[0.08em] text-muted-foreground font-medium">Database size</div>
               <div className="mono text-foreground/85 mt-1">{dbSize}</div>
-            </div>
-            <div>
-              <div className="text-[10.5px] uppercase tracking-[0.08em] text-muted-foreground font-medium">Last backup</div>
-              <div className="mono text-foreground/85 mt-1">{lastBackup}</div>
             </div>
           </div>
         </section>

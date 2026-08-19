@@ -1,318 +1,163 @@
 # Pocketbook — Homelab Deployment Runbook
 
-Stack: Next.js 16 · React 19 · Tailwind CSS 4 · Node 24 · Postgres 16 · Docker Compose · nginx-proxy-manager
+Stack: Next.js 16 · React 19 · Node 24 Alpine · PostgreSQL 16 · Docker Compose · nginx-proxy-manager
 
----
+## Topology
 
-## Secrets (Portainer stack environment panel)
+Production has exactly two services:
 
-Secrets live in **Portainer's stack environment panel**, not in a file on the host or in the repo.
-Portainer stores them and re-applies them on every (re)deploy and **Watchtower** recreate, so they
-survive restarts. The compose file has **no `env_file:` directive** — that was removed because
-Portainer reads `env_file` paths from inside its own container, so a host path like
-`/opt/docker/...` or `~/docker/...` is invisible to it and breaks the GitOps pull.
+- `pocketbook-web` — Next.js plus a separately supervised UTC scheduler worker. The image also contains PostgreSQL 16 client tools for backups.
+- `pocketbook-db` — PostgreSQL 16.
 
-### Setup
+Keep one web replica. A second replica would start a second scheduler; horizontal scaling requires leader election and is intentionally unsupported.
 
-In Portainer: open the Pocketbook stack → **Environment variables** → **Advanced mode**, then paste
-the lines from `stack.env.example` and fill in every value.
+The web supervisor generates a 256-bit token on each boot and shares it only with its two child processes. The worker uses that token to call the FX, monthly-insight, and recurring route handlers, keeping their cache invalidation inside Next.js. There is no external cron secret.
 
-> **With the bundled compose, use the `PB_`-prefixed names in the panel.** That compose only
-> interpolates `PB_*` names, so a bare `AUTH_URL` typed into the panel never reaches the container —
-> this is the #1 cause of "auth url is needed" boot failures.
->
-> The container's `entrypoint.sh` resolves config to the bare names the app + Auth.js read, accepting
-> **either** form: a bare name passed straight through by compose (`AUTH_URL=...`) **or** the
-> `PB_`-prefixed panel name (`PB_AUTH_URL` → `AUTH_URL`). A bare name wins when both are set, so a
-> custom compose that passes the bare names through (e.g. `AUTH_URL=${PB_AUTH_URL}`) is also supported.
+## Portainer environment
 
-**Required** (no defaults — left blank will brick the container):
+Paste `stack.env.example` into Stack → Environment variables → Advanced mode.
 
-| Key in the panel | Example |
+Required:
+
+| Key | Example |
 | --- | --- |
 | `PB_AUTH_URL` | `https://pocketbook.yourdomain.com` |
-| `PB_AUTH_SECRET` | *(output of `openssl rand -base64 32`)* |
+| `PB_AUTH_SECRET` | output of `openssl rand -base64 32` |
 | `PB_SEED_USER_EMAIL` | `you@yourdomain.com` |
-| `PB_SEED_USER_PASSWORD` | *(strong password)* |
-| `PB_FX_SYNC_SECRET` | *(output of `openssl rand -hex 32`)* |
-| `PB_POSTGRES_PASSWORD` | *(output of `openssl rand -hex 32`)* |
+| `PB_SEED_USER_PASSWORD` | a strong password |
+| `PB_POSTGRES_PASSWORD` | output of `openssl rand -hex 32` |
 
-**Optional** (sensible defaults apply if omitted):
+Optional:
 
 | Key | Default |
 | --- | --- |
 | `PB_USER_DISPLAY_NAME` | `Pocketbook` |
-| `PB_INSTANCE_NAME` | *(empty — no label shown)* |
+| `PB_INSTANCE_NAME` | empty |
 | `PB_OLLAMA_BASE_URL` | `http://ollama:11434` |
-| `PB_DOCKER_DIR` | `/opt/docker` *(host base path for bind-mount volumes)* |
-| `PB_ALERT_WEBHOOK` | *(empty — plain-text POST on startup failure, e.g. an ntfy topic)* |
-| `PB_DISCORD_WEBHOOK` | *(empty — Discord webhook URL; alerts on startup failure and failed nightly cron calls)* |
+| `PB_DOCKER_DIR` | `/opt/docker` |
 
-> **Shared Postgres stacks**: only `PB_POSTGRES_PASSWORD` is used — there is no unprefixed
-> `POSTGRES_PASSWORD` to collide with another postgres service sharing the same stack environment.
+Do not add a Discord webhook, alert webhook, or scheduler secret to Portainer. Discord is configured only after authentication in Settings → Notifications.
 
-### Resilience: last-known-good env cache (automatic)
+## Persistent directories
 
-Some Portainer versions redeploy a stack without re-applying the panel variables (seen on
-GitOps auto-updates and Portainer restarts). Pocketbook survives that the way most
-self-hosted apps do — by persisting its config in its own data volume:
-
-- After every **successful** boot, `entrypoint.sh` writes the validated config to
-  `${PB_DOCKER_DIR:-/opt/docker}/pocketbook/data/.env-cache` (`chmod 600`, owned by the
-  container user).
-- On a boot where the environment is missing values, the gaps are filled from that cache
-  and the app starts normally. **A value delivered by the environment always wins** — the
-  cache never overrides the panel, it only fills what the panel failed to deliver.
-- When the cache had to plug holes, a warning is posted to `PB_DISCORD_WEBHOOK` /
-  `PB_ALERT_WEBHOOK` (if set) so you know the panel delivery broke even though the app
-  stayed up. Fix the panel at your convenience.
-- The `fx-sync` and `db-backup` sidecars read the same cache when their panel secrets are
-  missing, so nightly cron calls and backups keep working too.
-
-No operator setup is required. The only boot that can still fail at `validate-env` is the
-very first one (nothing has ever been validated, so there is nothing to fall back on).
-To rotate a secret, change it in the panel and redeploy — the cache is rewritten on the
-next successful boot. To invalidate the cache manually, delete the file on the host; it
-reappears after the next good boot.
-
-> **Optional extra**: a manually maintained `stack.env` file mounted at `/run/pb-stack.env`
-> is still supported (see the commented volume line in the compose) for operators who want
-> an explicit host-side source of truth, but the automatic cache makes it unnecessary.
-
----
-
-## Pre-deploy checklist
-
-- [ ] `core_net` exists: `docker network ls | grep core_net`
-- [ ] AI stack running (Ollama reachable on `core_net` at `$PB_OLLAMA_BASE_URL`)
-- [ ] All required `PB_*` variables are set in the Portainer stack environment panel
-- [ ] `/opt/docker/pocketbook/postgres` directory exists on the host and is writable (or set `PB_DOCKER_DIR`)
-- [ ] GitHub Actions pushed a successful build to GHCR (check the Actions tab on the repo)
-
----
-
-## First deploy
+Create the host directories if your Docker deployment does not create bind-mount sources automatically:
 
 ```bash
-# 1. Authenticate with GHCR (once per host)
-#    CR_PAT = a GitHub PAT with read:packages scope
-echo $CR_PAT | docker login ghcr.io -u traejiik --password-stdin
+mkdir -p /opt/docker/pocketbook/{postgres,data,backups}
+```
 
-# 2. Pull and start
+The image briefly starts its entrypoint as root to make `/data` and `/backups` writable by UID 1001, then re-execs as `nextjs`. All migrations, seed work, Next.js, scheduler jobs, and PostgreSQL client processes run unprivileged.
+
+`/data` contains:
+
+- `.env-cache` — last-known-good validated environment values, mode `0600`.
+- `notifications.json` — the sole Discord configuration source, mode `0600`.
+- `jobs/<job>.json` — atomic occurrence and retry state.
+- `last-backup.json` — structured backup health and last verified metadata.
+- `startup-failures.log` — pre-supervisor startup diagnostics.
+
+`/backups` contains verified `pocketbook-YYYYMMDD-HHMMSS.dump` archives.
+
+## First deployment and upgrades
+
+```bash
 docker compose pull
-docker compose up -d
-
-# 3. Verify containers are healthy
+docker compose up -d --remove-orphans
 docker compose ps
-# Expected: pocketbook-db → healthy, pocketbook-web → Up, pocketbook-fx-sync → Up, pocketbook-db-backup → Up
+docker compose logs -f pocketbook-web
 ```
 
-## Run migrations (required on first deploy and after any schema change)
+`--remove-orphans` removes the former scheduler and backup sidecar containers while preserving the host-mounted database, data, and backup directories.
 
-```bash
-docker compose exec pocketbook-web npx prisma migrate deploy
-```
+On each boot, `pocketbook-web` waits for PostgreSQL, runs `prisma migrate deploy`, the idempotent seed, and the FX-lock backfill. It then starts the supervisor. If Next.js exits, the worker exits, or worker heartbeats stop, the supervisor terminates its sibling and exits so Docker restarts the service.
 
-## Seed the database (first deploy only)
+After one successful boot, missing environment values can be filled from `/data/.env-cache`; live environment values always win. Discord is never read from or copied into this cache.
 
-```bash
-# Runs prisma/seed.ts — creates the single user row from PB_SEED_USER_EMAIL / PB_SEED_USER_PASSWORD.
-# Idempotent — safe to re-run (upserts, does not duplicate).
-docker compose exec pocketbook-web npx prisma db seed
-```
+## Scheduled operations
 
-Normal container startup performs migration, seed, and the idempotent transaction FX-lock backfill automatically. The backfill runs as `/app/prisma/backfill-fx.js` inside `entrypoint.sh`, after the seed and before Next.js, so it inherits the generated `PB_DATABASE_URL`; no separate `docker exec` command is required.
+The worker evaluates fixed UTC schedules once per minute and runs due work serially:
 
-## Optional: import transactions from CSV
+| Job | Schedule | Setting |
+| --- | --- | --- |
+| Verified PostgreSQL backup | daily 02:30 | always |
+| Frankfurter FX sync | daily 03:00 | `fxAutoSync` |
+| Closed-month AI insight | day 1 at 03:05 | `autoInsightsMonthly` |
+| Recurring reconciliation | daily 03:10 | always |
 
-```bash
-# Copy your CSV onto the container
-docker cp seed/transactions.csv pocketbook-web:/app/seed/transactions.csv
+On startup, Pocketbook catches up only the latest relevant state: the current backup, current FX state, latest closed-month insight, and idempotent recurring reconciliation. It does not replay every missed date. A missing successful occurrence retries every 15 minutes; only its first failure attempts a Discord failure notification.
 
-# Run the importer (idempotent — skips rows already present)
-docker compose exec pocketbook-web npx tsx scripts/csv-import.ts
-```
+Operational state is atomic under `/data/jobs`. If a state file is missing or corrupt, the latest occurrence is safely reconsidered; finance writes and recurring generation remain idempotent.
 
----
+## Discord notifications
 
-## Configure NPM reverse proxy
+1. In Discord, create a webhook and copy its HTTPS URL.
+2. Sign in to Pocketbook and open Settings → Notifications.
+3. Enter the webhook, optional username and public HTTPS avatar URL, choose event switches, and save.
+4. Send a test. The test bypasses the master/event switches but still requires a configured webhook.
 
-In the nginx-proxy-manager web UI:
+Pocketbook never sends the stored URL back to the browser. Disconnect deletes it from `/data/notifications.json`. Discord requests disable mentions, use `wait=true`, and time out after five seconds. Notification failures never roll back finance or backup work.
 
-1. Hosts → Proxy Hosts → **Add Proxy Host**
-2. Domain name: `pocketbook.<your-homelab-domain>`
-3. Scheme: `http` · Forward Hostname/IP: `pocketbook-web` · Port: `3000`
-4. Enable SSL → Request Let's Encrypt cert → Force SSL → Save
-
-NPM resolves `pocketbook-web` by container name over `core_net` — no IP address or exposed host port required.
-
-> **PWA install:** Pocketbook is installable (web app manifest at `/manifest.webmanifest`, icons in `public/icons/`). No new env vars or services — but browsers only offer "Install / Add to Home Screen" over a secure context, so the **Force SSL** step above is what makes the install prompt appear.
-
----
-
-## Verify FX rate sync
-
-```bash
-# Trigger manually to confirm it can reach frankfurter.dev
-docker compose exec pocketbook-web sh -lc \
-  'wget -qO- --header="X-Sync-Secret: $FX_SYNC_SECRET" --post-data="" http://pocketbook-web:3000/api/fx/sync'
-# Expected response: {"synced": N}
-```
-
-The `fx-sync` sidecar makes the same call automatically at 03:00 every night via crond,
-through its `pb-job` wrapper, which posts to `PB_DISCORD_WEBHOOK` (if set) when a call fails.
-
----
-
-## Verify monthly insights
-
-```bash
-# Trigger manually (idempotent — safe to re-run; covers the month that just ended)
-docker compose exec pocketbook-web sh -lc \
-  'wget -qO- --header="X-Sync-Secret: $FX_SYNC_SECRET" --post-data="" http://pocketbook-web:3000/api/insights/monthly'
-# Expected response: {"generated":true,"id":"...","monthCovered":"YYYY-MM"} or {"generated":false,"skipped":true}
-```
-
-Monthly insights are generated automatically on the 1st of each month at 03:05 (5 minutes after FX
-sync) by the `fx-sync` sidecar, and cover the **previous** month — the run on 1 July summarises
-June's complete data. (Generating for the current month would summarise a few hours of an empty
-month, which is what happened before v1.2.0.) Generation can be disabled per-deployment via the
-**Auto Monthly Insights** toggle in Settings → Insights. The secret is shared with FX sync
-(`PB_FX_SYNC_SECRET`). If `PB_DISCORD_WEBHOOK` is set, a Discord message confirms each generation.
-
----
-
-## Verify recurring transaction sync
-
-```bash
-# Trigger manually to log all due recurring rules and advance their next due dates.
-docker compose exec pocketbook-web sh -lc \
-  'wget -qO- --header="X-Sync-Secret: $FX_SYNC_SECRET" --post-data="" http://pocketbook-web:3000/api/recurring/sync'
-# Expected response: {"rulesProcessed":N,"transactionsCreated":N,"created":[...]}
-```
-
-Recurring transaction sync runs automatically every night at 03:10 by the `fx-sync` sidecar. The app
-also runs the same reconciliation once when an authenticated user opens Pocketbook, so missed cron
-runs are caught the next time the app is used. Whenever a sync creates at least one transaction
-(from either trigger), a Discord message lists the logged transactions if `PB_DISCORD_WEBHOOK` is set.
-
----
+The six event switches are system alerts, scheduled-job failures, recurring activity, monthly insight ready, backup completed, and backup failed. Messages are fixed typed presets with live values; templates and arbitrary payloads are intentionally unsupported.
 
 ## Database backups
 
-The `db-backup` sidecar runs a custom-format `pg_dump` every night at 02:30 UTC (before the
-03:00 cron jobs), verifies the dump with `pg_restore --list`, and keeps the newest 14 dumps in
-`${PB_DOCKER_DIR:-/opt/docker}/pocketbook/backups/`. After a verified dump it records the
-timestamp in `/data/last-backup` (shown as "Last backup" in Settings) and, if
-`PB_DISCORD_WEBHOOK` is set, posts a success message — failures post an error message instead.
+Scheduled and manual backups share one implementation. It acquires a cross-process lock, runs `pg_dump` without a shell, passes the password only in the child environment, writes a `.partial` custom-format archive, verifies it with `pg_restore --list`, then atomically renames it to `.dump`. The newest 14 verified archives are retained. A run times out after 30 minutes; stale locks and partials are recovered safely.
+
+Settings → Database backups shows Healthy, Failed, or Never, plus last success, filename, size, retained count, next run, and an authenticated Back up now action. A failed attempt preserves the metadata for the last known-good archive.
+
+### Restore drill
+
+Never test a restore against the live `pocketbook` database. Restore into a disposable database and compare representative counts:
 
 ```bash
-# Run a backup on demand
-docker compose exec db-backup /usr/local/bin/pb-backup
+# Choose an existing verified archive.
+BACKUP_FILE=pocketbook-YYYYMMDD-HHMMSS.dump
 
-# Restore a dump into the running database (DESTRUCTIVE — overwrites current data)
-docker compose exec pocketbook-db sh -lc \
-  'pg_restore -U pocketbook -d pocketbook --clean --if-exists /path/to/pocketbook-YYYYMMDD-HHMMSS.dump'
+# Create a disposable target.
+docker compose exec pocketbook-db createdb -U pocketbook pocketbook_restore_drill
+
+# Restore from the /backups mount available inside pocketbook-web.
+docker compose exec pocketbook-web sh -lc \
+  'PGPASSWORD="$PB_POSTGRES_PASSWORD" pg_restore \
+    --host=pocketbook-db --username=pocketbook \
+    --dbname=pocketbook_restore_drill "/backups/'"$BACKUP_FILE"'"'
+
+# Compare representative row counts with the live database.
+docker compose exec pocketbook-db psql -U pocketbook -d pocketbook -c \
+  'select count(*) as live_transactions from "Transaction";'
+docker compose exec pocketbook-db psql -U pocketbook -d pocketbook_restore_drill -c \
+  'select count(*) as restored_transactions from "Transaction";'
+
+# Remove only the disposable target after verification.
+docker compose exec pocketbook-db dropdb -U pocketbook pocketbook_restore_drill
 ```
 
-To restore, first copy the dump into the db container
-(`docker cp ${PB_DOCKER_DIR:-/opt/docker}/pocketbook/backups/<file>.dump pocketbook-db:/tmp/`).
-
----
-
-## Subsequent updates (CI/CD flow)
-
-Releases are cut automatically: a PR that bumps the `package.json` version, once merged into
-`main`, makes `release.yml` create the `vX.Y.Z` tag + GitHub release and then build and push
-the GHCR image from a dependent `docker` job in the same workflow. (See README → "Releases" for
-the authoring flow.) To rebuild an existing tag's image, trigger `release.yml` manually via
-`workflow_dispatch` with that tag. Once a new GHCR build appears in the Actions tab:
-
-```bash
-docker compose pull
-docker compose up -d
-
-# Only if the Prisma schema changed:
-docker compose exec pocketbook-web npx prisma migrate deploy
-```
-
----
+For an intentional real restore, stop the web service first, explicitly name the target database, take a fresh safety dump, and review the `pg_restore` flags. Pocketbook deliberately provides no restore button.
 
 ## Useful commands
 
 ```bash
-docker compose logs -f pocketbook-web     # App logs (streaming)
-docker compose logs -f pocketbook-db      # Postgres logs
-docker compose logs -f fx-sync            # Cron sidecar logs
-docker compose ps                         # Status of all containers
-docker compose down                       # Stop all (data persists in volume)
-docker compose down -v                    # ⚠ DESTRUCTIVE — also removes the postgres volume
+docker compose logs -f pocketbook-web
+docker compose logs -f pocketbook-db
+docker compose ps
+docker compose config
+docker compose down                 # bind-mounted data persists
 ```
 
----
+Avoid `docker compose down -v` unless you have confirmed the exact storage layout and intend to remove named volumes.
 
 ## Troubleshooting
 
 | Symptom | Check |
 | --- | --- |
-| Login fails immediately | `PB_AUTH_SECRET` mismatch or `PB_AUTH_URL` not matching the actual URL |
-| `PrismaClientInitializationError` on first request | DB not yet healthy — check `docker compose ps` and wait for `pocketbook-db` to show `healthy` |
-| `stage=prisma-migrate` with `datasource.url property is required` | Stale/broken image missing `prisma.config.ts` in the runner — pull/redeploy `v1.0.7` or newer |
-| `stage=fx-backfill` on startup | The FX-lock backfill failed after migration/seed. Read the captured output in `startup-failures.log`; do not bypass it, because unlocked historical transactions would continue to drift. |
-| `auth url is needed` / boot loop | `AUTH_URL`/`AUTH_SECRET` not reaching the container — with the bundled compose, set `PB_AUTH_URL`/`PB_AUTH_SECRET` in the panel (a bare `AUTH_URL` in the panel is ignored, since that compose only interpolates `PB_*`). After one successful boot this can only happen on a fresh install: later boots fall back to the env cache (see Resilience above) |
-| Discord warning "booted from cached env" | The app is up, but the last redeploy arrived without the panel variables — open the stack in Portainer, verify the environment panel still has its values, and redeploy |
-| AI insights load forever | Ollama unreachable — verify `PB_OLLAMA_BASE_URL` in the panel and that Ollama is on `core_net` |
-| FX sync returns 401 | `PB_FX_SYNC_SECRET` in the panel doesn't match the header sent by the `fx-sync` sidecar |
-| Monthly insights return 401 | Same secret — `PB_FX_SYNC_SECRET` is shared between FX sync and monthly insights |
-| Recurring sync returns 401 | Same secret — `PB_FX_SYNC_SECRET` is shared between FX sync, monthly insights, and recurring sync |
-| NPM can't reach the app | `pocketbook-web` not joined to `core_net` — verify with `docker inspect pocketbook-web` |
-| `P2028: Transaction not found` on writes | Image older than v1.2.0 — the Prisma client wasn't memoized in production, so `$transaction` spanned two client instances. Pull/redeploy v1.2.0+ |
-| DB logs `FATAL: role "-d" does not exist` every 10s | Stale db container running an old healthcheck whose `$POSTGRES_USER` expands empty. Harmless (health stays green) but noisy — redeploy the stack so the db container picks up the hardcoded `pg_isready -U pocketbook -d pocketbook` |
+| Login fails | `PB_AUTH_URL` and `PB_AUTH_SECRET` in Portainer |
+| `validate-env` restart loop | required values missing from both Portainer and `/data/.env-cache` |
+| `prisma-migrate` failure | `/data/startup-failures.log` and PostgreSQL health |
+| Scheduler repeatedly exits | `docker compose logs pocketbook-web`; supervisor exits the whole service by design |
+| Internal route returns 401 | only the worker can call it; a stale process or manual HTTP request has no current per-boot token |
+| Backup says already running forever | upgrade to v2.11.0+ for stale-lock recovery; inspect `/tmp/pocketbook-backup.lock` inside the current container |
+| Backup failed | Settings error, web logs, database reachability, and host free space |
+| Discord test fails | exact `https://discord.com/api/webhooks/...` URL, public avatar reachability, Discord permissions |
+| Notifications disappeared after redeploy | confirm the `/data` bind mount persists and contains `notifications.json` owned by UID 1001 |
 
-### Diagnosing a boot / restart loop
-
-If `pocketbook-web` keeps restarting, the cause is captured on the persistent volume even
-after the console scrolls or a Watchtower/Portainer recreate wipes `docker logs`:
-
-```bash
-# Timestamped report per failed boot: stage, exit code, which PB_* vars were missing,
-# and the captured migrate/seed/FX-backfill output.
-cat ${PB_DOCKER_DIR:-/opt/docker}/pocketbook/data/startup-failures.log
-```
-
-The `stage=` field tells you where it died: `validate-env` (a required var is missing —
-listed by its resolved name; after the first successful boot this only happens when both
-the panel **and** the env cache are empty), `wait-for-db` (DB never became reachable —
-check `docker logs pocketbook-db`), `prisma-migrate`, `seed`, or `fx-backfill`.
-
-> **`Permission denied` creating `startup-failures.log`?** The container runs as uid 1001, so the
-> host data dir must be writable by it. If it isn't, the report falls back to the container-local
-> `/tmp/startup-failures.log` (lost on recreate) and startup is unaffected. To keep the log on the
-> persistent volume, run on the host:
-> `chown -R 1001:1001 ${PB_DOCKER_DIR:-/opt/docker}/pocketbook/data`.
-
-**Optional push alert:** set `PB_ALERT_WEBHOOK` in the panel to a URL that accepts a POSTed
-text body (e.g. an ntfy topic `https://ntfy.sh/your-private-topic`) to be notified on each
-startup failure. The log file is written regardless of whether this is set.
-
-### Discord failure alerts
-
-Set `PB_DISCORD_WEBHOOK` in the panel to a Discord webhook URL
-(Discord → Server Settings → Integrations → Webhooks → New Webhook → Copy URL). When set:
-
-- **`pocketbook-web`** posts a message if startup fails (same trigger as `PB_ALERT_WEBHOOK`,
-  but with the JSON payload Discord requires), and a warning when a boot had to restore
-  variables from the env cache because the stack environment did not deliver them.
-- **`fx-sync` sidecar** posts a message whenever a nightly cron call fails (non-2xx or
-  unreachable): FX sync (03:00), monthly insights (03:05 on the 1st), and recurring
-  sync (03:10). The message includes the job name and the response body, so an HTTP 500
-  from a failing sync shows up in Discord instead of only in `docker logs pocketbook-fx-sync`.
-- **Recurring auto-log** — when a sync creates transactions (nightly cron or the app-open
-  reconciliation), the app posts the list of logged transactions.
-- **Monthly AI insight** — the app posts a confirmation when the scheduled insight for the
-  previous month is generated.
-- **`db-backup` sidecar** — posts after every nightly `pg_dump` (02:30): success with file
-  name and size, or failure with the error.
-
-Both variables can be set together; they are independent. Redeploy the stack after changing
-either so the sidecar re-reads its configuration.
+Startup failures before the supervisor are appended to `${PB_DOCKER_DIR}/pocketbook/data/startup-failures.log`. Runtime child failures are visible in `pocketbook-web` logs and use the configured system-alert preset when enabled.
