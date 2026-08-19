@@ -7,6 +7,7 @@ import {
   readNotificationConfig,
   toAuthenticatedNotificationSettings,
   validateDiscordWebhookUrl,
+  withNotificationConfigMutation,
   writeNotificationConfig,
 } from '@/lib/notifications/config'
 import { deliverNotificationWithConfig } from '@/lib/notifications/send'
@@ -106,60 +107,66 @@ export async function saveNotificationSettings(
   }
 
   const parsed = parsedResult.data
-  const current = await readNotificationConfig()
-  const webhookInputWasBlank = parsed.webhookUrl === ''
-  const identity = normaliseNotificationIdentity({
-    webhookUrl: parsed.webhookUrl || current.config.webhookUrl || '',
-    username: parsed.username,
-    avatarUrl: parsed.avatarUrl,
-  })
-  const identityHash = hashNotificationIdentity(identity)
-  const persistedVerification = current.config.verification?.identityHash === identityHash
-    ? current.config.verification
-    : null
-  const receiptVerification = !webhookInputWasBlank && receipt
-    ? verifyNotificationVerificationReceipt(receipt, identity)
-    : null
+  const result = await withNotificationConfigMutation(async () => {
+    const current = await readNotificationConfig()
+    const webhookInputWasBlank = parsed.webhookUrl === ''
+    const identity = normaliseNotificationIdentity({
+      webhookUrl: parsed.webhookUrl || current.config.webhookUrl || '',
+      username: parsed.username,
+      avatarUrl: parsed.avatarUrl,
+    })
+    const identityHash = hashNotificationIdentity(identity)
+    const persistedVerification = current.config.verification?.identityHash === identityHash
+      ? current.config.verification
+      : null
+    const receiptVerification = !webhookInputWasBlank && receipt
+      ? verifyNotificationVerificationReceipt(receipt, identity)
+      : null
 
-  if (!identity.webhookUrl || (!persistedVerification && !receiptVerification)) {
-    return { ok: false as const, error: verificationRequiredError }
-  }
-
-  const nextConfig: NotificationConfig = {
-    version: 2,
-    enabled: parsed.enabled,
-    webhookUrl: identity.webhookUrl,
-    username: identity.username,
-    avatarUrl: identity.avatarUrl,
-    events: parsed.events,
-    verification: persistedVerification ?? receiptVerification,
-  }
-
-  let config: NotificationConfig
-  try {
-    config = await writeNotificationConfig(nextConfig)
-  } catch {
-    return {
-      ok: false as const,
-      error: 'Could not save notification settings. Check that the notification data directory is writable.',
+    if (!identity.webhookUrl || (!persistedVerification && !receiptVerification)) {
+      return { ok: false as const, error: verificationRequiredError }
     }
-  }
 
-  revalidatePath('/settings')
-  return {
-    ok: true as const,
-    settings: toAuthenticatedNotificationSettings(config, 'ready'),
-  }
+    const nextConfig: NotificationConfig = {
+      version: 2,
+      enabled: parsed.enabled,
+      webhookUrl: identity.webhookUrl,
+      username: identity.username,
+      avatarUrl: identity.avatarUrl,
+      events: parsed.events,
+      verification: persistedVerification ?? receiptVerification,
+    }
+
+    let config: NotificationConfig
+    try {
+      config = await writeNotificationConfig(nextConfig)
+    } catch {
+      return {
+        ok: false as const,
+        error: 'Could not save notification settings. Check that the notification data directory is writable.',
+      }
+    }
+
+    return {
+      ok: true as const,
+      settings: toAuthenticatedNotificationSettings(config, 'ready'),
+    }
+  })
+
+  if (result.ok) revalidatePath('/settings')
+  return result
 }
 
 export async function disconnectDiscordNotifications() {
   await requireAuthenticatedUser()
-  const current = await readNotificationConfig()
-  const config = await writeNotificationConfig({
-    ...current.config,
-    enabled: false,
-    webhookUrl: null,
-    verification: null,
+  const config = await withNotificationConfigMutation(async () => {
+    const current = await readNotificationConfig()
+    return writeNotificationConfig({
+      ...current.config,
+      enabled: false,
+      webhookUrl: null,
+      verification: null,
+    })
   })
 
   revalidatePath('/settings')

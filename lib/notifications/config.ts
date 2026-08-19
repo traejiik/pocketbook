@@ -15,6 +15,23 @@ import { hashNotificationIdentity } from '@/lib/notifications/verification'
 
 export const NOTIFICATION_CONFIG_PATH = '/data/notifications.json'
 
+const notificationConfigMutationGlobal = globalThis as typeof globalThis & {
+  __pocketbookNotificationConfigMutationTail?: Promise<void>
+}
+
+export function withNotificationConfigMutation<T>(
+  callback: () => Promise<T>,
+): Promise<T> {
+  const previous = notificationConfigMutationGlobal.__pocketbookNotificationConfigMutationTail
+    ?? Promise.resolve()
+  const result = previous.then(callback)
+  notificationConfigMutationGlobal.__pocketbookNotificationConfigMutationTail = result.then(
+    () => undefined,
+    () => undefined,
+  )
+  return result
+}
+
 export function notificationConfigPath(
   env: NodeJS.ProcessEnv = process.env,
   cwd = process.cwd(),

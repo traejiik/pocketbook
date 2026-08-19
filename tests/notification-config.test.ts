@@ -9,6 +9,7 @@ import {
   readNotificationConfig,
   toAuthenticatedNotificationSettings,
   validateDiscordWebhookUrl,
+  withNotificationConfigMutation,
   writeNotificationConfig,
 } from '@/lib/notifications/config'
 import { hashNotificationIdentity } from '@/lib/notifications/verification'
@@ -19,7 +20,39 @@ async function tempConfigPath() {
   return join(dir, 'nested', 'notifications.json')
 }
 
+function deferred<T = void>() {
+  let resolve!: (value: T | PromiseLike<T>) => void
+  const promise = new Promise<T>((resolvePromise) => {
+    resolve = resolvePromise
+  })
+  return { promise, resolve }
+}
+
 describe('notification configuration', () => {
+  it('continues the mutation queue after a callback fails', async () => {
+    const firstEntered = deferred()
+    const releaseFirst = deferred()
+    const calls: string[] = []
+    const first = withNotificationConfigMutation(async () => {
+      calls.push('first')
+      firstEntered.resolve()
+      await releaseFirst.promise
+      throw new Error('simulated mutation failure')
+    })
+    await firstEntered.promise
+    const second = withNotificationConfigMutation(async () => {
+      calls.push('second')
+      return 'continued'
+    })
+
+    await Promise.resolve()
+    expect(calls).toEqual(['first'])
+    releaseFirst.resolve()
+    await expect(first).rejects.toThrow('simulated mutation failure')
+    await expect(second).resolves.toBe('continued')
+    expect(calls).toEqual(['first', 'second'])
+  })
+
   it('uses a local .data path for development runs', () => {
     expect(notificationConfigPath({ NODE_ENV: 'development' }, '/repo/pocketbook')).toBe(
       '/repo/pocketbook/.data/notifications.json',
