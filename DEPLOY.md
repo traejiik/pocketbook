@@ -92,12 +92,19 @@ Operational state is atomic under `/data/jobs`. If a state file is missing or co
 
 1. In Discord, create a webhook and copy its HTTPS URL.
 2. Sign in to Pocketbook and open Settings → Notifications.
-3. Enter the webhook, optional username and public HTTPS avatar URL, choose event switches, and save.
-4. Send a test. The test bypasses the master/event switches but still requires a configured webhook.
+3. Enter the webhook, optional username and public HTTPS avatar URL, and choose event switches.
+4. Select **Send test**. The test uses those current unsaved identity fields and bypasses the master/event switches.
+5. After the test succeeds, select **Save settings** within ten minutes.
 
-The authenticated Settings page displays the saved webhook in an editable URL field and keeps it visible after Save. Treat it as a credential: anyone holding it can post to the Discord channel. Pocketbook does not log it, include it in toasts or errors, or expose it to unauthenticated clients. Disconnect removes it from `/data/notifications.json`. Discord requests disable mentions, use `wait=true`, and time out after five seconds. Notification failures never roll back finance or backup work.
+Discord identity means the webhook URL, username, and avatar URL together. A new or changed identity must pass one successful test before Save persists it. A successful test returns a process-local signed receipt that expires after ten minutes and is held only in browser memory until Save, expiry, an identity edit, or Disconnect. Save validates that proof and sends no second Discord message. Master/event switch-only changes keep the already verified identity and can save without another test. The card's layout is otherwise unchanged: there are no verification badges, status rows, or extra helper panels.
+
+The authenticated Settings page displays the saved webhook in an editable URL field and keeps it visible after Save. Treat it as a credential: anyone holding it can post to the Discord channel. Pocketbook does not log it, include it in toasts or errors, or expose it to unauthenticated clients. Disconnect removes the stored webhook and verification from `/data/notifications.json` and clears the current browser proof. A valid receipt is neither globally revoked nor single-use; its short expiry, signature, and exact identity binding are the security boundary. Discord requests disable mentions, use `wait=true`, and time out after five seconds. Notification failures never roll back finance or backup work.
 
 Production uses `/data/notifications.json`. Direct development runs use the repository-local `.data/notifications.json`, which Git ignores. `PB_NOTIFICATION_CONFIG_PATH` is an explicit path override for development or diagnostics; it selects the file location but is not a webhook environment fallback.
+
+Existing v1 notification files continue delivering after upgrade. Pocketbook migrates them in memory with no stored verification, then writes v2 only after the operator completes an explicit successful Test + Save; an old file is never silently marked trusted. Notification writes and Disconnect are serialised inside the web process, which relies on the supported single-`pocketbook-web`-replica topology described above.
+
+The optional avatar remains a direct public HTTPS URL attached per outgoing message. Pocketbook never uploads it, uses ImgBB, or modifies the shared Discord webhook's default avatar.
 
 The six event switches are system alerts, scheduled-job failures, recurring activity, monthly insight ready, backup completed, and backup failed. Messages are fixed typed presets with live values; templates and arbitrary payloads are intentionally unsupported.
 

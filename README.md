@@ -141,7 +141,11 @@ On boot, the `pocketbook-web` container prepares `/data` and `/backups` as root,
 
 After every successful boot the validated environment configuration is persisted to `.env-cache` on the `/data` volume (`chmod 600`); if a later redeploy arrives without variables, the entrypoint restores only the missing values. Discord configuration is separate: enter the webhook in authenticated Settings. Production stores it in `/data/notifications.json`; a direct development run stores it in `.data/notifications.json`; and `PB_NOTIFICATION_CONFIG_PATH` can explicitly override either location. The file is written with mode `0600`, and the webhook is never imported from environment variables.
 
-The authenticated Settings page displays the saved webhook in an editable URL field and keeps it visible after Save. Treat it as a credential: anyone holding it can post to the Discord channel. Pocketbook does not log it, include it in toasts or errors, or expose it to unauthenticated clients; Disconnect removes it from the configuration file.
+Before Pocketbook saves a new or changed Discord identity, **Send test** must succeed for the current unsaved webhook URL, username, and avatar URL. That successful test creates a process-signed receipt which stays only in browser memory for ten minutes; editing the identity, letting it expire, saving, or disconnecting clears it. Save validates the receipt and persists the settings without sending a second Discord message. Master and event switch-only changes do not alter the identity, so an already verified identity can save them without another test.
+
+The authenticated Settings page displays the saved webhook in an editable URL field and keeps it visible after Save. Treat it as a credential: anyone holding it can post to the Discord channel. Pocketbook does not log it, include it in toasts or errors, or expose it to unauthenticated clients; Disconnect removes the stored webhook and its verification. Legacy v1 notification files continue delivering after an upgrade, but their identity is not silently trusted: the first explicit successful Test + Save writes the v2 format.
+
+An avatar is an optional direct public HTTPS image URL sent with each Pocketbook message. Pocketbook does not upload images, integrate with ImgBB, or change the shared Discord webhook's default avatar.
 
 ### Configuration
 
