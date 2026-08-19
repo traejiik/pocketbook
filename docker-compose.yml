@@ -34,6 +34,7 @@ services:
       - PB_POSTGRES_DB=pocketbook
       - AUTH_TRUST_HOST=true
       - NODE_ENV=production
+      # ===================================
       - PB_AUTH_URL=${PB_AUTH_URL:-}
       - PB_AUTH_SECRET=${PB_AUTH_SECRET:-}
       - PB_POSTGRES_PASSWORD=${PB_POSTGRES_PASSWORD:-}
