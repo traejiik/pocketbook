@@ -108,6 +108,7 @@ export async function disconnectDiscordNotifications() {
     ...current.config,
     enabled: false,
     webhookUrl: null,
+    verification: null,
   })
 
   revalidatePath('/settings')

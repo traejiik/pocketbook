@@ -160,4 +160,24 @@ describe('notification configuration', () => {
     }))
     expect(settings).not.toHaveProperty('verification')
   })
+
+  it('does not project stale verification metadata', () => {
+    const config = {
+      ...DEFAULT_NOTIFICATION_CONFIG,
+      webhookUrl: 'https://discord.com/api/webhooks/123/token-value',
+      verification: {
+        identityHash: 'a'.repeat(64),
+        verifiedAt: '2026-08-19T12:00:00.000Z',
+      },
+    }
+
+    const settings = toAuthenticatedNotificationSettings(config, 'ready')
+
+    expect(settings).toEqual(expect.objectContaining({
+      identityVerified: false,
+      verifiedAt: null,
+    }))
+    expect(settings).not.toHaveProperty('verification')
+    expect(settings).not.toHaveProperty('identityHash')
+  })
 })

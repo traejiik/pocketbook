@@ -3,12 +3,39 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { DEFAULT_NOTIFICATION_CONFIG, readNotificationConfig } from '@/lib/notifications/config'
+import {
+  DEFAULT_NOTIFICATION_CONFIG,
+  readNotificationConfig,
+  writeNotificationConfig,
+} from '@/lib/notifications/config'
+import { hashNotificationIdentity } from '@/lib/notifications/verification'
 
 const authMock = vi.fn()
 
 vi.mock('@/lib/auth', () => ({ auth: authMock }))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
+
+function verifiedConfig() {
+  const config = {
+    ...DEFAULT_NOTIFICATION_CONFIG,
+    enabled: true,
+    webhookUrl: 'https://discord.com/api/webhooks/123/token-value',
+    username: 'Pocketbook',
+    avatarUrl: null,
+  }
+
+  return {
+    ...config,
+    verification: {
+      identityHash: hashNotificationIdentity({
+        webhookUrl: config.webhookUrl,
+        username: config.username,
+        avatarUrl: config.avatarUrl,
+      }),
+      verifiedAt: '2026-08-19T12:00:00.000Z',
+    },
+  }
+}
 
 describe('notification settings actions', () => {
   beforeEach(async () => {
@@ -146,21 +173,65 @@ describe('notification settings actions', () => {
     }))
   })
 
-  it('disconnects and removes the webhook secret', async () => {
-    const { disconnectDiscordNotifications, saveNotificationSettings } = await import('@/server-actions/notifications')
-    await saveNotificationSettings({
-      enabled: true,
-      webhookUrl: 'https://discord.com/api/webhooks/123/token-value',
-      username: 'Pocketbook',
-      avatarUrl: null,
-      events: DEFAULT_NOTIFICATION_CONFIG.events,
-    })
+  it('disconnects and removes the webhook secret and verification', async () => {
+    const { disconnectDiscordNotifications } = await import('@/server-actions/notifications')
+    await writeNotificationConfig(verifiedConfig(), process.env.PB_NOTIFICATION_CONFIG_PATH)
 
     const result = await disconnectDiscordNotifications()
 
     expect(result.settings.configured).toBe(false)
     expect(result.settings.webhookUrl).toBeNull()
-    expect((await readNotificationConfig(process.env.PB_NOTIFICATION_CONFIG_PATH)).config.webhookUrl).toBeNull()
+    expect((await readNotificationConfig(process.env.PB_NOTIFICATION_CONFIG_PATH)).config).toEqual(expect.objectContaining({
+      webhookUrl: null,
+      verification: null,
+    }))
+  })
+
+  it('preserves verification for switch-only settings changes', async () => {
+    const { saveNotificationSettings } = await import('@/server-actions/notifications')
+    const config = verifiedConfig()
+    await writeNotificationConfig(config, process.env.PB_NOTIFICATION_CONFIG_PATH)
+
+    await saveNotificationSettings({
+      enabled: false,
+      webhookUrl: '',
+      username: config.username,
+      avatarUrl: config.avatarUrl,
+      events: { ...config.events, backupCompleted: false },
+    })
+
+    expect((await readNotificationConfig(process.env.PB_NOTIFICATION_CONFIG_PATH)).config.verification)
+      .toEqual(config.verification)
+  })
+
+  it.each([
+    {
+      name: 'webhook',
+      input: { webhookUrl: 'https://discord.com/api/webhooks/456/token-value' },
+    },
+    {
+      name: 'username',
+      input: { username: 'Pocketbook Home' },
+    },
+    {
+      name: 'avatar',
+      input: { avatarUrl: 'https://example.com/pocketbook.png' },
+    },
+  ])('clears verification when the $name identity field changes', async ({ input }) => {
+    const { saveNotificationSettings } = await import('@/server-actions/notifications')
+    const config = verifiedConfig()
+    await writeNotificationConfig(config, process.env.PB_NOTIFICATION_CONFIG_PATH)
+
+    await saveNotificationSettings({
+      enabled: config.enabled,
+      webhookUrl: config.webhookUrl,
+      username: config.username,
+      avatarUrl: config.avatarUrl,
+      events: config.events,
+      ...input,
+    })
+
+    expect((await readNotificationConfig(process.env.PB_NOTIFICATION_CONFIG_PATH)).config.verification).toBeNull()
   })
 
   it('sends an authenticated test even while the master switch is off', async () => {
