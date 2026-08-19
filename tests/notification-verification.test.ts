@@ -1,3 +1,4 @@
+import { createHmac } from 'node:crypto'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -65,6 +66,12 @@ describe('notification verification receipts', () => {
   it('rejects malformed receipts and payloads without throwing', () => {
     expect(() => verifyNotificationVerificationReceipt('not-a-receipt', identity, { key, now })).not.toThrow()
     expect(verifyNotificationVerificationReceipt('not-a-receipt', identity, { key, now })).toBeNull()
-    expect(verifyNotificationVerificationReceipt('not-json.abc', identity, { key, now })).toBeNull()
+
+    const encodedPayload = Buffer.from('{not-json').toString('base64url')
+    const signature = createHmac('sha256', key).update(encodedPayload).digest('base64url')
+    const malformedReceipt = `${encodedPayload}.${signature}`
+
+    expect(() => verifyNotificationVerificationReceipt(malformedReceipt, identity, { key, now })).not.toThrow()
+    expect(verifyNotificationVerificationReceipt(malformedReceipt, identity, { key, now })).toBeNull()
   })
 })
