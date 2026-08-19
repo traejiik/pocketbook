@@ -2,14 +2,13 @@
 
 import { useState, useOptimistic, startTransition, useMemo, useCallback, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { format, subMonths, addMonths } from 'date-fns';
 import { SearchIcon, ChevronRightIcon, ChevronDownIcon, RepeatIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { notify } from '@/lib/ui-notify';
 import { upsertTransaction, type TxInput } from '@/server-actions/transactions';
 import { useTransactionSheet, type EditingTx } from '@/contexts/sheet-context';
-import { fmtAnchor, fmtCur, fmtDate, dayOfWeek } from '@/lib/format';
+import { fmtAnchor, fmtCur, fmtDate, dayOfWeek, monthKeyOf, shiftMonthKey } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { Segmented } from '@/components/ui/segmented';
 import { CalmCard } from '@/components/finance/CalmCard';
@@ -111,16 +110,13 @@ export function TransactionsView({
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const thisMonthISO = format(new Date(), 'yyyy-MM');
+  const thisMonthISO = monthKeyOf(new Date());
   const isCurrentMonth = currentMonthISO === thisMonthISO;
 
   const navigateMonth = useCallback(
     (direction: 'prev' | 'next') => {
-      const [y, m] = currentMonthISO.split('-').map(Number);
-      const base = new Date(y, m - 1, 1);
-      const target = direction === 'prev' ? subMonths(base, 1) : addMonths(base, 1);
       const params = new URLSearchParams(searchParams.toString());
-      params.set('month', format(target, 'yyyy-MM'));
+      params.set('month', shiftMonthKey(currentMonthISO, direction === 'prev' ? -1 : 1));
       router.push(`/transactions?${params.toString()}`);
     },
     [currentMonthISO, router, searchParams],

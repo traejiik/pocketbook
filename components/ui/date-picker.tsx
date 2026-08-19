@@ -1,12 +1,38 @@
 "use client"
 
 import * as React from "react"
-import { format } from "date-fns"
+import dynamic from "next/dynamic"
 import { CalendarIcon } from "lucide-react"
 
 import { cn } from "@/lib/utils"
-import { Calendar } from "@/components/ui/calendar"
+import { fmtDate } from "@/lib/format"
+import { Skeleton } from "@/components/ui/skeleton"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+
+/**
+ * `react-day-picker` bundles `date-fns` with it, and the pair is the largest
+ * chunk in the app. The grid only renders once the popover is open, so it is
+ * loaded on demand instead of riding along with every route that mounts the
+ * global transaction sheet.
+ */
+const Calendar = dynamic(
+  () => import("@/components/ui/calendar").then((m) => m.Calendar),
+  { ssr: false, loading: () => <CalendarSkeleton /> },
+)
+
+/** Placeholder matching the calendar's footprint so the popover does not resize on load. */
+function CalendarSkeleton() {
+  return (
+    <div className="w-fit bg-background p-2" aria-hidden>
+      <Skeleton className="mx-auto h-7 w-32" />
+      <div className="mt-4 grid grid-cols-7 gap-1">
+        {Array.from({ length: 42 }, (_, i) => (
+          <Skeleton key={i} className="size-7 rounded-[var(--radius-md)]" />
+        ))}
+      </div>
+    </div>
+  )
+}
 
 interface DatePickerProps {
   id?: string
@@ -60,7 +86,7 @@ export function DatePicker({
       >
         <CalendarIcon className="size-4 shrink-0 text-muted-foreground" />
         <span className={cn("truncate", !selected && "text-muted-foreground")}>
-          {selected ? format(selected, "d MMM yyyy") : placeholder}
+          {selected ? fmtDate(selected) : placeholder}
         </span>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-auto p-0">
