@@ -139,7 +139,9 @@ docker compose up -d
 
 On boot, the `pocketbook-web` container prepares `/data` and `/backups` as root, immediately re-execs as UID 1001, builds `PB_DATABASE_URL`, runs `prisma migrate deploy`, the idempotent seed, and the FX-lock backfill, then starts a PID-1 supervisor. The supervisor generates a per-boot internal job token and runs Next.js plus a separate UTC scheduler process. If either child exits or the worker stops heartbeating, the container exits so Docker can restart it.
 
-After every successful boot the validated environment configuration is persisted to `.env-cache` on the `/data` volume (`chmod 600`); if a later redeploy arrives without variables, the entrypoint restores only the missing values. Discord configuration is separate: enter the webhook in authenticated Settings, where it is stored as `/data/notifications.json` with mode `0600` and is never returned to the browser or imported from environment variables.
+After every successful boot the validated environment configuration is persisted to `.env-cache` on the `/data` volume (`chmod 600`); if a later redeploy arrives without variables, the entrypoint restores only the missing values. Discord configuration is separate: enter the webhook in authenticated Settings. Production stores it in `/data/notifications.json`; a direct development run stores it in `.data/notifications.json`; and `PB_NOTIFICATION_CONFIG_PATH` can explicitly override either location. The file is written with mode `0600`, and the webhook is never imported from environment variables.
+
+The authenticated Settings page displays the saved webhook in an editable URL field and keeps it visible after Save. Treat it as a credential: anyone holding it can post to the Discord channel. Pocketbook does not log it, include it in toasts or errors, or expose it to unauthenticated clients; Disconnect removes it from the configuration file.
 
 ### Configuration
 
