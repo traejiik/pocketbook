@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useEffect, useState, useTransition } from 'react'
 import { Bell, Check, Link2Off, Send } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -8,12 +8,19 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
+import { notificationIdentityKey } from '@/lib/notifications/identity'
 import type { AuthenticatedNotificationSettings, NotificationEventKey } from '@/lib/notifications/types'
 import {
   disconnectDiscordNotifications,
   saveNotificationSettings,
   sendTestNotification,
 } from '@/server-actions/notifications'
+
+type TransientVerification = {
+  identityKey: string
+  receipt: string
+  expiresAt: string
+}
 
 const EVENT_OPTIONS: Array<{
   key: NotificationEventKey
@@ -29,26 +36,69 @@ const EVENT_OPTIONS: Array<{
 ]
 
 export function NotificationSettings({ initialSettings }: { initialSettings: AuthenticatedNotificationSettings }) {
+  const initialIdentityKey = notificationIdentityKey({
+    webhookUrl: initialSettings.webhookUrl ?? '',
+    username: initialSettings.username,
+    avatarUrl: initialSettings.avatarUrl,
+  })
   const [settings, setSettings] = useState(initialSettings)
   const [webhookUrl, setWebhookUrl] = useState(initialSettings.webhookUrl ?? '')
+  const [persistedIdentityKey, setPersistedIdentityKey] = useState<string | null>(
+    initialSettings.identityVerified ? initialIdentityKey : null,
+  )
+  const [transientVerification, setTransientVerification] = useState<TransientVerification | null>(null)
   const [isPending, startTransition] = useTransition()
+
+  const currentIdentity = {
+    webhookUrl,
+    username: settings.username,
+    avatarUrl: settings.avatarUrl,
+  }
+  const currentIdentityKey = notificationIdentityKey(currentIdentity)
+  const transientMatches = transientVerification?.identityKey === currentIdentityKey
+    // eslint-disable-next-line react-hooks/purity -- A delayed expiry timer must not keep Save enabled.
+    && Date.parse(transientVerification.expiresAt) > Date.now()
+  const canSave = persistedIdentityKey === currentIdentityKey || transientMatches
+
+  useEffect(() => {
+    if (!transientVerification) return
+    const remaining = Date.parse(transientVerification.expiresAt) - Date.now()
+    const timer = window.setTimeout(
+      () => setTransientVerification(null),
+      Math.max(0, remaining),
+    )
+    return () => window.clearTimeout(timer)
+  }, [transientVerification])
 
   function save() {
     startTransition(async () => {
       try {
+        const matchingReceipt = transientVerification?.identityKey === currentIdentityKey
+          ? transientVerification.receipt
+          : null
         const result = await saveNotificationSettings({
           enabled: settings.enabled,
           webhookUrl,
           username: settings.username,
           avatarUrl: settings.avatarUrl,
           events: settings.events,
-        })
+        }, matchingReceipt)
         if (!result.ok) {
+          if (result.error.startsWith('Send a successful test')) {
+            setTransientVerification(null)
+          }
           toast.error(result.error)
           return
         }
         setSettings(result.settings)
         setWebhookUrl(result.settings.webhookUrl ?? '')
+        const returnedIdentityKey = notificationIdentityKey({
+          webhookUrl: result.settings.webhookUrl ?? '',
+          username: result.settings.username,
+          avatarUrl: result.settings.avatarUrl,
+        })
+        setPersistedIdentityKey(result.settings.identityVerified ? returnedIdentityKey : null)
+        setTransientVerification(null)
         toast.success('Notification settings saved')
       } catch {
         toast.error('Could not save notification settings. Try again.')
@@ -61,19 +111,37 @@ export function NotificationSettings({ initialSettings }: { initialSettings: Aut
       const result = await disconnectDiscordNotifications()
       setSettings(result.settings)
       setWebhookUrl('')
+      setPersistedIdentityKey(null)
+      setTransientVerification(null)
       toast.success('Discord disconnected')
     })
   }
 
   function sendTest() {
+    const testedIdentity = {
+      webhookUrl,
+      username: settings.username,
+      avatarUrl: settings.avatarUrl,
+    }
+    const testedIdentityKey = notificationIdentityKey(testedIdentity)
     startTransition(async () => {
-      const result = await sendTestNotification({
-        webhookUrl,
-        username: settings.username,
-        avatarUrl: settings.avatarUrl,
-      })
-      if (result.ok) toast.success('Test notification sent')
-      else toast.error(result.error)
+      try {
+        const result = await sendTestNotification(testedIdentity)
+        if (!result.ok) {
+          setTransientVerification(null)
+          toast.error(result.error)
+          return
+        }
+        setTransientVerification({
+          identityKey: testedIdentityKey,
+          receipt: result.receipt,
+          expiresAt: result.expiresAt,
+        })
+        toast.success('Test notification sent. Settings can now be saved.')
+      } catch {
+        setTransientVerification(null)
+        toast.error('Could not send test notification. Try again.')
+      }
     })
   }
 
@@ -112,7 +180,10 @@ export function NotificationSettings({ initialSettings }: { initialSettings: Aut
                 autoCapitalize="none"
                 spellCheck={false}
                 value={webhookUrl}
-                onChange={(event) => setWebhookUrl(event.target.value)}
+                onChange={(event) => {
+                  setWebhookUrl(event.target.value)
+                  setTransientVerification(null)
+                }}
                 placeholder="https://discord.com/api/webhooks/123456789/token"
               />
               <p id="discord-webhook-help" className="text-[10.5px] text-muted-foreground">
@@ -125,7 +196,10 @@ export function NotificationSettings({ initialSettings }: { initialSettings: Aut
                 id="discord-username"
                 maxLength={80}
                 value={settings.username}
-                onChange={(event) => setSettings((current) => ({ ...current, username: event.target.value }))}
+                onChange={(event) => {
+                  setSettings((current) => ({ ...current, username: event.target.value }))
+                  setTransientVerification(null)
+                }}
                 placeholder="Pocketbook"
               />
             </div>
@@ -138,10 +212,13 @@ export function NotificationSettings({ initialSettings }: { initialSettings: Aut
                 id="discord-avatar"
                 type="url"
                 value={settings.avatarUrl ?? ''}
-                onChange={(event) => setSettings((current) => ({
-                  ...current,
-                  avatarUrl: event.target.value || null,
-                }))}
+                onChange={(event) => {
+                  setSettings((current) => ({
+                    ...current,
+                    avatarUrl: event.target.value || null,
+                  }))
+                  setTransientVerification(null)
+                }}
                 placeholder="https://example.com/pocketbook.png"
               />
               <p className="text-[10.5px] text-muted-foreground">Must be a publicly reachable HTTPS image.</p>
@@ -189,7 +266,7 @@ export function NotificationSettings({ initialSettings }: { initialSettings: Aut
 
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border bg-secondary/20 px-6 py-4">
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" disabled={isPending || !settings.configured} onClick={sendTest}>
+            <Button variant="outline" size="sm" disabled={isPending || !webhookUrl.trim() || !settings.username.trim()} onClick={sendTest}>
               <Send className="mr-1.5 h-3.5 w-3.5" />Send test
             </Button>
             {settings.configured && (
@@ -198,7 +275,12 @@ export function NotificationSettings({ initialSettings }: { initialSettings: Aut
               </Button>
             )}
           </div>
-          <Button size="sm" disabled={isPending} onClick={save}>
+          <Button
+            size="sm"
+            disabled={isPending || !canSave}
+            title={!canSave ? 'Send a successful test before saving this identity.' : undefined}
+            onClick={save}
+          >
             <Check className="mr-1.5 h-3.5 w-3.5" />Save settings
           </Button>
         </div>
