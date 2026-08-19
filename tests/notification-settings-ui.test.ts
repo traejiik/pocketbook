@@ -7,14 +7,31 @@ const source = readFileSync(
   'utf8',
 )
 
-function sourceBetween(start: string, end: string) {
-  const startIndex = source.indexOf(start)
-  const endIndex = source.indexOf(end, startIndex)
+function textBetween(text: string, start: string, end: string) {
+  const startIndex = text.indexOf(start)
 
   expect(startIndex).toBeGreaterThanOrEqual(0)
-  expect(endIndex).toBeGreaterThan(startIndex)
+  expect(text.indexOf(start, startIndex + start.length)).toBe(-1)
 
-  return source.slice(startIndex, endIndex)
+  const endIndex = text.indexOf(end, startIndex + start.length)
+  expect(endIndex).toBeGreaterThan(startIndex)
+  expect(text.indexOf(end, endIndex + end.length)).toBe(-1)
+
+  return text.slice(startIndex, endIndex)
+}
+
+function sourceBetween(start: string, end: string) {
+  return textBetween(source, start, end)
+}
+
+function expectInOrder(text: string, snippets: string[]) {
+  let previousIndex = -1
+
+  for (const snippet of snippets) {
+    const index = text.indexOf(snippet)
+    expect(index).toBeGreaterThan(previousIndex)
+    previousIndex = index
+  }
 }
 
 describe('notification settings webhook field', () => {
@@ -47,24 +64,51 @@ describe('notification settings webhook field', () => {
 
 describe('notification settings verification behaviour', () => {
   it('tests the current unsaved identity and gates Save on matching proof', () => {
-    const sendTestBlock = sourceBetween('function sendTest()', 'const previewAvatar')
+    const sendTestBlock = sourceBetween('  function sendTest() {', '\n\n  const previewAvatar')
+    const failedTestBlock = textBetween(
+      sendTestBlock,
+      '        if (!result.ok) {',
+      '        setTransientVerification({',
+    )
+    const successfulTestBlock = textBetween(
+      sendTestBlock,
+      '        setTransientVerification({',
+      '      } catch {',
+    )
+    const caughtTestBlock = textBetween(
+      sendTestBlock,
+      '      } catch {',
+      '    })\n  }',
+    )
     const footerBlock = sourceBetween(
       '<div className="flex flex-wrap items-center justify-between',
       '</section>',
     )
 
-    expect(sendTestBlock).toContain('const testedIdentity = {')
+    expectInOrder(sendTestBlock, [
+      'const testedIdentity = {',
+      'const testedIdentityKey = notificationIdentityKey(testedIdentity)',
+      'startTransition(async () => {',
+      'await sendTestNotification(testedIdentity)',
+    ])
     expect(sendTestBlock).toContain('webhookUrl,')
     expect(sendTestBlock).toContain('username: settings.username,')
     expect(sendTestBlock).toContain('avatarUrl: settings.avatarUrl,')
-    expect(sendTestBlock).toContain('const testedIdentityKey = notificationIdentityKey(testedIdentity)')
-    expect(sendTestBlock).toContain('sendTestNotification(testedIdentity)')
-    expect(sendTestBlock).toContain('identityKey: testedIdentityKey,')
-    expect(sendTestBlock).toContain('receipt: result.receipt,')
-    expect(sendTestBlock).toContain('expiresAt: result.expiresAt,')
-    expect(sendTestBlock).toContain(
+    expectInOrder(failedTestBlock, [
+      'setTransientVerification(null)',
+      'toast.error(result.error)',
+      'return',
+    ])
+    expectInOrder(successfulTestBlock, [
+      'identityKey: testedIdentityKey,',
+      'receipt: result.receipt,',
+      'expiresAt: result.expiresAt,',
       "toast.success('Test notification sent. Settings can now be saved.')",
-    )
+    ])
+    expectInOrder(caughtTestBlock, [
+      'setTransientVerification(null)',
+      "toast.error('Could not send test notification. Try again.')",
+    ])
     expect(footerBlock).not.toContain('!settings.configured')
     expect(footerBlock).toContain(
       'disabled={isPending || !webhookUrl.trim() || !settings.username.trim()}',
@@ -85,13 +129,64 @@ describe('notification settings verification behaviour', () => {
   })
 
   it('keeps the established notification layout and labels without verification chrome', () => {
-    expect(source).toContain('Discord webhook URL')
-    expect(source).toContain('Discord preview')
-    expect(source).toContain('Message presets')
-    expect(source).toContain('Send test')
-    expect(source).toContain('Save settings')
-    expect(source).not.toContain('Test required')
-    expect(source).not.toContain('Verified just now')
+    const jsxBlock = sourceBetween(
+      '  return (\n    <section id="notifications">',
+      '\n  )\n}',
+    )
+
+    expect(jsxBlock).toContain('<section id="notifications">')
+    expect(jsxBlock).toContain('className="mb-3 flex items-center gap-2"')
+    expect(jsxBlock).toContain('className="calm-card overflow-hidden"')
+    expect(jsxBlock).toContain('className="space-y-5 p-6"')
+    expect(jsxBlock).toContain('className="grid gap-4 md:grid-cols-2"')
+    expect(jsxBlock).toContain('className="grid gap-4 md:grid-cols-[minmax(0,1fr)_280px]"')
+    expect(jsxBlock).toContain('className="border-t border-border px-6 py-5"')
+    expect(jsxBlock).toContain('className="divide-y divide-border"')
+    expect(jsxBlock).toContain(
+      'className="flex flex-wrap items-center justify-between gap-3 border-t border-border bg-secondary/20 px-6 py-4"',
+    )
+
+    expect(jsxBlock).toContain('Discord webhook URL')
+    expect(jsxBlock).toContain('Discord preview')
+    expect(jsxBlock).toContain('Message presets')
+    expect(jsxBlock).toContain('Send test')
+    expect(jsxBlock).toContain('Save settings')
+    expect(jsxBlock).toContain('aria-label="Enable Discord notifications"')
+    expect(jsxBlock).toContain('{EVENT_OPTIONS.map((event) => (')
+    expect(jsxBlock).toContain('checked={settings.events[event.key]}')
+    expect(jsxBlock.match(/<Input\b/g) ?? []).toHaveLength(3)
+    expect(jsxBlock.match(/<Label\b/g) ?? []).toHaveLength(3)
+    expect(jsxBlock.match(/<Switch\b/g) ?? []).toHaveLength(2)
+    expect(jsxBlock.match(/<Button\b/g) ?? []).toHaveLength(3)
+    expect(jsxBlock.match(/<p\b/g) ?? []).toHaveLength(2)
+    expect(source.match(/^\s*\{ key: '/gm) ?? []).toHaveLength(6)
+
+    for (const forbidden of [
+      'type="file"',
+      'Upload',
+      'upload',
+      'accept="image',
+      'ImgBB',
+      'imgbb',
+      '<Badge',
+      'status-pill',
+      'rounded-full px-',
+      'role="status"',
+      'helper-row',
+      'Test required',
+      'Verified just now',
+      'Verification status',
+      'Test passed',
+      'Test succeeded',
+      'settings.status',
+      'identityVerified',
+      'verifiedAt',
+      '<a ',
+      'href=',
+    ]) {
+      expect(jsxBlock).not.toContain(forbidden)
+    }
+    expect(source).not.toContain("from '@/components/ui/badge'")
   })
 
   it('invalidates transient proof only when an identity field changes', () => {
@@ -115,10 +210,17 @@ describe('notification settings verification behaviour', () => {
   })
 
   it('expires transient proof and forwards only a receipt matching the current identity', () => {
-    const saveBlock = sourceBetween('function save()', 'function disconnect()')
+    const effectBlock = sourceBetween('  useEffect(() => {', '\n\n  function save()')
+    const saveBlock = sourceBetween('  function save() {', '\n\n  function disconnect()')
 
-    expect(source).toContain('Math.max(0, remaining)')
-    expect(source).toContain('return () => window.clearTimeout(timer)')
+    expectInOrder(effectBlock, [
+      'const remaining = Date.parse(transientVerification.expiresAt) - Date.now()',
+      'const timer = window.setTimeout(',
+      '() => setTransientVerification(null)',
+      'Math.max(0, remaining)',
+      'return () => window.clearTimeout(timer)',
+      '}, [transientVerification])',
+    ])
     expect(source).toContain('transientVerification?.identityKey === currentIdentityKey')
     expect(source).toContain('Date.parse(transientVerification.expiresAt) > Date.now()')
     expect(saveBlock).toContain(
@@ -130,20 +232,47 @@ describe('notification settings verification behaviour', () => {
   })
 
   it('promotes only verified action results and drops rejected verification proof', () => {
-    const saveBlock = sourceBetween('function save()', 'function disconnect()')
-
-    expect(saveBlock).toContain("result.error.startsWith('Send a successful test')")
-    expect(saveBlock).toContain('setTransientVerification(null)')
-    expect(saveBlock).toContain('const returnedIdentityKey = notificationIdentityKey({')
-    expect(saveBlock).toContain(
-      'setPersistedIdentityKey(result.settings.identityVerified ? returnedIdentityKey : null)',
+    const saveBlock = sourceBetween('  function save() {', '\n\n  function disconnect()')
+    const failedSaveBlock = textBetween(
+      saveBlock,
+      '        if (!result.ok) {',
+      '        setSettings(result.settings)',
     )
+    const successfulSaveBlock = textBetween(
+      saveBlock,
+      '        setSettings(result.settings)',
+      '      } catch {',
+    )
+
+    expectInOrder(failedSaveBlock, [
+      "result.error.startsWith('Send a successful test')",
+      'setTransientVerification(null)',
+      'toast.error(result.error)',
+      'return',
+    ])
+    expectInOrder(successfulSaveBlock, [
+      'setSettings(result.settings)',
+      "setWebhookUrl(result.settings.webhookUrl ?? '')",
+      'const returnedIdentityKey = notificationIdentityKey({',
+      "webhookUrl: result.settings.webhookUrl ?? '',",
+      'username: result.settings.username,',
+      'avatarUrl: result.settings.avatarUrl,',
+      'setPersistedIdentityKey(result.settings.identityVerified ? returnedIdentityKey : null)',
+      'setTransientVerification(null)',
+      "toast.success('Notification settings saved')",
+    ])
   })
 
   it('clears persisted and transient client proof after disconnecting', () => {
-    const disconnectBlock = sourceBetween('function disconnect()', 'function sendTest()')
+    const disconnectBlock = sourceBetween('  function disconnect() {', '\n\n  function sendTest()')
 
-    expect(disconnectBlock).toContain('setPersistedIdentityKey(null)')
-    expect(disconnectBlock).toContain('setTransientVerification(null)')
+    expectInOrder(disconnectBlock, [
+      'await disconnectDiscordNotifications()',
+      'setSettings(result.settings)',
+      "setWebhookUrl('')",
+      'setPersistedIdentityKey(null)',
+      'setTransientVerification(null)',
+      "toast.success('Discord disconnected')",
+    ])
   })
 })
