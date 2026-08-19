@@ -166,6 +166,9 @@ describe('notification settings verification behaviour', () => {
     expect(transientMatchesBlock).toContain(
       'Date.parse(transientVerification.expiresAt) > Date.now()',
     )
+    expect(transientMatchesBlock).toMatch(
+      /transientVerification\?\.identityKey\s*===\s*currentIdentityKey\s*(?:\/\/[^\n]*\n\s*)?&&\s*Date\.parse\(transientVerification\.expiresAt\)\s*>\s*Date\.now\(\)/,
+    )
     expect(canSaveBlock).toContain(
       'const canSave = persistedIdentityKey === currentIdentityKey || transientMatches',
     )
