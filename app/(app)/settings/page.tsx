@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { pingOllama, listOllamaModels } from '@/lib/ollama';
 import { SettingsView } from './SettingsView';
 import { getDatabaseSize } from '@/server-actions/settings';
-import { readNotificationConfig, toPublicNotificationSettings } from '@/lib/notifications/config';
+import { readNotificationConfig, toAuthenticatedNotificationSettings } from '@/lib/notifications/config';
 import { readBackupStatus } from '@/lib/operations/backup';
 import { nextOccurrence } from '@/lib/operations/schedule';
 import { readFileSync } from 'node:fs';
@@ -51,7 +51,7 @@ export default async function SettingsPage() {
       ollamaModel={settings?.ollamaModel ?? 'llama3.1:8b'}
       ollamaModels={models}
       autoInsightsMonthly={settings?.autoInsightsMonthly ?? true}
-      notificationSettings={toPublicNotificationSettings(notificationConfig.config, notificationConfig.status)}
+      notificationSettings={toAuthenticatedNotificationSettings(notificationConfig.config, notificationConfig.status)}
       backupStatus={backupStatus}
       nextBackupRun={nextOccurrence('backup', new Date()).scheduledFor}
       dbSize={dbSize}

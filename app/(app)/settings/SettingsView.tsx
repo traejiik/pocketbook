@@ -26,7 +26,7 @@ import {
   clearAllData,
 } from '@/server-actions/settings';
 import { uploadTransactionCsv } from '@/server-actions/import';
-import type { PublicNotificationSettings } from '@/lib/notifications/types';
+import type { AuthenticatedNotificationSettings } from '@/lib/notifications/types';
 import type { BackupStatus } from '@/lib/operations/backup';
 import { NotificationSettings } from './NotificationSettings';
 import { BackupSettings } from './BackupSettings';
@@ -50,7 +50,7 @@ type Props = {
   ollamaModel: string;
   ollamaModels: Array<{ name: string; size: number }>;
   autoInsightsMonthly: boolean;
-  notificationSettings: PublicNotificationSettings;
+  notificationSettings: AuthenticatedNotificationSettings;
   backupStatus: BackupStatus | null;
   nextBackupRun: string;
   dbSize: string;

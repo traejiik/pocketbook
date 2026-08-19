@@ -4,7 +4,12 @@ import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 
 import { DEFAULT_NOTIFICATION_CONFIG, writeNotificationConfig } from '@/lib/notifications/config'
-import { DISCORD_TIMEOUT_MS, renderNotification, sendNotification } from '@/lib/notifications/send'
+import {
+  deliverNotificationWithConfig,
+  DISCORD_TIMEOUT_MS,
+  renderNotification,
+  sendNotification,
+} from '@/lib/notifications/send'
 
 async function configuredPath(overrides: Partial<typeof DEFAULT_NOTIFICATION_CONFIG> = {}) {
   const dir = await mkdtemp(join(tmpdir(), 'pocketbook-notify-send-'))
@@ -55,6 +60,78 @@ describe('notification presets', () => {
 })
 
 describe('Discord delivery', () => {
+  it('delivers a test message from an unsaved explicit configuration', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(new Response('{}', { status: 200 }))
+    const config = {
+      ...DEFAULT_NOTIFICATION_CONFIG,
+      webhookUrl: 'https://discord.com/api/webhooks/999/unsaved-token',
+      username: 'Unsaved Pocketbook',
+      avatarUrl: 'https://i.ibb.co/logo.png',
+    }
+
+    const result = await deliverNotificationWithConfig(config, { type: 'test' }, { fetchImpl })
+
+    expect(result).toEqual({ delivered: true })
+    const [url, init] = fetchImpl.mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('https://discord.com/api/webhooks/999/unsaved-token?wait=true')
+    expect(JSON.parse(String(init.body))).toEqual(expect.objectContaining({
+      username: 'Unsaved Pocketbook',
+      avatar_url: 'https://i.ibb.co/logo.png',
+    }))
+  })
+
+  it.each([401, 404, 429])(
+    'returns the exact Discord HTTP %i delivery failure for an unsaved explicit configuration',
+    async (status) => {
+      const fetchImpl = vi.fn().mockResolvedValue(new Response('{}', { status }))
+      const config = {
+        ...DEFAULT_NOTIFICATION_CONFIG,
+        webhookUrl: 'https://discord.com/api/webhooks/999/unsaved-token',
+      }
+
+      await expect(deliverNotificationWithConfig(config, { type: 'test' }, { fetchImpl })).resolves.toEqual({
+        delivered: false,
+        reason: 'delivery-failed',
+        status,
+      })
+    },
+  )
+
+  it.each([
+    'https://discord.com:bad/api/webhooks/999/unsaved-token',
+    'https://example.com/api/webhooks/999/unsaved-token',
+  ])('rejects invalid explicit webhook URLs without calling fetch', async (webhookUrl) => {
+    const fetchImpl = vi.fn()
+    const config = {
+      ...DEFAULT_NOTIFICATION_CONFIG,
+      webhookUrl,
+    }
+
+    await expect(deliverNotificationWithConfig(config, { type: 'test' }, { fetchImpl })).resolves.toEqual({
+      delivered: false,
+      reason: 'delivery-failed',
+    })
+    expect(fetchImpl).not.toHaveBeenCalled()
+  })
+
+  it('delivers an explicit non-test event even when saved-config policy switches are disabled', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(new Response('{}', { status: 200 }))
+    const config = {
+      ...DEFAULT_NOTIFICATION_CONFIG,
+      enabled: false,
+      webhookUrl: 'https://discord.com/api/webhooks/999/unsaved-token',
+      events: { ...DEFAULT_NOTIFICATION_CONFIG.events, backupCompleted: false },
+    }
+
+    await expect(deliverNotificationWithConfig(config, {
+      type: 'backupCompleted', filename: 'pocketbook.dump', size: '2 MB', kept: 14, source: 'manual',
+    }, { fetchImpl })).resolves.toEqual({ delivered: true })
+    expect(fetchImpl).toHaveBeenCalledWith(
+      'https://discord.com/api/webhooks/999/unsaved-token?wait=true',
+      expect.any(Object),
+    )
+  })
+
   it('respects the master and event switches', async () => {
     const masterOff = await configuredPath({ enabled: false })
     const eventOff = await configuredPath({

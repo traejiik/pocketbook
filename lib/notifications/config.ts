@@ -4,13 +4,33 @@ import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
 
 import {
+  DEFAULT_NOTIFICATION_EVENTS,
   NOTIFICATION_EVENT_KEYS,
+  type AuthenticatedNotificationSettings,
+  type NotificationConfig,
   type NotificationConfigStatus,
-  type NotificationConfigV1,
-  type PublicNotificationSettings,
+  type NotificationConfigV2,
 } from '@/lib/notifications/types'
+import { hashNotificationIdentity } from '@/lib/notifications/verification'
 
 export const NOTIFICATION_CONFIG_PATH = '/data/notifications.json'
+
+const notificationConfigMutationGlobal = globalThis as typeof globalThis & {
+  __pocketbookNotificationConfigMutationTail?: Promise<void>
+}
+
+export function withNotificationConfigMutation<T>(
+  callback: () => Promise<T>,
+): Promise<T> {
+  const previous = notificationConfigMutationGlobal.__pocketbookNotificationConfigMutationTail
+    ?? Promise.resolve()
+  const result = previous.then(callback)
+  notificationConfigMutationGlobal.__pocketbookNotificationConfigMutationTail = result.then(
+    () => undefined,
+    () => undefined,
+  )
+  return result
+}
 
 export function notificationConfigPath(
   env: NodeJS.ProcessEnv = process.env,
@@ -21,20 +41,14 @@ export function notificationConfigPath(
   return join(cwd, '.data', 'notifications.json')
 }
 
-export const DEFAULT_NOTIFICATION_CONFIG: NotificationConfigV1 = {
-  version: 1,
+export const DEFAULT_NOTIFICATION_CONFIG: NotificationConfig = {
+  version: 2,
   enabled: false,
   webhookUrl: null,
   username: 'Pocketbook',
   avatarUrl: null,
-  events: {
-    systemAlerts: true,
-    scheduledJobFailures: true,
-    recurringActivity: true,
-    monthlyInsightReady: true,
-    backupCompleted: true,
-    backupFailed: true,
-  },
+  events: DEFAULT_NOTIFICATION_EVENTS,
+  verification: null,
 }
 
 export function validateDiscordWebhookUrl(value: string): boolean {
@@ -54,28 +68,50 @@ const httpsUrl = z.string().url().refine((value) => new URL(value).protocol === 
   message: 'Avatar URL must use HTTPS',
 })
 
-const notificationConfigSchema = z.object({
-  version: z.literal(1),
+const notificationEventsSchema = z.object(
+  Object.fromEntries(NOTIFICATION_EVENT_KEYS.map((key) => [key, z.boolean()])) as Record<
+    (typeof NOTIFICATION_EVENT_KEYS)[number],
+    z.ZodBoolean
+  >,
+)
+
+const notificationConfigBaseSchema = z.object({
   enabled: z.boolean(),
   webhookUrl: z.string().refine(validateDiscordWebhookUrl, 'Enter a valid Discord webhook URL').nullable(),
   username: z.string().trim().min(1).max(80),
   avatarUrl: httpsUrl.nullable(),
-  events: z.object(
-    Object.fromEntries(NOTIFICATION_EVENT_KEYS.map((key) => [key, z.boolean()])) as Record<
-      (typeof NOTIFICATION_EVENT_KEYS)[number],
-      z.ZodBoolean
-    >,
-  ),
+  events: notificationEventsSchema,
 })
+
+const notificationConfigV1Schema = notificationConfigBaseSchema.extend({
+  version: z.literal(1),
+})
+
+const notificationConfigV2Schema = notificationConfigBaseSchema.extend({
+  version: z.literal(2),
+  verification: z.object({
+    identityHash: z.string().regex(/^[a-f0-9]{64}$/),
+    verifiedAt: z.string().datetime(),
+  }).nullable(),
+})
+
+function parseStoredNotificationConfig(raw: unknown): NotificationConfig | null {
+  const v2 = notificationConfigV2Schema.safeParse(raw)
+  if (v2.success) return v2.data
+
+  const v1 = notificationConfigV1Schema.safeParse(raw)
+  if (!v1.success) return null
+  return { ...v1.data, version: 2, verification: null }
+}
 
 export async function readNotificationConfig(
   path = notificationConfigPath(),
-): Promise<{ status: NotificationConfigStatus; config: NotificationConfigV1 }> {
+): Promise<{ status: NotificationConfigStatus; config: NotificationConfig }> {
   try {
     const raw = await readFile(path, 'utf8')
-    const parsed = notificationConfigSchema.safeParse(JSON.parse(raw))
-    if (!parsed.success) return { status: 'invalid', config: DEFAULT_NOTIFICATION_CONFIG }
-    return { status: 'ready', config: parsed.data }
+    const config = parseStoredNotificationConfig(JSON.parse(raw))
+    if (!config) return { status: 'invalid', config: DEFAULT_NOTIFICATION_CONFIG }
+    return { status: 'ready', config }
   } catch (error) {
     const code = error instanceof Error && 'code' in error ? error.code : undefined
     return {
@@ -86,10 +122,10 @@ export async function readNotificationConfig(
 }
 
 export async function writeNotificationConfig(
-  input: NotificationConfigV1,
+  input: NotificationConfigV2,
   path = notificationConfigPath(),
-): Promise<NotificationConfigV1> {
-  const config = notificationConfigSchema.parse(input)
+): Promise<NotificationConfigV2> {
+  const config = notificationConfigV2Schema.parse(input)
   const directory = dirname(path)
   const temporary = `${path}.${process.pid}.${randomUUID()}.tmp`
 
@@ -100,9 +136,25 @@ export async function writeNotificationConfig(
   return config
 }
 
-export function toPublicNotificationSettings(
-  config: NotificationConfigV1,
+export function toAuthenticatedNotificationSettings(
+  config: NotificationConfigV2,
   status: NotificationConfigStatus,
-): PublicNotificationSettings {
-  return { ...config, configured: Boolean(config.webhookUrl), status }
+): AuthenticatedNotificationSettings {
+  const { verification, ...settings } = config
+  const identityHash = config.webhookUrl
+    ? hashNotificationIdentity({
+      webhookUrl: config.webhookUrl,
+      username: config.username,
+      avatarUrl: config.avatarUrl,
+    })
+    : null
+  const identityVerified = Boolean(identityHash && verification?.identityHash === identityHash)
+
+  return {
+    ...settings,
+    configured: Boolean(config.webhookUrl),
+    status,
+    identityVerified,
+    verifiedAt: identityVerified ? verification?.verifiedAt ?? null : null,
+  }
 }

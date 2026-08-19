@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useEffect, useState, useTransition } from 'react'
 import { Bell, Check, Link2Off, Send } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -8,12 +8,20 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import type { NotificationEventKey, PublicNotificationSettings } from '@/lib/notifications/types'
+import {
+  evaluateClientNotificationVerification,
+  parseFreshNotificationExpiry,
+  type TransientNotificationVerification,
+} from '@/lib/notifications/client-verification'
+import { notificationIdentityKey } from '@/lib/notifications/identity'
+import type { AuthenticatedNotificationSettings, NotificationEventKey } from '@/lib/notifications/types'
 import {
   disconnectDiscordNotifications,
   saveNotificationSettings,
   sendTestNotification,
 } from '@/server-actions/notifications'
+
+const VERIFICATION_REQUIRED_ERROR = 'Send a successful test for the current webhook, username, and avatar before saving.'
 
 const EVENT_OPTIONS: Array<{
   key: NotificationEventKey
@@ -28,12 +36,66 @@ const EVENT_OPTIONS: Array<{
   { key: 'backupFailed', label: 'Backup failed', preview: 'Database connection unavailable' },
 ]
 
-export function NotificationSettings({ initialSettings }: { initialSettings: PublicNotificationSettings }) {
+export function NotificationSettings({ initialSettings }: { initialSettings: AuthenticatedNotificationSettings }) {
+  const initialIdentityKey = notificationIdentityKey({
+    webhookUrl: initialSettings.webhookUrl ?? '',
+    username: initialSettings.username,
+    avatarUrl: initialSettings.avatarUrl,
+  })
   const [settings, setSettings] = useState(initialSettings)
   const [webhookUrl, setWebhookUrl] = useState(initialSettings.webhookUrl ?? '')
+  const [persistedIdentityKey, setPersistedIdentityKey] = useState<string | null>(
+    initialSettings.identityVerified ? initialIdentityKey : null,
+  )
+  const [transientVerification, setTransientVerification] = useState<TransientNotificationVerification | null>(null)
   const [isPending, startTransition] = useTransition()
 
+  const currentIdentity = {
+    webhookUrl,
+    username: settings.username,
+    avatarUrl: settings.avatarUrl,
+  }
+  const currentIdentityKey = notificationIdentityKey(currentIdentity)
+  const transientMatches = transientVerification?.identityKey === currentIdentityKey
+  const canSave = persistedIdentityKey === currentIdentityKey || transientMatches
+
+  useEffect(() => {
+    if (!transientVerification) return
+    const remaining = Date.parse(transientVerification.expiresAt) - Date.now()
+    const clearIfExpired = () => {
+      if (parseFreshNotificationExpiry(transientVerification.expiresAt, Date.now()) === null) {
+        setTransientVerification(null)
+      }
+    }
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') clearIfExpired()
+    }
+    const timer = window.setTimeout(
+      () => setTransientVerification(null),
+      Math.max(0, remaining),
+    )
+    window.addEventListener('focus', clearIfExpired)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => {
+      window.clearTimeout(timer)
+      window.removeEventListener('focus', clearIfExpired)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [transientVerification])
+
   function save() {
+    const verification = evaluateClientNotificationVerification(
+      persistedIdentityKey,
+      transientVerification,
+      currentIdentityKey,
+      Date.now(),
+    )
+    if (!verification.canSave) {
+      setTransientVerification(null)
+      toast.error(VERIFICATION_REQUIRED_ERROR)
+      return
+    }
+    const matchingReceipt = verification.matchingReceipt
     startTransition(async () => {
       try {
         const result = await saveNotificationSettings({
@@ -42,13 +104,23 @@ export function NotificationSettings({ initialSettings }: { initialSettings: Pub
           username: settings.username,
           avatarUrl: settings.avatarUrl,
           events: settings.events,
-        })
+        }, matchingReceipt)
         if (!result.ok) {
+          if (result.error.startsWith('Send a successful test')) {
+            setTransientVerification(null)
+          }
           toast.error(result.error)
           return
         }
         setSettings(result.settings)
         setWebhookUrl(result.settings.webhookUrl ?? '')
+        const returnedIdentityKey = notificationIdentityKey({
+          webhookUrl: result.settings.webhookUrl ?? '',
+          username: result.settings.username,
+          avatarUrl: result.settings.avatarUrl,
+        })
+        setPersistedIdentityKey(result.settings.identityVerified ? returnedIdentityKey : null)
+        setTransientVerification(null)
         toast.success('Notification settings saved')
       } catch {
         toast.error('Could not save notification settings. Try again.')
@@ -61,15 +133,43 @@ export function NotificationSettings({ initialSettings }: { initialSettings: Pub
       const result = await disconnectDiscordNotifications()
       setSettings(result.settings)
       setWebhookUrl('')
+      setPersistedIdentityKey(null)
+      setTransientVerification(null)
       toast.success('Discord disconnected')
     })
   }
 
   function sendTest() {
+    const testedIdentity = {
+      webhookUrl,
+      username: settings.username,
+      avatarUrl: settings.avatarUrl,
+    }
+    const testedIdentityKey = notificationIdentityKey(testedIdentity)
     startTransition(async () => {
-      const result = await sendTestNotification()
-      if (result.ok) toast.success('Test notification sent')
-      else toast.error(result.error)
+      try {
+        const result = await sendTestNotification(testedIdentity)
+        if (!result.ok) {
+          setTransientVerification(null)
+          toast.error(result.error)
+          return
+        }
+        const testedVerification = {
+          identityKey: testedIdentityKey,
+          receipt: result.receipt,
+          expiresAt: result.expiresAt,
+        }
+        if (parseFreshNotificationExpiry(testedVerification.expiresAt, Date.now()) === null) {
+          setTransientVerification(null)
+          toast.error('Could not send test notification. Try again.')
+          return
+        }
+        setTransientVerification(testedVerification)
+        toast.success('Test notification sent. Settings can now be saved.')
+      } catch {
+        setTransientVerification(null)
+        toast.error('Could not send test notification. Try again.')
+      }
     })
   }
 
@@ -108,7 +208,10 @@ export function NotificationSettings({ initialSettings }: { initialSettings: Pub
                 autoCapitalize="none"
                 spellCheck={false}
                 value={webhookUrl}
-                onChange={(event) => setWebhookUrl(event.target.value)}
+                onChange={(event) => {
+                  setWebhookUrl(event.target.value)
+                  setTransientVerification(null)
+                }}
                 placeholder="https://discord.com/api/webhooks/123456789/token"
               />
               <p id="discord-webhook-help" className="text-[10.5px] text-muted-foreground">
@@ -121,7 +224,10 @@ export function NotificationSettings({ initialSettings }: { initialSettings: Pub
                 id="discord-username"
                 maxLength={80}
                 value={settings.username}
-                onChange={(event) => setSettings((current) => ({ ...current, username: event.target.value }))}
+                onChange={(event) => {
+                  setSettings((current) => ({ ...current, username: event.target.value }))
+                  setTransientVerification(null)
+                }}
                 placeholder="Pocketbook"
               />
             </div>
@@ -134,10 +240,13 @@ export function NotificationSettings({ initialSettings }: { initialSettings: Pub
                 id="discord-avatar"
                 type="url"
                 value={settings.avatarUrl ?? ''}
-                onChange={(event) => setSettings((current) => ({
-                  ...current,
-                  avatarUrl: event.target.value || null,
-                }))}
+                onChange={(event) => {
+                  setSettings((current) => ({
+                    ...current,
+                    avatarUrl: event.target.value || null,
+                  }))
+                  setTransientVerification(null)
+                }}
                 placeholder="https://example.com/pocketbook.png"
               />
               <p className="text-[10.5px] text-muted-foreground">Must be a publicly reachable HTTPS image.</p>
@@ -185,7 +294,7 @@ export function NotificationSettings({ initialSettings }: { initialSettings: Pub
 
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border bg-secondary/20 px-6 py-4">
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" disabled={isPending || !settings.configured} onClick={sendTest}>
+            <Button variant="outline" size="sm" disabled={isPending || !webhookUrl.trim() || !settings.username.trim()} onClick={sendTest}>
               <Send className="mr-1.5 h-3.5 w-3.5" />Send test
             </Button>
             {settings.configured && (
@@ -194,7 +303,12 @@ export function NotificationSettings({ initialSettings }: { initialSettings: Pub
               </Button>
             )}
           </div>
-          <Button size="sm" disabled={isPending} onClick={save}>
+          <Button
+            size="sm"
+            disabled={isPending || !canSave}
+            title={!canSave ? 'Send a successful test before saving this identity.' : undefined}
+            onClick={save}
+          >
             <Check className="mr-1.5 h-3.5 w-3.5" />Save settings
           </Button>
         </div>

@@ -1,5 +1,6 @@
-import { readNotificationConfig } from '@/lib/notifications/config'
+import { readNotificationConfig, validateDiscordWebhookUrl } from '@/lib/notifications/config'
 import type {
+  NotificationConfig,
   NotificationDeliveryResult,
   NotificationEvent,
   NotificationEventKey,
@@ -10,6 +11,21 @@ const DISCORD_RED = 0xe74c3c
 const DISCORD_AMBER = 0xf1c40f
 const DISCORD_BLURPLE = 0x5865f2
 export const DISCORD_TIMEOUT_MS = 5000
+
+export type NotificationTransportConfig = Pick<
+  NotificationConfig,
+  'webhookUrl' | 'username' | 'avatarUrl'
+>
+
+export type NotificationTransportOptions = {
+  fetchImpl?: typeof fetch
+  instanceName?: string
+  timeoutMs?: number
+}
+
+export type NotificationDeliveryOptions = NotificationTransportOptions & {
+  configPath?: string
+}
 
 type RenderedNotification = {
   eventKey: NotificationEventKey | null
@@ -79,26 +95,17 @@ export function renderNotification(event: NotificationEvent): RenderedNotificati
   }
 }
 
-export async function sendNotification(
+export async function deliverNotificationWithConfig(
+  config: NotificationTransportConfig,
   event: NotificationEvent,
-  options: {
-    configPath?: string
-    fetchImpl?: typeof fetch
-    instanceName?: string
-    timeoutMs?: number
-  } = {},
+  options: NotificationTransportOptions = {},
 ): Promise<NotificationDeliveryResult> {
-  const { config } = await readNotificationConfig(options.configPath)
   if (!config.webhookUrl) return { delivered: false, reason: 'not-configured' }
-
-  const rendered = renderNotification(event)
-  if (event.type !== 'test') {
-    if (!config.enabled) return { delivered: false, reason: 'disabled' }
-    if (rendered.eventKey && !config.events[rendered.eventKey]) {
-      return { delivered: false, reason: 'event-disabled' }
-    }
+  if (!validateDiscordWebhookUrl(config.webhookUrl)) {
+    return { delivered: false, reason: 'delivery-failed' }
   }
 
+  const rendered = renderNotification(event)
   const webhook = new URL(config.webhookUrl)
   webhook.searchParams.set('wait', 'true')
   const controller = new AbortController()
@@ -133,4 +140,22 @@ export async function sendNotification(
   } finally {
     clearTimeout(timer)
   }
+}
+
+export async function sendNotification(
+  event: NotificationEvent,
+  options: NotificationDeliveryOptions = {},
+): Promise<NotificationDeliveryResult> {
+  const { config } = await readNotificationConfig(options.configPath)
+  if (!config.webhookUrl) return { delivered: false, reason: 'not-configured' }
+
+  const rendered = renderNotification(event)
+  if (event.type !== 'test') {
+    if (!config.enabled) return { delivered: false, reason: 'disabled' }
+    if (rendered.eventKey && !config.events[rendered.eventKey]) {
+      return { delivered: false, reason: 'event-disabled' }
+    }
+  }
+
+  return deliverNotificationWithConfig(config, event, options)
 }

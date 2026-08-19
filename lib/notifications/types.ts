@@ -9,6 +9,15 @@ export const NOTIFICATION_EVENT_KEYS = [
 
 export type NotificationEventKey = (typeof NOTIFICATION_EVENT_KEYS)[number]
 
+export const DEFAULT_NOTIFICATION_EVENTS: Record<NotificationEventKey, boolean> = {
+  systemAlerts: true,
+  scheduledJobFailures: true,
+  recurringActivity: true,
+  monthlyInsightReady: true,
+  backupCompleted: true,
+  backupFailed: true,
+}
+
 export type NotificationConfigV1 = {
   version: 1
   enabled: boolean
@@ -20,9 +29,29 @@ export type NotificationConfigV1 = {
 
 export type NotificationConfigStatus = 'missing' | 'ready' | 'invalid'
 
-export type PublicNotificationSettings = NotificationConfigV1 & {
+export type NotificationIdentity = {
+  webhookUrl: string
+  username: string
+  avatarUrl: string | null
+}
+
+export type NotificationVerificationV2 = {
+  identityHash: string
+  verifiedAt: string
+}
+
+export type NotificationConfigV2 = Omit<NotificationConfigV1, 'version'> & {
+  version: 2
+  verification: NotificationVerificationV2 | null
+}
+
+export type NotificationConfig = NotificationConfigV2
+
+export type AuthenticatedNotificationSettings = Omit<NotificationConfigV2, 'verification'> & {
   configured: boolean
   status: NotificationConfigStatus
+  identityVerified: boolean
+  verifiedAt: string | null
 }
 
 export type NotificationEvent =
