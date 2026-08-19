@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useTransition, useEffect, useCallback, useId, type ReactNode } from 'react'
+import dynamic from 'next/dynamic'
 import { Plus, Pencil, Trash2, ChevronRight } from 'lucide-react'
-import { HexColorPicker } from 'react-colorful'
 import { toast } from 'sonner'
 import { upsertCategory, deleteCategory } from '@/server-actions/categories'
 import {
@@ -16,10 +16,20 @@ import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Skeleton } from '@/components/ui/skeleton'
 import { fmtAnchor } from '@/lib/format'
 import { useFabContext } from '@/contexts/fab-context'
 import { hexToRgba } from '@/lib/colors'
 import { useIsMobile } from '@/hooks/use-is-mobile'
+
+/**
+ * The saturation/hue canvas only renders inside the colour popover, so it is
+ * pulled off this page's initial JS and fetched when the popover opens.
+ */
+const HexColorPicker = dynamic(
+  () => import('react-colorful').then((m) => m.HexColorPicker),
+  { ssr: false, loading: () => <Skeleton className="h-[188px] w-48 rounded-md" /> },
+)
 
 type KindType = 'INCOME' | 'EXPENSE' | 'SAVINGS'
 
