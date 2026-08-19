@@ -107,6 +107,7 @@ export async function saveNotificationSettings(
 
   const parsed = parsedResult.data
   const current = await readNotificationConfig()
+  const webhookInputWasBlank = parsed.webhookUrl === ''
   const identity = normaliseNotificationIdentity({
     webhookUrl: parsed.webhookUrl || current.config.webhookUrl || '',
     username: parsed.username,
@@ -116,7 +117,7 @@ export async function saveNotificationSettings(
   const persistedVerification = current.config.verification?.identityHash === identityHash
     ? current.config.verification
     : null
-  const receiptVerification = receipt
+  const receiptVerification = !webhookInputWasBlank && receipt
     ? verifyNotificationVerificationReceipt(receipt, identity)
     : null
 

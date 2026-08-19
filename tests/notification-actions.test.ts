@@ -281,6 +281,30 @@ describe('notification settings actions', () => {
     expect(JSON.parse(await readFile(process.env.PB_NOTIFICATION_CONFIG_PATH!, 'utf8')).version).toBe(1)
   })
 
+  it('does not let a receipt bootstrap blank-webhook compatibility for an unverified saved identity', async () => {
+    const legacyConfig = {
+      version: 1,
+      enabled: false,
+      ...validIdentity,
+      events: DEFAULT_NOTIFICATION_CONFIG.events,
+    }
+    const storedLegacyConfig = `${JSON.stringify(legacyConfig, null, 2)}\n`
+    await writeFile(process.env.PB_NOTIFICATION_CONFIG_PATH!, storedLegacyConfig, { mode: 0o600 })
+    const fetchMock = vi.fn().mockResolvedValue(new Response('{}', { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+    const { saveNotificationSettings, sendTestNotification } = await import('@/server-actions/notifications')
+    const testResult = await sendTestNotification(validIdentity)
+    expect(testResult.ok).toBe(true)
+    if (!testResult.ok) throw new Error(testResult.error)
+
+    await expect(saveNotificationSettings({
+      ...validSettingsInput,
+      webhookUrl: '',
+    }, testResult.receipt)).resolves.toEqual({ ok: false, error: verificationRequiredError })
+
+    expect(await readFile(process.env.PB_NOTIFICATION_CONFIG_PATH!, 'utf8')).toBe(storedLegacyConfig)
+  })
+
   it('disconnects and removes the webhook secret and verification', async () => {
     const { disconnectDiscordNotifications } = await import('@/server-actions/notifications')
     await writeNotificationConfig(verifiedConfig(), process.env.PB_NOTIFICATION_CONFIG_PATH)
