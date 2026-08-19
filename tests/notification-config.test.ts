@@ -7,10 +7,12 @@ import {
   DEFAULT_NOTIFICATION_CONFIG,
   notificationConfigPath,
   readNotificationConfig,
-  toPublicNotificationSettings,
+  toAuthenticatedNotificationSettings,
   validateDiscordWebhookUrl,
   writeNotificationConfig,
 } from '@/lib/notifications/config'
+import { hashNotificationIdentity } from '@/lib/notifications/verification'
+import { DEFAULT_NOTIFICATION_EVENTS } from '@/lib/notifications/types'
 
 async function tempConfigPath() {
   const dir = await mkdtemp(join(tmpdir(), 'pocketbook-notifications-'))
@@ -73,6 +75,35 @@ describe('notification configuration', () => {
     await expect(readNotificationConfig(path)).resolves.toEqual({ status: 'ready', config })
   })
 
+  it('migrates version 1 in memory without rewriting the source file', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'pocketbook-notify-v1-'))
+    const path = join(directory, 'notifications.json')
+    const v1 = {
+      version: 1,
+      enabled: true,
+      webhookUrl: 'https://discord.com/api/webhooks/123/token-value',
+      username: 'Pocketbook',
+      avatarUrl: null,
+      events: DEFAULT_NOTIFICATION_EVENTS,
+    }
+    await writeFile(path, `${JSON.stringify(v1, null, 2)}\n`, { mode: 0o600 })
+
+    const result = await readNotificationConfig(path)
+
+    expect(result).toEqual({
+      status: 'ready',
+      config: { ...v1, version: 2, verification: null },
+    })
+    expect(JSON.parse(await readFile(path, 'utf8')).version).toBe(1)
+
+    const settings = toAuthenticatedNotificationSettings(result.config, result.status)
+    expect(settings).toEqual(expect.objectContaining({
+      identityVerified: false,
+      verifiedAt: null,
+    }))
+    expect(settings).not.toHaveProperty('verification')
+  })
+
   it('falls back to disabled defaults when the file is corrupt', async () => {
     const path = await tempConfigPath()
     await writeNotificationConfig(DEFAULT_NOTIFICATION_CONFIG, path)
@@ -90,8 +121,43 @@ describe('notification configuration', () => {
       webhookUrl: 'https://discord.com/api/webhooks/123/super-secret-token',
     }
 
-    const publicSettings = toPublicNotificationSettings(config, 'ready')
+    const settings = toAuthenticatedNotificationSettings(config, 'ready')
 
-    expect(publicSettings).toEqual({ ...config, configured: true, status: 'ready' })
+    expect(settings).toEqual({
+      version: 2,
+      enabled: false,
+      webhookUrl: 'https://discord.com/api/webhooks/123/super-secret-token',
+      username: 'Pocketbook',
+      avatarUrl: null,
+      events: DEFAULT_NOTIFICATION_EVENTS,
+      configured: true,
+      status: 'ready',
+      identityVerified: false,
+      verifiedAt: null,
+    })
+    expect(settings).not.toHaveProperty('verification')
+  })
+
+  it('projects only authenticated verification status for a matching v2 identity', () => {
+    const config = {
+      ...DEFAULT_NOTIFICATION_CONFIG,
+      webhookUrl: 'https://discord.com/api/webhooks/123/token-value',
+      verification: {
+        identityHash: hashNotificationIdentity({
+          webhookUrl: 'https://discord.com/api/webhooks/123/token-value',
+          username: DEFAULT_NOTIFICATION_CONFIG.username,
+          avatarUrl: DEFAULT_NOTIFICATION_CONFIG.avatarUrl,
+        }),
+        verifiedAt: '2026-08-19T12:00:00.000Z',
+      },
+    }
+
+    const settings = toAuthenticatedNotificationSettings(config, 'ready')
+
+    expect(settings).toEqual(expect.objectContaining({
+      identityVerified: true,
+      verifiedAt: '2026-08-19T12:00:00.000Z',
+    }))
+    expect(settings).not.toHaveProperty('verification')
   })
 })

@@ -5,12 +5,14 @@ import { z } from 'zod'
 
 import {
   readNotificationConfig,
-  toPublicNotificationSettings,
+  toAuthenticatedNotificationSettings,
   validateDiscordWebhookUrl,
   writeNotificationConfig,
 } from '@/lib/notifications/config'
 import { sendNotification } from '@/lib/notifications/send'
-import { NOTIFICATION_EVENT_KEYS, type NotificationConfigV1 } from '@/lib/notifications/types'
+import { normaliseNotificationIdentity } from '@/lib/notifications/identity'
+import { hashNotificationIdentity } from '@/lib/notifications/verification'
+import { NOTIFICATION_EVENT_KEYS, type NotificationConfig } from '@/lib/notifications/types'
 import { requireAuthenticatedUser } from '@/lib/require-auth'
 
 const eventFlagsSchema = z.object(
@@ -63,16 +65,26 @@ export async function saveNotificationSettings(input: NotificationSettingsInput)
     return { ok: false as const, error: 'Enter a Discord webhook before enabling notifications.' }
   }
 
-  const nextConfig: NotificationConfigV1 = {
-    version: 1,
-    enabled: parsed.enabled,
-    webhookUrl,
+  const identity = normaliseNotificationIdentity({
+    webhookUrl: webhookUrl ?? '',
     username: parsed.username,
-    avatarUrl: parsed.avatarUrl || null,
+    avatarUrl: parsed.avatarUrl,
+  })
+  const identityHash = hashNotificationIdentity(identity)
+  const verification = current.config.verification?.identityHash === identityHash
+    ? current.config.verification
+    : null
+
+  const nextConfig: NotificationConfig = {
+    version: 2,
+    enabled: parsed.enabled,
+    ...identity,
+    webhookUrl: identity.webhookUrl || null,
     events: parsed.events,
+    verification,
   }
 
-  let config: NotificationConfigV1
+  let config: NotificationConfig
   try {
     config = await writeNotificationConfig(nextConfig)
   } catch {
@@ -85,7 +97,7 @@ export async function saveNotificationSettings(input: NotificationSettingsInput)
   revalidatePath('/settings')
   return {
     ok: true as const,
-    settings: toPublicNotificationSettings(config, 'ready'),
+    settings: toAuthenticatedNotificationSettings(config, 'ready'),
   }
 }
 
@@ -101,7 +113,7 @@ export async function disconnectDiscordNotifications() {
   revalidatePath('/settings')
   return {
     ok: true as const,
-    settings: toPublicNotificationSettings(config, 'ready'),
+    settings: toAuthenticatedNotificationSettings(config, 'ready'),
   }
 }
 

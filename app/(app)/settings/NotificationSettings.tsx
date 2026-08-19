@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import type { NotificationEventKey, PublicNotificationSettings } from '@/lib/notifications/types'
+import type { AuthenticatedNotificationSettings, NotificationEventKey } from '@/lib/notifications/types'
 import {
   disconnectDiscordNotifications,
   saveNotificationSettings,
@@ -28,7 +28,7 @@ const EVENT_OPTIONS: Array<{
   { key: 'backupFailed', label: 'Backup failed', preview: 'Database connection unavailable' },
 ]
 
-export function NotificationSettings({ initialSettings }: { initialSettings: PublicNotificationSettings }) {
+export function NotificationSettings({ initialSettings }: { initialSettings: AuthenticatedNotificationSettings }) {
   const [settings, setSettings] = useState(initialSettings)
   const [webhookUrl, setWebhookUrl] = useState(initialSettings.webhookUrl ?? '')
   const [isPending, startTransition] = useTransition()
