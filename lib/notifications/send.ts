@@ -1,4 +1,4 @@
-import { readNotificationConfig } from '@/lib/notifications/config'
+import { readNotificationConfig, validateDiscordWebhookUrl } from '@/lib/notifications/config'
 import type {
   NotificationConfig,
   NotificationDeliveryResult,
@@ -12,11 +12,19 @@ const DISCORD_AMBER = 0xf1c40f
 const DISCORD_BLURPLE = 0x5865f2
 export const DISCORD_TIMEOUT_MS = 5000
 
-export type NotificationDeliveryOptions = {
-  configPath?: string
+export type NotificationTransportConfig = Pick<
+  NotificationConfig,
+  'webhookUrl' | 'username' | 'avatarUrl'
+>
+
+export type NotificationTransportOptions = {
   fetchImpl?: typeof fetch
   instanceName?: string
   timeoutMs?: number
+}
+
+export type NotificationDeliveryOptions = NotificationTransportOptions & {
+  configPath?: string
 }
 
 type RenderedNotification = {
@@ -88,11 +96,14 @@ export function renderNotification(event: NotificationEvent): RenderedNotificati
 }
 
 export async function deliverNotificationWithConfig(
-  config: NotificationConfig,
+  config: NotificationTransportConfig,
   event: NotificationEvent,
-  options: NotificationDeliveryOptions = {},
+  options: NotificationTransportOptions = {},
 ): Promise<NotificationDeliveryResult> {
   if (!config.webhookUrl) return { delivered: false, reason: 'not-configured' }
+  if (!validateDiscordWebhookUrl(config.webhookUrl)) {
+    return { delivered: false, reason: 'delivery-failed' }
+  }
 
   const rendered = renderNotification(event)
   const webhook = new URL(config.webhookUrl)

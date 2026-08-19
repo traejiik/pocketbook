@@ -69,10 +69,7 @@ describe('Discord delivery', () => {
       avatarUrl: 'https://i.ibb.co/logo.png',
     }
 
-    const result = await deliverNotificationWithConfig(config, { type: 'test' }, {
-      configPath: join(await mkdtemp(join(tmpdir(), 'pocketbook-notify-unsaved-')), 'missing.json'),
-      fetchImpl,
-    })
+    const result = await deliverNotificationWithConfig(config, { type: 'test' }, { fetchImpl })
 
     expect(result).toEqual({ delivered: true })
     const [url, init] = fetchImpl.mock.calls[0] as [string, RequestInit]
@@ -99,6 +96,41 @@ describe('Discord delivery', () => {
       })
     },
   )
+
+  it.each([
+    'https://discord.com:bad/api/webhooks/999/unsaved-token',
+    'https://example.com/api/webhooks/999/unsaved-token',
+  ])('rejects invalid explicit webhook URLs without calling fetch', async (webhookUrl) => {
+    const fetchImpl = vi.fn()
+    const config = {
+      ...DEFAULT_NOTIFICATION_CONFIG,
+      webhookUrl,
+    }
+
+    await expect(deliverNotificationWithConfig(config, { type: 'test' }, { fetchImpl })).resolves.toEqual({
+      delivered: false,
+      reason: 'delivery-failed',
+    })
+    expect(fetchImpl).not.toHaveBeenCalled()
+  })
+
+  it('delivers an explicit non-test event even when saved-config policy switches are disabled', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(new Response('{}', { status: 200 }))
+    const config = {
+      ...DEFAULT_NOTIFICATION_CONFIG,
+      enabled: false,
+      webhookUrl: 'https://discord.com/api/webhooks/999/unsaved-token',
+      events: { ...DEFAULT_NOTIFICATION_CONFIG.events, backupCompleted: false },
+    }
+
+    await expect(deliverNotificationWithConfig(config, {
+      type: 'backupCompleted', filename: 'pocketbook.dump', size: '2 MB', kept: 14, source: 'manual',
+    }, { fetchImpl })).resolves.toEqual({ delivered: true })
+    expect(fetchImpl).toHaveBeenCalledWith(
+      'https://discord.com/api/webhooks/999/unsaved-token?wait=true',
+      expect.any(Object),
+    )
+  })
 
   it('respects the master and event switches', async () => {
     const masterOff = await configuredPath({ enabled: false })
