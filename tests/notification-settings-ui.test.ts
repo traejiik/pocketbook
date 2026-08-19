@@ -69,11 +69,11 @@ describe('notification settings verification behaviour', () => {
     const failedTestBlock = textBetween(
       sendTestBlock,
       '        if (!result.ok) {',
-      '        setTransientVerification({',
+      '        const testedVerification = {',
     )
     const successfulTestBlock = textBetween(
       sendTestBlock,
-      '        setTransientVerification({',
+      '        const testedVerification = {',
       '      } catch {',
     )
     const caughtTestBlock = textBetween(
@@ -101,9 +101,15 @@ describe('notification settings verification behaviour', () => {
       'return',
     ])
     expectInOrder(successfulTestBlock, [
+      'const testedVerification = {',
       'identityKey: testedIdentityKey,',
       'receipt: result.receipt,',
       'expiresAt: result.expiresAt,',
+      'parseFreshNotificationExpiry(testedVerification.expiresAt, Date.now()) === null',
+      'setTransientVerification(null)',
+      "toast.error('Could not send test notification. Try again.')",
+      'return',
+      'setTransientVerification(testedVerification)',
       "toast.success('Test notification sent. Settings can now be saved.')",
     ])
     expectInOrder(caughtTestBlock, [
@@ -163,12 +169,8 @@ describe('notification settings verification behaviour', () => {
     expect(transientMatchesBlock).toContain(
       'transientVerification?.identityKey === currentIdentityKey',
     )
-    expect(transientMatchesBlock).toContain(
-      'Date.parse(transientVerification.expiresAt) > Date.now()',
-    )
-    expect(transientMatchesBlock).toMatch(
-      /transientVerification\?\.identityKey\s*===\s*currentIdentityKey\s*(?:\/\/[^\n]*\n\s*)?&&\s*Date\.parse\(transientVerification\.expiresAt\)\s*>\s*Date\.now\(\)/,
-    )
+    expect(transientMatchesBlock).not.toContain('Date.now()')
+    expect(source).not.toContain('eslint-disable-next-line react-hooks/purity')
     expect(canSaveBlock).toContain(
       'const canSave = persistedIdentityKey === currentIdentityKey || transientMatches',
     )
@@ -279,23 +281,46 @@ describe('notification settings verification behaviour', () => {
   it('expires transient proof and forwards only a receipt matching the current identity', () => {
     const effectBlock = sourceBetween('  useEffect(() => {', '\n\n  function save()')
     const saveBlock = sourceBetween('  function save() {', '\n\n  function disconnect()')
+    const localSaveGuardBlock = textBetween(
+      saveBlock,
+      '    const verification = evaluateClientNotificationVerification(',
+      '    startTransition(async () => {',
+    )
 
     expectInOrder(effectBlock, [
       'const remaining = Date.parse(transientVerification.expiresAt) - Date.now()',
+      'const clearIfExpired = () => {',
+      'parseFreshNotificationExpiry(transientVerification.expiresAt, Date.now()) === null',
+      'setTransientVerification(null)',
+      'const handleVisibilityChange = () => {',
+      "document.visibilityState === 'visible'",
       'const timer = window.setTimeout(',
       '() => setTransientVerification(null)',
       'Math.max(0, remaining)',
-      'return () => window.clearTimeout(timer)',
+      "window.addEventListener('focus', clearIfExpired)",
+      "document.addEventListener('visibilitychange', handleVisibilityChange)",
+      'return () => {',
+      'window.clearTimeout(timer)',
+      "window.removeEventListener('focus', clearIfExpired)",
+      "document.removeEventListener('visibilitychange', handleVisibilityChange)",
       '}, [transientVerification])',
     ])
-    expect(source).toContain('transientVerification?.identityKey === currentIdentityKey')
-    expect(source).toContain('Date.parse(transientVerification.expiresAt) > Date.now()')
-    expect(saveBlock).toContain(
-      'const matchingReceipt = transientVerification?.identityKey === currentIdentityKey',
-    )
-    expect(saveBlock).toContain('? transientVerification.receipt')
-    expect(saveBlock).toContain(': null')
+    expectInOrder(localSaveGuardBlock, [
+      'evaluateClientNotificationVerification(',
+      'persistedIdentityKey,',
+      'transientVerification,',
+      'currentIdentityKey,',
+      'Date.now()',
+      'if (!verification.canSave) {',
+      'setTransientVerification(null)',
+      'toast.error(VERIFICATION_REQUIRED_ERROR)',
+      'return',
+      'const matchingReceipt = verification.matchingReceipt',
+    ])
     expect(saveBlock).toContain('}, matchingReceipt)')
+    expect(source).toContain(
+      "const VERIFICATION_REQUIRED_ERROR = 'Send a successful test for the current webhook, username, and avatar before saving.'",
+    )
   })
 
   it('promotes only verified action results and drops rejected verification proof', () => {

@@ -8,6 +8,11 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
+import {
+  evaluateClientNotificationVerification,
+  parseFreshNotificationExpiry,
+  type TransientNotificationVerification,
+} from '@/lib/notifications/client-verification'
 import { notificationIdentityKey } from '@/lib/notifications/identity'
 import type { AuthenticatedNotificationSettings, NotificationEventKey } from '@/lib/notifications/types'
 import {
@@ -16,11 +21,7 @@ import {
   sendTestNotification,
 } from '@/server-actions/notifications'
 
-type TransientVerification = {
-  identityKey: string
-  receipt: string
-  expiresAt: string
-}
+const VERIFICATION_REQUIRED_ERROR = 'Send a successful test for the current webhook, username, and avatar before saving.'
 
 const EVENT_OPTIONS: Array<{
   key: NotificationEventKey
@@ -46,7 +47,7 @@ export function NotificationSettings({ initialSettings }: { initialSettings: Aut
   const [persistedIdentityKey, setPersistedIdentityKey] = useState<string | null>(
     initialSettings.identityVerified ? initialIdentityKey : null,
   )
-  const [transientVerification, setTransientVerification] = useState<TransientVerification | null>(null)
+  const [transientVerification, setTransientVerification] = useState<TransientNotificationVerification | null>(null)
   const [isPending, startTransition] = useTransition()
 
   const currentIdentity = {
@@ -56,26 +57,47 @@ export function NotificationSettings({ initialSettings }: { initialSettings: Aut
   }
   const currentIdentityKey = notificationIdentityKey(currentIdentity)
   const transientMatches = transientVerification?.identityKey === currentIdentityKey
-    // eslint-disable-next-line react-hooks/purity -- A delayed expiry timer must not keep Save enabled.
-    && Date.parse(transientVerification.expiresAt) > Date.now()
   const canSave = persistedIdentityKey === currentIdentityKey || transientMatches
 
   useEffect(() => {
     if (!transientVerification) return
     const remaining = Date.parse(transientVerification.expiresAt) - Date.now()
+    const clearIfExpired = () => {
+      if (parseFreshNotificationExpiry(transientVerification.expiresAt, Date.now()) === null) {
+        setTransientVerification(null)
+      }
+    }
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') clearIfExpired()
+    }
     const timer = window.setTimeout(
       () => setTransientVerification(null),
       Math.max(0, remaining),
     )
-    return () => window.clearTimeout(timer)
+    window.addEventListener('focus', clearIfExpired)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => {
+      window.clearTimeout(timer)
+      window.removeEventListener('focus', clearIfExpired)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
   }, [transientVerification])
 
   function save() {
+    const verification = evaluateClientNotificationVerification(
+      persistedIdentityKey,
+      transientVerification,
+      currentIdentityKey,
+      Date.now(),
+    )
+    if (!verification.canSave) {
+      setTransientVerification(null)
+      toast.error(VERIFICATION_REQUIRED_ERROR)
+      return
+    }
+    const matchingReceipt = verification.matchingReceipt
     startTransition(async () => {
       try {
-        const matchingReceipt = transientVerification?.identityKey === currentIdentityKey
-          ? transientVerification.receipt
-          : null
         const result = await saveNotificationSettings({
           enabled: settings.enabled,
           webhookUrl,
@@ -132,11 +154,17 @@ export function NotificationSettings({ initialSettings }: { initialSettings: Aut
           toast.error(result.error)
           return
         }
-        setTransientVerification({
+        const testedVerification = {
           identityKey: testedIdentityKey,
           receipt: result.receipt,
           expiresAt: result.expiresAt,
-        })
+        }
+        if (parseFreshNotificationExpiry(testedVerification.expiresAt, Date.now()) === null) {
+          setTransientVerification(null)
+          toast.error('Could not send test notification. Try again.')
+          return
+        }
+        setTransientVerification(testedVerification)
         toast.success('Test notification sent. Settings can now be saved.')
       } catch {
         setTransientVerification(null)
