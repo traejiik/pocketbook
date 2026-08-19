@@ -67,7 +67,11 @@ export function NotificationSettings({ initialSettings }: { initialSettings: Aut
 
   function sendTest() {
     startTransition(async () => {
-      const result = await sendTestNotification()
+      const result = await sendTestNotification({
+        webhookUrl,
+        username: settings.username,
+        avatarUrl: settings.avatarUrl,
+      })
       if (result.ok) toast.success('Test notification sent')
       else toast.error(result.error)
     })
