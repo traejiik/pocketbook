@@ -46,6 +46,7 @@ Numbers lead. Surfaces recede. A single calm blue is reserved for what matters.
 - **📅 Renewal radar** — a cash-out timeline that tells you what's leaving your account in the next 30/60/90 days.
 - **⚡ Fast and honest UI** — optimistic writes, skeletons instead of spinners, tabular numerics on every figure, dark-mode-first, and a real `⌘K` search.
 - **📥 One-way CSV import** — bootstrap from your old spreadsheet in one shot.
+- **💾 Verified backups & Discord alerts** — scheduled operations, backup health, and per-event Discord controls live in Settings without extra sidecar containers.
 - **📱 Installable PWA** — add to home screen and run in a standalone window.
 
 ---
@@ -88,9 +89,9 @@ Real streaming tokens from your Ollama model, saved to the database with a feedb
 
 ![AI Insights](docs/screenshots/insights.png)
 
-### Settings — anchor currency, FX, security & the local LLM
+### Settings — operations, notifications, FX, security & the local LLM
 
-Pick your anchor currency, manage tracked FX rates (dynamic or manual), change your password, and choose which Ollama model writes your insights.
+Pick your anchor currency, manage tracked FX rates, configure Discord identity and event switches, inspect or run verified backups, change your password, and choose which Ollama model writes your insights.
 
 ![Settings](docs/screenshots/settings.png)
 
@@ -100,7 +101,7 @@ Pick your anchor currency, manage tracked FX rates (dynamic or manual), change y
 
 | Layer | Choice |
 | --- | --- |
-| **Framework** | Next.js 16.2.6 (App Router) · React 19.2.6 · TypeScript 5 |
+| **Framework** | Next.js 16.2.6 (App Router) · React 19.2.6 · TypeScript 6 |
 | **Styling** | Tailwind CSS 4.3 via CSS-first `@theme` tokens in `app/globals.css` |
 | **Components** | shadcn v4 registry style · local Base UI-backed primitives · custom finance charts/SVGs |
 | **Database** | PostgreSQL 16 + Prisma 7.8 |
@@ -108,9 +109,9 @@ Pick your anchor currency, manage tracked FX rates (dynamic or manual), change y
 | **Forms** | react-hook-form + zod |
 | **AI** | Local Ollama — `PB_OLLAMA_BASE_URL` in deploy env, passed to the app as `OLLAMA_BASE_URL` |
 | **FX rates** | [frankfurter.dev](https://frankfurter.dev) (ECB feed), auto-synced daily |
-| **Runtime / deploy** | Node 24 Alpine · pnpm 10.33.0 in Docker · Docker Compose · GHCR image releases |
+| **Runtime / deploy** | Node 24 Alpine · supervised Next.js + UTC scheduler · PostgreSQL 16 client tools · pnpm 10.33.0 · Docker Compose · GHCR image releases |
 
-**Architecture in one line:** server components read from Prisma directly → pass props → Server Actions mutate → `revalidatePath` + `revalidateTag` refresh. The only REST routes are for Auth.js, SSE insights streaming, and secret-authenticated cron endpoints (FX sync, monthly insights, recurring sync). No client-side data fetching for initial renders.
+**Architecture in one line:** server components read from Prisma directly → pass props → Server Actions mutate → `revalidatePath` + `revalidateTag` refresh. The only REST routes are for Auth.js, SSE insights streaming, and scheduler-only sync endpoints authenticated by an ephemeral per-boot token shared inside `pocketbook-web`. No client-side data fetching for initial renders.
 
 The heavier aggregation reads (KPIs, expenses-by-category, monthly trend, upcoming renewals, category stats, recurring budget) are cached between requests with `unstable_cache` and invalidated by tag on write — see `lib/cache.ts`.
 
@@ -128,18 +129,17 @@ cp .env.example .env
 
 # 2. Fill in .env (see the table below). Generate secrets with:
 #    openssl rand -base64 32   # PB_AUTH_SECRET
-#    openssl rand -hex 32      # PB_FX_SYNC_SECRET
 
 # 3. Start
-docker-compose up -d
+docker compose up -d
 
 # 4. Open http://localhost:3000 and sign in with
 #    PB_SEED_USER_EMAIL / PB_SEED_USER_PASSWORD
 ```
 
-On boot, the `pocketbook-web` container builds `PB_DATABASE_URL` from the `PB_POSTGRES_*` variables, runs `prisma migrate deploy`, runs the idempotent seed, and then backfills any transaction FX locks that are still missing before starting Next.js. Prisma 7 reads its datasource URL from `prisma.config.ts`, so the runner image ships that root config alongside `prisma/`; the bundled backfill runs inside the same entrypoint environment.
+On boot, the `pocketbook-web` container prepares `/data` and `/backups` as root, immediately re-execs as UID 1001, builds `PB_DATABASE_URL`, runs `prisma migrate deploy`, the idempotent seed, and the FX-lock backfill, then starts a PID-1 supervisor. The supervisor generates a per-boot internal job token and runs Next.js plus a separate UTC scheduler process. If either child exits or the worker stops heartbeating, the container exits so Docker can restart it.
 
-After every successful boot the validated configuration is persisted to `.env-cache` on the `/data` volume (`chmod 600`); if a later redeploy arrives without its environment variables (a known Portainer panel quirk), the entrypoint restores the missing values from that cache instead of boot-looping — environment values always win, and a Discord/webhook warning is posted whenever the cache had to be used. See `DEPLOY.md` → *Resilience* for details.
+After every successful boot the validated environment configuration is persisted to `.env-cache` on the `/data` volume (`chmod 600`); if a later redeploy arrives without variables, the entrypoint restores only the missing values. Discord configuration is separate: enter the webhook in authenticated Settings, where it is stored as `/data/notifications.json` with mode `0600` and is never returned to the browser or imported from environment variables.
 
 ### Configuration
 
@@ -150,13 +150,18 @@ After every successful boot the validated configuration is persisted to `.env-ca
 | `PB_AUTH_URL` | ✅ | Full public URL of the instance (mapped to `AUTH_URL`). |
 | `PB_SEED_USER_EMAIL` | ✅ | Login email for the single seeded user. |
 | `PB_SEED_USER_PASSWORD` | ✅ | Login password for the seeded user. |
-| `PB_FX_SYNC_SECRET` | ✅ | Shared secret for the `/api/fx/sync` cron endpoint — `openssl rand -hex 32`. |
 | `PB_OLLAMA_BASE_URL` | – | Your Ollama base URL, e.g. `http://homelab.local:11434`. |
 | `PB_USER_DISPLAY_NAME` | – | Name shown in the sidebar header and login page. |
 | `PB_INSTANCE_NAME` | – | Optional label in the login footer (e.g. `home`, `work`). |
 | `AUTH_TRUST_HOST` | – | Set `true` for custom hostnames like `pocketbook.home`. |
 
 See [`.env.example`](.env.example) for the full annotated template and [`DEPLOY.md`](DEPLOY.md) for homelab deployment notes.
+
+### Integrated operations
+
+Production uses two containers: `pocketbook-web` and `pocketbook-db`. The web image schedules fixed UTC jobs serially: verified backup at 02:30, FX sync at 03:00, monthly insight at 03:05 on day 1, and recurring reconciliation at 03:10. Startup catches up only the latest relevant state; failed occurrences retry every 15 minutes and emit at most one Discord failure notification per occurrence.
+
+Backups are custom-format PostgreSQL archives written through `.partial`, checked with `pg_restore --list`, atomically promoted to `.dump`, and retained to the newest 14 under `${PB_DOCKER_DIR}/pocketbook/backups`. Settings shows health and supports an authenticated manual run. Restore remains a deliberate CLI workflow—see [`DEPLOY.md`](DEPLOY.md#restore-drill).
 
 ---
 
