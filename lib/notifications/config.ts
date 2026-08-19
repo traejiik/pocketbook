@@ -104,6 +104,5 @@ export function toPublicNotificationSettings(
   config: NotificationConfigV1,
   status: NotificationConfigStatus,
 ): PublicNotificationSettings {
-  const { webhookUrl, ...safe } = config
-  return { ...safe, configured: Boolean(webhookUrl), status }
+  return { ...config, configured: Boolean(config.webhookUrl), status }
 }

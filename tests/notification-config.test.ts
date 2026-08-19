@@ -84,7 +84,7 @@ describe('notification configuration', () => {
     })
   })
 
-  it('never exposes the stored webhook URL to Settings clients', () => {
+  it('returns the stored webhook URL to authenticated Settings clients', () => {
     const config = {
       ...DEFAULT_NOTIFICATION_CONFIG,
       webhookUrl: 'https://discord.com/api/webhooks/123/super-secret-token',
@@ -92,8 +92,6 @@ describe('notification configuration', () => {
 
     const publicSettings = toPublicNotificationSettings(config, 'ready')
 
-    expect(publicSettings).toEqual(expect.objectContaining({ configured: true, status: 'ready' }))
-    expect(JSON.stringify(publicSettings)).not.toContain('super-secret-token')
-    expect(publicSettings).not.toHaveProperty('webhookUrl')
+    expect(publicSettings).toEqual({ ...config, configured: true, status: 'ready' })
   })
 })

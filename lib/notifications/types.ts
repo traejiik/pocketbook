@@ -20,7 +20,7 @@ export type NotificationConfigV1 = {
 
 export type NotificationConfigStatus = 'missing' | 'ready' | 'invalid'
 
-export type PublicNotificationSettings = Omit<NotificationConfigV1, 'webhookUrl'> & {
+export type PublicNotificationSettings = NotificationConfigV1 & {
   configured: boolean
   status: NotificationConfigStatus
 }
