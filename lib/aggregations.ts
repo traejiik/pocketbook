@@ -23,6 +23,12 @@ export type RuleWithCategory = RecurringRule & { category: Category };
 
 type FrozenTx = { amount: number | { toString(): string }; currency: string; fxRate: unknown; fxAnchor: string | null };
 
+// The four columns `txToAnchor` reads, and the only ones the money reducers below
+// need. Selecting whole rows dragged `id`, `description`, `createdAt` and both
+// foreign keys through aggregations that never look at them — roughly two thirds
+// of the payload for reads that only convert amounts.
+const FX_COLUMNS = { amount: true, currency: true, fxRate: true, fxAnchor: true } as const;
+
 // Convert a transaction to the anchor using its frozen rate (live fallback for
 // legacy/null rows). Centralises the Decimal → number coercion every caller needs.
 function txToAnchor(t: FrozenTx): Promise<number | null> {
@@ -37,6 +43,7 @@ function txToAnchor(t: FrozenTx): Promise<number | null> {
 async function kpisForRange(start: Date, end: Date) {
   const txs = await prisma.transaction.findMany({
     where: { date: { gte: start, lt: end } },
+    select: { ...FX_COLUMNS, type: true },
   });
 
   let income = 0, expense = 0, savings = 0, unconvertibleCount = 0;
@@ -98,7 +105,14 @@ export const getMonthKpis = cache(async (monthKey: string) => {
 async function expensesByCategoryForRange(start: Date, end: Date) {
   const txs = await prisma.transaction.findMany({
     where: { type: 'EXPENSE', date: { gte: start, lt: end } },
-    include: { category: true },
+    // Only the two category columns that get denormalised into the result — the
+    // joined row is repeated per transaction, so `include` duplicated `id` and
+    // `kind` across every row of every category.
+    select: {
+      ...FX_COLUMNS,
+      categoryId: true,
+      category: { select: { name: true, color: true } },
+    },
   });
 
   const map = new Map<string, { name: string; color: string; value: number }>();
@@ -265,6 +279,9 @@ async function monthlyTrendFrom(latestMonthIso: string, months: number) {
 
   const txs = await prisma.transaction.findMany({
     where: { date: { gte: windowStart, lt: windowEnd } },
+    // `date` is read here rather than inferred from the `where`, because the
+    // months are bucketed in memory now (see above) instead of per query.
+    select: { ...FX_COLUMNS, type: true, date: true },
   });
 
   for (const t of txs) {
