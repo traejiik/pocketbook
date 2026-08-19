@@ -23,6 +23,12 @@ export type RuleWithCategory = RecurringRule & { category: Category };
 
 type FrozenTx = { amount: number | { toString(): string }; currency: string; fxRate: unknown; fxAnchor: string | null };
 
+// The four columns `txToAnchor` reads, and the only ones the money reducers below
+// need. Selecting whole rows dragged `id`, `description`, `createdAt` and both
+// foreign keys through aggregations that never look at them — roughly two thirds
+// of the payload for reads that only convert amounts.
+const FX_COLUMNS = { amount: true, currency: true, fxRate: true, fxAnchor: true } as const;
+
 // Convert a transaction to the anchor using its frozen rate (live fallback for
 // legacy/null rows). Centralises the Decimal → number coercion every caller needs.
 function txToAnchor(t: FrozenTx): Promise<number | null> {
@@ -37,6 +43,7 @@ function txToAnchor(t: FrozenTx): Promise<number | null> {
 async function kpisForRange(start: Date, end: Date) {
   const txs = await prisma.transaction.findMany({
     where: { date: { gte: start, lt: end } },
+    select: { ...FX_COLUMNS, type: true },
   });
 
   let income = 0, expense = 0, savings = 0, unconvertibleCount = 0;
@@ -98,7 +105,14 @@ export const getMonthKpis = cache(async (monthKey: string) => {
 async function expensesByCategoryForRange(start: Date, end: Date) {
   const txs = await prisma.transaction.findMany({
     where: { type: 'EXPENSE', date: { gte: start, lt: end } },
-    include: { category: true },
+    // Only the two category columns that get denormalised into the result — the
+    // joined row is repeated per transaction, so `include` duplicated `id` and
+    // `kind` across every row of every category.
+    select: {
+      ...FX_COLUMNS,
+      categoryId: true,
+      category: { select: { name: true, color: true } },
+    },
   });
 
   const map = new Map<string, { name: string; color: string; value: number }>();
@@ -265,6 +279,9 @@ async function monthlyTrendFrom(latestMonthIso: string, months: number) {
 
   const txs = await prisma.transaction.findMany({
     where: { date: { gte: windowStart, lt: windowEnd } },
+    // `date` is read here rather than inferred from the `where`, because the
+    // months are bucketed in memory now (see above) instead of per query.
+    select: { ...FX_COLUMNS, type: true, date: true },
   });
 
   for (const t of txs) {
@@ -311,23 +328,54 @@ export const getCategories = cache(async () => {
   return prisma.category.findMany({ orderBy: { name: 'asc' } });
 });
 
+// Postgres hands `numeric` and `bigint` back as strings rather than JS numbers, so
+// both aggregates are coerced at the point of use. `total` is already absolute.
+type CategoryStatGroup = {
+  categoryId: string;
+  currency: string;
+  fxRate: unknown;
+  fxAnchor: string | null;
+  total: string;   // SUM(ABS(amount)) — numeric
+  n: string;       // COUNT(*)         — bigint
+};
+
+// One row per (category, currency, locked rate) rather than one row per
+// transaction. Two things make that collapse sound:
+//
+//   * `ABS()` has to be *inside* the `SUM`. `amount` is stored signed, and the
+//     sign is not reliable: Server Actions normalise it by type, but CSV import
+//     writes whatever the file carried, so a single category can hold EXPENSE
+//     rows of both signs (the dev database does). `Math.abs(sum)` and
+//     `sum(Math.abs)` then disagree — the naive `groupBy` + `_sum` version of
+//     this measured 5.7% off. Prisma's `groupBy` cannot express `SUM(ABS(...))`,
+//     which is the whole reason this one read drops to raw SQL. Nothing is
+//     interpolated into the template, so there is no injection surface.
+//   * Conversion is linear in the amount, so converting a group total is the same
+//     figure as converting each row and adding — and Postgres sums `numeric`
+//     exactly, where the per-row JS loop accumulated float error.
+//
+// The grouping is what bounds this read: anchor-currency rows all share
+// `fxRate = 1` and collapse to one row per category no matter how long the
+// history gets. Only foreign-currency rows keep their own locked rate.
 async function categoriesWithStats() {
   const cats = await prisma.category.findMany({ orderBy: { name: 'asc' } });
-  const txCounts = await prisma.transaction.groupBy({
-    by: ['categoryId'],
-    _count: { id: true },
-  });
-  const txSums = await prisma.transaction.findMany({
-    select: { categoryId: true, amount: true, currency: true, fxRate: true, fxAnchor: true },
-  });
+  const groups = await prisma.$queryRaw<CategoryStatGroup[]>`
+    SELECT "categoryId", "currency", "fxRate", "fxAnchor",
+           SUM(ABS("amount")) AS total,
+           COUNT(*)           AS n
+    FROM "Transaction"
+    GROUP BY "categoryId", "currency", "fxRate", "fxAnchor"
+  `;
 
-  const countMap = new Map(txCounts.map((r) => [r.categoryId, r._count.id]));
+  const countMap = new Map<string, number>();
   const sumMap = new Map<string, number>();
-  for (const t of txSums) {
-    const converted = await txToAnchor(t);
+  for (const g of groups) {
+    // Counted before conversion, so an unconvertible group still shows up in the
+    // "N txns" line and in the delete-with-replacement prompt.
+    countMap.set(g.categoryId, (countMap.get(g.categoryId) ?? 0) + Number(g.n));
+    const converted = await txToAnchor({ ...g, amount: g.total });
     if (converted === null) continue;
-    const prev = sumMap.get(t.categoryId) ?? 0;
-    sumMap.set(t.categoryId, prev + converted);
+    sumMap.set(g.categoryId, (sumMap.get(g.categoryId) ?? 0) + converted);
   }
 
   return cats.map((c) => ({
@@ -337,8 +385,9 @@ async function categoriesWithStats() {
   }));
 }
 
-// All-time and unbounded, so this is the read that benefits most from caching as
-// history grows. `Category` has no date columns, so the result is JSON-safe as-is.
+// All-time, so this is the read that benefits most from caching as history grows.
+// `Category` has no date columns and both aggregates are coerced to numbers above
+// (a raw `bigint` would not survive `JSON.stringify`), so the result is JSON-safe.
 const cachedCategoriesWithStats = cachedAggregation(
   ['categories-with-stats'],
   [CACHE_TAGS.transactions, CACHE_TAGS.categories, CACHE_TAGS.fx],

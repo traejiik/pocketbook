@@ -22,7 +22,12 @@ const prismaMock = {
     groupBy: vi.fn(),
     findMany: vi.fn(),
   },
+  $queryRaw: vi.fn(),
 }
+
+// `$queryRaw` is a tagged template, so the mock receives the string fragments as
+// its first argument. Rejoining them gives the SQL the read actually issues.
+const lastRawSql = () => (prismaMock.$queryRaw.mock.calls.at(-1)?.[0] as string[]).join('?')
 
 vi.mock('@/lib/prisma', () => ({ prisma: prismaMock }))
 
@@ -79,17 +84,55 @@ describe('anchor conversion detail amounts', () => {
     prismaMock.category.findMany.mockResolvedValue([
       { id: 'subs', name: 'Subscriptions', color: '#C58CFF', kind: 'EXPENSE' },
     ])
-    prismaMock.transaction.groupBy.mockResolvedValue([
-      { categoryId: 'subs', _count: { id: 2 } },
-    ])
-    prismaMock.transaction.findMany.mockResolvedValue([
-      { categoryId: 'subs', amount: 1000, currency: 'HUF' },
-      { categoryId: 'subs', amount: 4.99, currency: 'EUR' },
+    // Postgres returns `numeric`/`bigint` as strings, which is what the read has
+    // to coerce — mocking them as JS numbers would hide that.
+    prismaMock.$queryRaw.mockResolvedValue([
+      { categoryId: 'subs', currency: 'HUF', fxRate: null, fxAnchor: null, total: '1000', n: '1' },
+      { categoryId: 'subs', currency: 'EUR', fxRate: null, fxAnchor: null, total: '4.99', n: '1' },
     ])
 
     const { getCategoriesWithStats } = await import('@/lib/aggregations')
     const [category] = await getCategoriesWithStats()
 
     expect(category.txTotalHUF).toBe(2977)
+    // A category's groups are per (currency, locked rate), so its count is the
+    // sum of theirs rather than any single group's.
+    expect(category.txCount).toBe(2)
+  })
+
+  it('takes the absolute value inside the SUM, in SQL', async () => {
+    // The load-bearing detail of the grouped aggregation. `amount` is stored
+    // signed and the sign is NOT reliable — Server Actions normalise it by type,
+    // but CSV import writes whatever the file carried, so one category can hold
+    // EXPENSE rows of both signs. `SUM(ABS(x))` and `ABS(SUM(x))` then disagree,
+    // and the cheaper Prisma `groupBy` + `_sum` spelling can only express the
+    // second. If this assertion ever fails, category totals are silently
+    // cancelling instead of accumulating.
+    prismaMock.category.findMany.mockResolvedValue([])
+    prismaMock.$queryRaw.mockResolvedValue([])
+
+    const { getCategoriesWithStats } = await import('@/lib/aggregations')
+    await getCategoriesWithStats()
+
+    const sql = lastRawSql().replace(/\s+/g, ' ')
+    expect(sql).toMatch(/SUM\(ABS\("amount"\)\)/)
+    expect(sql).toMatch(/GROUP BY "categoryId", "currency", "fxRate", "fxAnchor"/)
+  })
+
+  it('counts unconvertible rows but leaves them out of the total', async () => {
+    prismaMock.category.findMany.mockResolvedValue([
+      { id: 'subs', name: 'Subscriptions', color: '#C58CFF', kind: 'EXPENSE' },
+    ])
+    prismaMock.$queryRaw.mockResolvedValue([
+      { categoryId: 'subs', currency: 'HUF', fxRate: null, fxAnchor: null, total: '1000', n: '2' },
+      // GBP has no stored pair in this mock, so it converts to null.
+      { categoryId: 'subs', currency: 'GBP', fxRate: null, fxAnchor: null, total: '50', n: '3' },
+    ])
+
+    const { getCategoriesWithStats } = await import('@/lib/aggregations')
+    const [category] = await getCategoriesWithStats()
+
+    expect(category.txTotalHUF).toBe(1000)
+    expect(category.txCount).toBe(5)
   })
 })

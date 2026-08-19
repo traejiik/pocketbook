@@ -63,6 +63,13 @@ function lastDateWhere() {
   return call?.where?.date as { gte: Date; lt: Date }
 }
 
+function lastCall() {
+  return mocks.findMany.mock.calls.at(-1)?.[0] as {
+    select?: Record<string, unknown>
+    include?: Record<string, unknown>
+  }
+}
+
 describe('aggregation date boundaries are UTC', () => {
   it('getCurrentMonthKpis spans the current UTC month', async () => {
     await getCurrentMonthKpis()
@@ -159,5 +166,45 @@ describe('getMonthlyTrend buckets one row set by UTC month', () => {
       { month: 'May', net: 250 },
       { month: 'Jun', net: 0 },
     ])
+  })
+})
+
+// These reads scan a date range and then convert every row, so the row *shape* is
+// the payload. Selecting whole rows dragged `id`, `description`, `createdAt` and
+// both foreign keys along for columns the reducers never read. `select` is easy to
+// widen back by accident — an added `include`, or a copy-paste from a read that
+// does need the whole row — so the projections are pinned here.
+describe('aggregation reads project only the columns they use', () => {
+  it('kpisForRange selects just the FX columns and the type', async () => {
+    await getCurrentMonthKpis()
+    const { select, include } = lastCall()
+
+    expect(Object.keys(select ?? {}).sort()).toEqual(
+      ['amount', 'currency', 'fxAnchor', 'fxRate', 'type'],
+    )
+    expect(include).toBeUndefined()
+  })
+
+  it('monthlyTrendFrom also selects date, which it now buckets on in memory', async () => {
+    await getMonthlyTrend(3)
+    const { select, include } = lastCall()
+
+    expect(Object.keys(select ?? {}).sort()).toEqual(
+      ['amount', 'currency', 'date', 'fxAnchor', 'fxRate', 'type'],
+    )
+    expect(include).toBeUndefined()
+  })
+
+  it('expensesByCategoryForRange joins only the two category columns it denormalises', async () => {
+    await getExpensesByCategory()
+    const { select, include } = lastCall()
+
+    // `include: { category: true }` repeated the whole joined row — `id` and
+    // `kind` included — once per transaction of that category.
+    expect(include).toBeUndefined()
+    expect(Object.keys(select ?? {}).sort()).toEqual(
+      ['amount', 'category', 'categoryId', 'currency', 'fxAnchor', 'fxRate'],
+    )
+    expect(select?.category).toEqual({ select: { name: true, color: true } })
   })
 })
