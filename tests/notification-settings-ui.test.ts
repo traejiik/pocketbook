@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -120,18 +121,70 @@ describe('notification settings verification behaviour', () => {
   })
 
   it('trusts only an initially verified persisted identity or an unexpired matching receipt', () => {
-    expect(source).toContain('const initialIdentityKey = notificationIdentityKey({')
-    expect(source).toContain('initialSettings.identityVerified ? initialIdentityKey : null')
-    expect(source).toContain('const currentIdentityKey = notificationIdentityKey(currentIdentity)')
-    expect(source).toContain(
+    const stateDerivationBlock = sourceBetween(
+      '  const initialIdentityKey = notificationIdentityKey({',
+      '\n\n  useEffect(() => {',
+    )
+    const initialIdentityBlock = textBetween(
+      stateDerivationBlock,
+      '  const initialIdentityKey = notificationIdentityKey({',
+      '\n  const [settings, setSettings]',
+    )
+    const currentIdentityBlock = textBetween(
+      stateDerivationBlock,
+      '  const currentIdentity = {',
+      '\n  const currentIdentityKey =',
+    )
+    const transientMatchesBlock = textBetween(
+      stateDerivationBlock,
+      '  const transientMatches =',
+      '\n  const canSave =',
+    )
+    const canSaveBlock = sourceBetween('  const canSave =', '\n\n  useEffect(() => {')
+
+    expectInOrder(stateDerivationBlock, [
+      'const initialIdentityKey = notificationIdentityKey({',
+      'initialSettings.identityVerified ? initialIdentityKey : null',
+      'const currentIdentity = {',
+      'const currentIdentityKey = notificationIdentityKey(currentIdentity)',
+      'const transientMatches =',
+      'const canSave =',
+    ])
+    expectInOrder(initialIdentityBlock, [
+      "webhookUrl: initialSettings.webhookUrl ?? '',",
+      'username: initialSettings.username,',
+      'avatarUrl: initialSettings.avatarUrl,',
+    ])
+    expectInOrder(currentIdentityBlock, [
+      'webhookUrl,',
+      'username: settings.username,',
+      'avatarUrl: settings.avatarUrl,',
+    ])
+    expect(transientMatchesBlock).toContain(
+      'transientVerification?.identityKey === currentIdentityKey',
+    )
+    expect(transientMatchesBlock).toContain(
+      'Date.parse(transientVerification.expiresAt) > Date.now()',
+    )
+    expect(canSaveBlock).toContain(
       'const canSave = persistedIdentityKey === currentIdentityKey || transientMatches',
     )
   })
 
   it('keeps the established notification layout and labels without verification chrome', () => {
+    const presetBlock = sourceBetween(
+      'const EVENT_OPTIONS: Array<{',
+      '\n]\n\nexport function NotificationSettings',
+    )
     const jsxBlock = sourceBetween(
       '  return (\n    <section id="notifications">',
       '\n  )\n}',
+    )
+
+    // Intentionally locks all returned Notifications markup, classes, copy, and hierarchy.
+    // Update this fingerprint only when a layout change has been explicitly approved.
+    expect(createHash('sha256').update(jsxBlock).digest('hex')).toBe(
+      '9249785cea3f8e06a8476051f805894ac52d5216bbbec1a5a52e74ea713e1199',
     )
 
     expect(jsxBlock).toContain('<section id="notifications">')
@@ -160,6 +213,17 @@ describe('notification settings verification behaviour', () => {
     expect(jsxBlock.match(/<Button\b/g) ?? []).toHaveLength(3)
     expect(jsxBlock.match(/<p\b/g) ?? []).toHaveLength(2)
     expect(source.match(/^\s*\{ key: '/gm) ?? []).toHaveLength(6)
+
+    for (const [label, preview] of [
+      ['System alerts', 'Pocketbook stopped unexpectedly'],
+      ['Scheduled-job failures', 'FX sync failed · next retry in 15 minutes'],
+      ['Recurring activity', 'Logged 3 recurring transactions'],
+      ['Monthly insight ready', 'July 2026 · llama3.1:8b'],
+      ['Backup completed', 'pocketbook-20260819-023000.dump · 14 kept'],
+      ['Backup failed', 'Database connection unavailable'],
+    ] as const) {
+      expect(presetBlock).toContain(`label: '${label}', preview: '${preview}'`)
+    }
 
     for (const forbidden of [
       'type="file"',
