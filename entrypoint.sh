@@ -1,5 +1,16 @@
 #!/bin/sh
 set -e
+umask 077
+
+# Bind mounts arrive with host ownership. Prepare the persistent runtime
+# directories once, then restart this script as the unprivileged application
+# user. Migrations, Next.js, the worker, and pg_dump all run as UID 1001.
+if [ "$(id -u)" -eq 0 ]; then
+  mkdir -p /data /backups
+  chown nextjs:nodejs /data /backups
+  chmod 700 /data /backups
+  exec su-exec nextjs:nodejs "$0" "$@"
+fi
 
 # ---------------------------------------------------------------------------
 # Startup failure capture
@@ -9,8 +20,9 @@ set -e
 # failure we append a timestamped report to a file on the persistent /data
 # volume, readable on the host at:
 #   ${PB_DOCKER_DIR}/pocketbook/data/startup-failures.log
-# Optionally also POSTs to PB_ALERT_WEBHOOK (e.g. an ntfy topic) for a push.
-# The success path execs into Next.js, so this trap only ever fires on failure.
+# If Settings has Discord system alerts enabled, the same protected file-backed
+# delivery path is used. The success path execs into the supervisor, so this trap
+# only fires before the supervised processes start.
 # ---------------------------------------------------------------------------
 FAIL_LOG="${PB_FAIL_LOG:-/data/startup-failures.log}"
 # /data is a bind mount; if the host dir isn't writable by this uid (1001) the
@@ -52,17 +64,8 @@ on_exit() {
     && echo "Startup failed (stage=$STAGE, exit=$code). Report appended to $FAIL_LOG" >&2 \
     || echo "Startup failed (stage=$STAGE, exit=$code). Could not write $FAIL_LOG — is /data writable by uid 1001?" >&2
 
-  # Optional push notification: set PB_ALERT_WEBHOOK to a URL that accepts a
-  # POSTed text body (e.g. https://ntfy.sh/your-topic). Best-effort, time-boxed.
-  if [ -n "$PB_ALERT_WEBHOOK" ]; then
-    node -e "const u=process.env.PB_ALERT_WEBHOOK,h=require(u.indexOf('https')===0?'https':'http'),d='pocketbook-web startup FAILED: stage=$STAGE exit=$code';const r=h.request(u,{method:'POST'},()=>process.exit(0));r.setTimeout(3000,()=>process.exit(0));r.on('error',()=>process.exit(0));r.end(d);" 2>/dev/null || true
-  fi
-
-  # Optional Discord notification: set PB_DISCORD_WEBHOOK to a Discord webhook
-  # URL. Discord requires a JSON body, hence the separate variable and payload.
-  if [ -n "$PB_DISCORD_WEBHOOK" ]; then
-    node -e "const u=process.env.PB_DISCORD_WEBHOOK,h=require(u.indexOf('https')===0?'https':'http'),b=JSON.stringify({username:'Pocketbook',embeds:[{title:'🛑 pocketbook-web startup FAILED',description:'stage=\`$STAGE\` · exit $code',color:15158332,footer:{text:'Pocketbook · entrypoint'}}]});const r=h.request(u,{method:'POST',headers:{'Content-Type':'application/json','Content-Length':Buffer.byteLength(b)}},()=>process.exit(0));r.setTimeout(3000,()=>process.exit(0));r.on('error',()=>process.exit(0));r.end(b);" 2>/dev/null || true
-  fi
+  node /app/runtime/notify-cli.js system-alert \
+    "Pocketbook startup failed" "stage=$STAGE · exit=$code" 2>/dev/null || true
 }
 trap on_exit EXIT
 
@@ -90,7 +93,7 @@ fi
 
 # ---------------------------------------------------------------------------
 # Resolve config to the bare names the app + Auth.js read (AUTH_URL, AUTH_SECRET,
-# SEED_USER_*, FX_SYNC_SECRET, OLLAMA_BASE_URL). Accept either form:
+# SEED_USER_*, OLLAMA_BASE_URL). Accept either form:
 #   - a bare name passed straight through by compose (e.g. AUTH_URL=...), or
 #   - the PB_-prefixed name from the Portainer panel (e.g. PB_AUTH_URL=...).
 # A bare name that's already set wins; otherwise fall back to its PB_ counterpart.
@@ -98,7 +101,6 @@ fi
 STAGE="map-env"
 export AUTH_URL="${AUTH_URL:-$PB_AUTH_URL}"
 export AUTH_SECRET="${AUTH_SECRET:-$PB_AUTH_SECRET}"
-export FX_SYNC_SECRET="${FX_SYNC_SECRET:-$PB_FX_SYNC_SECRET}"
 export OLLAMA_BASE_URL="${OLLAMA_BASE_URL:-$PB_OLLAMA_BASE_URL}"
 export SEED_USER_EMAIL="${SEED_USER_EMAIL:-$PB_SEED_USER_EMAIL}"
 export SEED_USER_PASSWORD="${SEED_USER_PASSWORD:-$PB_SEED_USER_PASSWORD}"
@@ -118,7 +120,7 @@ export PB_POSTGRES_PASSWORD="${PB_POSTGRES_PASSWORD:-$POSTGRES_PASSWORD}"
 # Delete the file on the host to invalidate it (rewritten on next good boot).
 # ---------------------------------------------------------------------------
 ENV_CACHE="${PB_ENV_CACHE:-/data/.env-cache}"
-CACHE_KEYS="AUTH_URL AUTH_SECRET FX_SYNC_SECRET OLLAMA_BASE_URL SEED_USER_EMAIL SEED_USER_PASSWORD PB_POSTGRES_PASSWORD PB_USER_DISPLAY_NAME PB_INSTANCE_NAME PB_ALERT_WEBHOOK PB_DISCORD_WEBHOOK"
+CACHE_KEYS="AUTH_URL AUTH_SECRET OLLAMA_BASE_URL SEED_USER_EMAIL SEED_USER_PASSWORD PB_POSTGRES_PASSWORD PB_USER_DISPLAY_NAME PB_INSTANCE_NAME"
 
 STAGE="restore-env-cache"
 restored=""
@@ -167,14 +169,11 @@ if ! write_env_cache; then
 fi
 
 # If the cache had to plug holes, the app is up but the deploy pipeline is
-# broken — tell the operator via the same channels as a startup failure.
+# broken — report it through the configured system-alert preset.
 if [ -n "$restored" ]; then
-  if [ -n "$PB_ALERT_WEBHOOK" ]; then
-    RESTORED="$restored" node -e "const u=process.env.PB_ALERT_WEBHOOK,h=require(u.indexOf('https')===0?'https':'http'),d='pocketbook-web WARNING: booted from cached env — Portainer panel did not deliver:'+process.env.RESTORED;const r=h.request(u,{method:'POST'},()=>process.exit(0));r.setTimeout(3000,()=>process.exit(0));r.on('error',()=>process.exit(0));r.end(d);" 2>/dev/null || true
-  fi
-  if [ -n "$PB_DISCORD_WEBHOOK" ]; then
-    RESTORED="$restored" node -e "const u=process.env.PB_DISCORD_WEBHOOK,h=require(u.indexOf('https')===0?'https':'http'),b=JSON.stringify({username:'Pocketbook',embeds:[{title:'⚠️ pocketbook-web booted from cached env',description:'The stack environment did not deliver:'+process.env.RESTORED+' — values were restored from the last known good config. Check the Portainer stack environment panel.',color:16763904,footer:{text:'Pocketbook · entrypoint'}}]});const r=h.request(u,{method:'POST',headers:{'Content-Type':'application/json','Content-Length':Buffer.byteLength(b)}},()=>process.exit(0));r.setTimeout(3000,()=>process.exit(0));r.on('error',()=>process.exit(0));r.end(b);" 2>/dev/null || true
-  fi
+  node /app/runtime/notify-cli.js system-alert \
+    "Pocketbook restored cached configuration" \
+    "The stack environment omitted:$restored. Check the Portainer environment panel." 2>/dev/null || true
 fi
 
 export PB_DATABASE_URL="postgresql://${PB_POSTGRES_USER}:${PB_POSTGRES_PASSWORD}@pocketbook-db:5432/${PB_POSTGRES_DB}"
@@ -207,5 +206,5 @@ say "Backfilling transaction FX locks..."
 run node /app/prisma/backfill-fx.js
 
 STAGE="start"
-say "Starting Next.js..."
-exec node /app/server.js
+say "Starting supervised Next.js and scheduler processes..."
+exec node /app/runtime/supervisor.js

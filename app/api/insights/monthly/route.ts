@@ -1,12 +1,12 @@
 import { prisma } from '@/lib/prisma'
 import { generateAndSaveInsight } from '@/lib/insights-generation'
-import { notifyDiscord } from '@/lib/notify'
+import { sendNotification } from '@/lib/notifications/send'
 
 export const dynamic = 'force-dynamic'
 
 export async function POST(request: Request) {
-  const secret = request.headers.get('x-sync-secret')
-  const expected = process.env.FX_SYNC_SECRET
+  const secret = request.headers.get('x-internal-job-token')
+  const expected = process.env.PB_INTERNAL_JOB_TOKEN
 
   if (!expected || secret !== expected) {
     return Response.json({ error: 'Unauthorised' }, { status: 401 })
@@ -49,9 +49,12 @@ export async function POST(request: Request) {
     year: 'numeric',
     timeZone: 'UTC',
   })
-  await notifyDiscord({
-    title: '🤖 Monthly AI insight generated',
-    description: `**${monthName}** · model \`${settings.ollamaModel}\``,
+  await sendNotification({
+    type: 'monthlyInsightReady',
+    month: monthName,
+    model: settings.ollamaModel,
+  }, {
+    instanceName: process.env.PB_INSTANCE_NAME,
   })
 
   return Response.json({ generated: true, id: insight.id, monthCovered })

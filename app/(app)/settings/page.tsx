@@ -4,14 +4,19 @@ import { prisma } from '@/lib/prisma';
 import { pingOllama, listOllamaModels } from '@/lib/ollama';
 import { SettingsView } from './SettingsView';
 import { getDatabaseSize } from '@/server-actions/settings';
-import { readFileSync } from 'fs';
-import { join } from 'path';
+import { readNotificationConfig, toPublicNotificationSettings } from '@/lib/notifications/config';
+import { readBackupStatus } from '@/lib/operations/backup';
+import { nextOccurrence } from '@/lib/operations/schedule';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 export default async function SettingsPage() {
-  const [settings, rates, dbSize] = await Promise.all([
+  const [settings, rates, dbSize, notificationConfig, backupStatus] = await Promise.all([
     prisma.appSettings.findUnique({ where: { id: 'singleton' } }),
     prisma.exchangeRate.findMany({ orderBy: { fromCurrency: 'asc' } }),
     getDatabaseSize(),
+    readNotificationConfig(),
+    readBackupStatus(),
   ]);
 
   const ollamaUrl = settings?.ollamaUrl ?? 'http://ollama:11434';
@@ -19,18 +24,6 @@ export default async function SettingsPage() {
     pingOllama(ollamaUrl),
     listOllamaModels(ollamaUrl),
   ]);
-
-  // /data/last-backup holds an ISO timestamp written by the db-backup sidecar
-  // after each verified pg_dump. Missing or unparseable → no backup recorded.
-  let lastBackup = '—';
-  try {
-    const recorded = new Date(readFileSync('/data/last-backup', 'utf8').trim());
-    if (!Number.isNaN(recorded.getTime())) {
-      lastBackup = recorded.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-    }
-  } catch {
-    // file not found — placeholder
-  }
 
   const FALLBACK_MODELS = [
     { name: 'llama3.1:8b', size: 4_900_000_000 },
@@ -58,8 +51,10 @@ export default async function SettingsPage() {
       ollamaModel={settings?.ollamaModel ?? 'llama3.1:8b'}
       ollamaModels={models}
       autoInsightsMonthly={settings?.autoInsightsMonthly ?? true}
+      notificationSettings={toPublicNotificationSettings(notificationConfig.config, notificationConfig.status)}
+      backupStatus={backupStatus}
+      nextBackupRun={nextOccurrence('backup', new Date()).scheduledFor}
       dbSize={dbSize}
-      lastBackup={lastBackup}
       version={`v${JSON.parse(readFileSync(join(process.cwd(), 'package.json'), 'utf-8')).version}`}
     />
   );

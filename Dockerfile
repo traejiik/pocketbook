@@ -1,4 +1,4 @@
-FROM node:24-alpine AS base
+FROM node:24-alpine3.22 AS base
 RUN npm install -g pnpm@10.33.0
 
 # --- deps stage ---
@@ -17,15 +17,18 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN pnpm prisma generate
 RUN npm install -g esbuild && esbuild prisma/seed.ts --bundle --platform=node --target=node24 --outfile=prisma/seed.js --external:@prisma/client
 RUN esbuild prisma/backfill-fx.ts --bundle --platform=node --target=node24 --outfile=prisma/backfill-fx.js --external:@prisma/client
+RUN esbuild runtime/supervisor.ts --bundle --platform=node --target=node24 --format=cjs --outfile=runtime/supervisor.js && \
+    esbuild runtime/scheduler.ts --bundle --platform=node --target=node24 --format=cjs --outfile=runtime/scheduler.js && \
+    esbuild runtime/notify-cli.ts --bundle --platform=node --target=node24 --format=cjs --outfile=runtime/notify-cli.js
 RUN pnpm build
 
 # --- runner stage (final) ---
-FROM node:24-alpine AS runner
+FROM node:24-alpine3.22 AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
-RUN apk add --no-cache openssl && \
+RUN apk add --no-cache openssl postgresql16-client su-exec && \
     addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs && \
     npm install -g prisma@7.8.0
@@ -36,11 +39,12 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
 COPY --from=builder --chown=nextjs:nodejs /app/prisma.config.ts ./prisma.config.ts
+COPY --from=builder --chown=nextjs:nodejs /app/runtime ./runtime
 
 COPY entrypoint.sh ./entrypoint.sh
 RUN chmod +x ./entrypoint.sh
 
-USER nextjs
+USER root
 EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"

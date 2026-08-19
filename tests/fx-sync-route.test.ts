@@ -10,7 +10,7 @@ vi.mock('next/cache', () => ({ revalidateTag, unstable_cache: vi.fn() }))
 
 describe('POST /api/fx/sync', () => {
   beforeEach(() => {
-    process.env.FX_SYNC_SECRET = 'test-secret'
+    process.env.PB_INTERNAL_JOB_TOKEN = 'test-secret'
     vi.resetModules()
   })
 
@@ -18,7 +18,7 @@ describe('POST /api/fx/sync', () => {
     const { POST } = await import('@/app/api/fx/sync/route')
     const res = await POST(new Request('http://local/api/fx/sync', {
       method: 'POST',
-      headers: { 'x-sync-secret': 'wrong' },
+      headers: { 'x-internal-job-token': 'wrong' },
     }))
     expect(res.status).toBe(401)
     expect(syncAllAutoRates).not.toHaveBeenCalled()
@@ -35,7 +35,7 @@ describe('POST /api/fx/sync', () => {
     const { POST } = await import('@/app/api/fx/sync/route')
     const res = await POST(new Request('http://local/api/fx/sync', {
       method: 'POST',
-      headers: { 'x-sync-secret': 'test-secret' },
+      headers: { 'x-internal-job-token': 'test-secret' },
     }))
     expect(await res.json()).toEqual({ synced: 0, skipped: true })
     expect(syncAllAutoRates).not.toHaveBeenCalled()
@@ -47,7 +47,7 @@ describe('POST /api/fx/sync', () => {
     const { POST } = await import('@/app/api/fx/sync/route')
     const res = await POST(new Request('http://local/api/fx/sync', {
       method: 'POST',
-      headers: { 'x-sync-secret': 'test-secret' },
+      headers: { 'x-internal-job-token': 'test-secret' },
     }))
     expect(await res.json()).toEqual({ synced: 3 })
     expect(syncAllAutoRates).toHaveBeenCalledOnce()
@@ -61,7 +61,7 @@ describe('POST /api/fx/sync', () => {
     const { POST } = await import('@/app/api/fx/sync/route')
     await POST(new Request('http://local/api/fx/sync', {
       method: 'POST',
-      headers: { 'x-sync-secret': 'test-secret' },
+      headers: { 'x-internal-job-token': 'test-secret' },
     }))
     expect(revalidateTag).toHaveBeenCalledWith('pb-fx', { expire: 0 })
   })
@@ -72,7 +72,7 @@ describe('POST /api/fx/sync', () => {
     const { POST } = await import('@/app/api/fx/sync/route')
     await POST(new Request('http://local/api/fx/sync', {
       method: 'POST',
-      headers: { 'x-sync-secret': 'test-secret' },
+      headers: { 'x-internal-job-token': 'test-secret' },
     }))
     expect(revalidateTag).not.toHaveBeenCalled()
   })

@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { lockRate, type FxLock } from '@/lib/fx'
-import { notifyDiscord, DISCORD_GREEN } from '@/lib/notify'
+import { sendNotification } from '@/lib/notifications/send'
 import {
   type RecurringCycle,
   type RuleKind,
@@ -165,17 +165,17 @@ export async function syncDueRecurringRules(today: Date = new Date()): Promise<R
   const created = plans.flatMap((plan) => plan.transactions)
 
   // Notify after the transaction commits, never before — and never let a
-  // webhook failure fail the sync itself (notifyDiscord does not throw).
+  // webhook failure fail the sync itself (sendNotification does not throw).
   if (transactionsCreated > 0) {
     const lines = created
       .slice(0, 15)
       .map((tx) => `**${tx.description}** · ${formatSignedAmount(tx.amount, tx.currency)} · ${tx.date}`)
     if (created.length > 15) lines.push(`… and ${created.length - 15} more`)
-    await notifyDiscord({
-      title: `🔁 Logged ${transactionsCreated} recurring transaction${transactionsCreated === 1 ? '' : 's'}`,
-      description: lines.join('\n'),
-      color: DISCORD_GREEN,
-    })
+    await sendNotification({
+      type: 'recurringActivity',
+      count: transactionsCreated,
+      lines,
+    }, { instanceName: process.env.PB_INSTANCE_NAME })
   }
 
   return {

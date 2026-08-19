@@ -18,7 +18,7 @@ vi.mock('@/lib/insights-generation', () => ({
 
 describe('POST /api/insights/monthly', () => {
   beforeEach(() => {
-    process.env.FX_SYNC_SECRET = 'test-secret'
+    process.env.PB_INTERNAL_JOB_TOKEN = 'test-secret'
     vi.useFakeTimers()
     // The cron fires at 03:05 UTC on the 1st — the insight must cover the
     // month that just ended, not the day-old current month.
@@ -36,7 +36,7 @@ describe('POST /api/insights/monthly', () => {
     const { POST } = await import('@/app/api/insights/monthly/route')
     return POST(new Request('http://local/api/insights/monthly', {
       method: 'POST',
-      headers: secret ? { 'x-sync-secret': secret } : {},
+      headers: secret ? { 'x-internal-job-token': secret } : {},
     }))
   }
 

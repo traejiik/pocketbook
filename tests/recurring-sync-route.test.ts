@@ -16,7 +16,7 @@ vi.mock('next/cache', () => ({
 
 describe('POST /api/recurring/sync', () => {
   beforeEach(() => {
-    process.env.FX_SYNC_SECRET = 'test-secret'
+    process.env.PB_INTERNAL_JOB_TOKEN = 'test-secret'
     vi.resetModules()
     mocks.syncDueRecurringRules.mockResolvedValue({ rulesProcessed: 2, transactionsCreated: 5 })
   })
@@ -25,7 +25,7 @@ describe('POST /api/recurring/sync', () => {
     const { POST } = await import('@/app/api/recurring/sync/route')
     return POST(new Request('http://local/api/recurring/sync', {
       method: 'POST',
-      headers: secret ? { 'x-sync-secret': secret } : {},
+      headers: secret ? { 'x-internal-job-token': secret } : {},
     }))
   }
 

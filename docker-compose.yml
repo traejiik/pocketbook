@@ -6,10 +6,6 @@ services:
     environment:
       - POSTGRES_USER=pocketbook
       - POSTGRES_DB=pocketbook
-      # The postgres image needs the bare POSTGRES_PASSWORD. We map it from
-      # PB_POSTGRES_PASSWORD (set in the Portainer panel) at container startup so
-      # stack/panel config only ever uses the PB_ prefix — no unprefixed
-      # POSTGRES_PASSWORD to collide with other postgres services in a shared stack.
       - PB_POSTGRES_PASSWORD=${PB_POSTGRES_PASSWORD:-}
     entrypoint:
       - /bin/sh
@@ -18,17 +14,10 @@ services:
     volumes:
       - ${PB_DOCKER_DIR:-/opt/docker}/pocketbook/postgres:/var/lib/postgresql/data
     healthcheck:
-      # User/db are hardcoded above, so hardcode them here too. Expanding
-      # $$POSTGRES_USER relies on the deployed container's env being current;
-      # a stale container expands it empty and pg_isready then logs
-      # `FATAL: role "-d" does not exist` every interval.
       test: ["CMD-SHELL", "pg_isready -U pocketbook -d pocketbook"]
       interval: 10s
       timeout: 5s
       retries: 5
-    # Uncomment for local dev to allow direct psql access from the host:
-    # ports:
-    #   - "5432:5432"
     networks:
       - core_net
 
@@ -36,6 +25,7 @@ services:
     image: ghcr.io/traejiik/pocketbook-web:latest
     container_name: pocketbook-web
     restart: unless-stopped
+    stop_grace_period: 30s
     depends_on:
       pocketbook-db:
         condition: service_healthy
@@ -44,153 +34,21 @@ services:
       - PB_POSTGRES_DB=pocketbook
       - AUTH_TRUST_HOST=true
       - NODE_ENV=production
-      # Secrets come from the Portainer stack environment panel via ${} interpolation.
-      # (Interpolation is the reliable path in Portainer; the bare `- VAR` passthrough
-      # form is NOT guaranteed to reach the container.) entrypoint.sh then maps
-      # PB_* → the bare names Auth.js and the app expect at container startup.
       - PB_AUTH_URL=${PB_AUTH_URL:-}
       - PB_AUTH_SECRET=${PB_AUTH_SECRET:-}
       - PB_POSTGRES_PASSWORD=${PB_POSTGRES_PASSWORD:-}
       - PB_OLLAMA_BASE_URL=${PB_OLLAMA_BASE_URL:-}
-      - PB_FX_SYNC_SECRET=${PB_FX_SYNC_SECRET:-}
       - PB_USER_DISPLAY_NAME=${PB_USER_DISPLAY_NAME:-}
       - PB_INSTANCE_NAME=${PB_INSTANCE_NAME:-}
       - PB_SEED_USER_EMAIL=${PB_SEED_USER_EMAIL:-}
       - PB_SEED_USER_PASSWORD=${PB_SEED_USER_PASSWORD:-}
-      # Optional: URL that accepts a POSTed text body (e.g. an ntfy topic) to be
-      # pinged if startup fails. Leave unset to disable.
-      - PB_ALERT_WEBHOOK=${PB_ALERT_WEBHOOK:-}
-      # Optional: Discord webhook URL. Receives a JSON message when startup
-      # fails. Leave unset to disable.
-      - PB_DISCORD_WEBHOOK=${PB_DISCORD_WEBHOOK:-}
     volumes:
-      # /data also holds the app-managed env cache (.env-cache, chmod 600):
-      # entrypoint.sh saves the validated config after every good boot and
-      # restores any variable a later redeploy fails to deliver, so a Portainer
-      # redeploy that loses the panel env no longer boot-loops the app.
+      # Runtime configuration, job state, and startup diagnostics.
       - ${PB_DOCKER_DIR:-/opt/docker}/pocketbook/data:/data
-      # Optional extra: a manually maintained host-side fallback file. Not
-      # needed with the env cache; kept for operators who want an explicit
-      # source of truth. Create from stack.env.example, then uncomment:
-      # - ${PB_DOCKER_DIR:-/opt/docker}/pocketbook/stack.env:/run/pb-stack.env:ro
-    networks:
-      - core_net
-
-  fx-sync:
-    image: alpine:3.20
-    container_name: pocketbook-fx-sync
-    restart: unless-stopped
-    depends_on:
-      - pocketbook-web
-    environment:
-      # Both from the Portainer stack environment panel. PB_DISCORD_WEBHOOK is
-      # optional: when set, a failed cron call posts a message to Discord.
-      - PB_FX_SYNC_SECRET=${PB_FX_SYNC_SECRET:-}
-      - PB_DISCORD_WEBHOOK=${PB_DISCORD_WEBHOOK:-}
-    volumes:
-      # Read-only view of the web app's env cache: if a stack redeploy arrives
-      # without the panel variables, secrets fall back to the last known good
-      # config saved by pocketbook-web (see its /data volume comment).
-      - ${PB_DOCKER_DIR:-/opt/docker}/pocketbook/data:/data:ro
-    # Secrets are baked into files at container start because busybox crond does
-    # not reliably pass container env through to cron jobs. Every `$` below is
-    # written `$$` so compose interpolation leaves it for the container shell.
-    command:
-      - sh
-      - -c
-      - |
-        secret="$$PB_FX_SYNC_SECRET"
-        [ -n "$$secret" ] || secret="$$(sed -n 's/^FX_SYNC_SECRET=//p' /data/.env-cache 2>/dev/null)"
-        webhook="$$PB_DISCORD_WEBHOOK"
-        [ -n "$$webhook" ] || webhook="$$(sed -n 's/^PB_DISCORD_WEBHOOK=//p' /data/.env-cache 2>/dev/null)"
-        printf '%s' "$$secret" > /etc/pb-sync-secret
-        printf '%s' "$$webhook" > /etc/pb-discord-webhook
-        cat <<'PBJOB' > /usr/local/bin/pb-job
-        #!/bin/sh
-        # pb-job <name> <url> — POST a cron endpoint; on failure, notify Discord.
-        name="$$1"; url="$$2"
-        secret="$$(cat /etc/pb-sync-secret 2>/dev/null)"
-        out="$$(wget -qO- --header "X-Sync-Secret: $$secret" --post-data='' "$$url" 2>&1)"
-        rc=$$?
-        echo "$$name: exit=$$rc $$out"
-        [ "$$rc" -eq 0 ] && exit 0
-        webhook="$$(cat /etc/pb-discord-webhook 2>/dev/null)"
-        [ -n "$$webhook" ] || exit 0
-        msg="$$(printf '%s' "$$out" | tr '\n' ' ' | head -c 1200 | sed 's/\\/\\\\/g; s/"/\\"/g')"
-        wget -qO- --header 'Content-Type: application/json' \
-          --post-data="{\"username\":\"Pocketbook\",\"embeds\":[{\"title\":\"⚠️ Cron job failed: $$name\",\"description\":\"exit $$rc — $$msg\",\"color\":15158332,\"footer\":{\"text\":\"Pocketbook · fx-sync\"}}]}" \
-          "$$webhook" >/dev/null 2>&1 || echo "$$name: discord notify failed"
-        exit 0
-        PBJOB
-        chmod +x /usr/local/bin/pb-job
-        {
-          echo '0 3 * * * /usr/local/bin/pb-job fx-sync http://pocketbook-web:3000/api/fx/sync'
-          echo '5 3 1 * * /usr/local/bin/pb-job monthly-insights http://pocketbook-web:3000/api/insights/monthly'
-          echo '10 3 * * * /usr/local/bin/pb-job recurring-sync http://pocketbook-web:3000/api/recurring/sync'
-        } | crontab - && exec crond -f -l 8
-    networks:
-      - core_net
-
-  db-backup:
-    image: postgres:16-alpine  # matched to pocketbook-db so pg_dump is never newer than the server
-    container_name: pocketbook-db-backup
-    restart: unless-stopped
-    depends_on:
-      pocketbook-db:
-        condition: service_healthy
-    environment:
-      - PB_POSTGRES_PASSWORD=${PB_POSTGRES_PASSWORD:-}
-      - PB_DISCORD_WEBHOOK=${PB_DISCORD_WEBHOOK:-}
-    volumes:
+      # Verified custom-format PostgreSQL archives; newest 14 are retained.
       - ${PB_DOCKER_DIR:-/opt/docker}/pocketbook/backups:/backups
-      # Shared with pocketbook-web: a successful dump records its timestamp in
-      # /data/last-backup, which the Settings page displays.
-      - ${PB_DOCKER_DIR:-/opt/docker}/pocketbook/data:/data
-    # Nightly 02:30 UTC custom-format pg_dump, verified with `pg_restore --list`,
-    # newest 14 kept. Same conventions as fx-sync: secrets baked to files for
-    # crond, every runtime `$` written as `$$` for compose interpolation.
-    # Like fx-sync, missing panel secrets fall back to the env cache the web
-    # app maintains on the (already mounted) /data volume.
-    command:
-      - sh
-      - -c
-      - |
-        pgpass="$$PB_POSTGRES_PASSWORD"
-        [ -n "$$pgpass" ] || pgpass="$$(sed -n 's/^PB_POSTGRES_PASSWORD=//p' /data/.env-cache 2>/dev/null)"
-        webhook="$$PB_DISCORD_WEBHOOK"
-        [ -n "$$webhook" ] || webhook="$$(sed -n 's/^PB_DISCORD_WEBHOOK=//p' /data/.env-cache 2>/dev/null)"
-        printf '%s' "$$pgpass" > /etc/pb-pgpass
-        printf '%s' "$$webhook" > /etc/pb-discord-webhook
-        cat <<'PBBACKUP' > /usr/local/bin/pb-backup
-        #!/bin/sh
-        # pb-backup — dump, verify, record, rotate; notify Discord either way.
-        export PGPASSWORD="$$(cat /etc/pb-pgpass)"
-        webhook="$$(cat /etc/pb-discord-webhook 2>/dev/null)"
-        notify() {
-          [ -n "$$webhook" ] || return 0
-          msg="$$(printf '%s' "$$2" | head -c 1500 | sed 's/\\/\\\\/g; s/"/\\"/g' | tr '\n' ' ')"
-          wget -qO- --header 'Content-Type: application/json' \
-            --post-data="{\"username\":\"Pocketbook\",\"embeds\":[{\"title\":\"$$1\",\"description\":\"$$msg\",\"color\":$$3,\"footer\":{\"text\":\"Pocketbook · db-backup\"}}]}" \
-            "$$webhook" >/dev/null 2>&1 || echo 'discord notify failed'
-        }
-        f="/backups/pocketbook-$$(date -u +%Y%m%d-%H%M%S).dump"
-        if pg_dump -h pocketbook-db -U pocketbook -d pocketbook -Fc -f "$$f" 2>/tmp/pb-backup-err \
-          && pg_restore --list "$$f" >/dev/null 2>>/tmp/pb-backup-err; then
-          size="$$(du -h "$$f" | cut -f1)"
-          date -u +%Y-%m-%dT%H:%M:%SZ > /data/last-backup 2>/dev/null || true
-          for old in $$(ls -1t /backups/pocketbook-*.dump 2>/dev/null | tail -n +15); do rm -f "$$old"; done
-          kept="$$(ls -1 /backups/pocketbook-*.dump 2>/dev/null | wc -l | tr -d ' ')"
-          echo "backup OK: $$f ($$size, $$kept kept)"
-          notify "💾 Database backup OK" "$$(basename "$$f") · $$size · $$kept kept" 3066993
-        else
-          err="$$(cat /tmp/pb-backup-err 2>/dev/null)"
-          rm -f "$$f"
-          echo "backup FAILED: $$err"
-          notify "🛑 Database backup FAILED" "$$err" 15158332
-        fi
-        PBBACKUP
-        chmod +x /usr/local/bin/pb-backup
-        echo '30 2 * * * /usr/local/bin/pb-backup' | crontab - && exec crond -f -l 8
+      # Optional operator-maintained fallback (the app-managed cache is normally enough):
+      # - ${PB_DOCKER_DIR:-/opt/docker}/pocketbook/stack.env:/run/pb-stack.env:ro
     networks:
       - core_net
 
