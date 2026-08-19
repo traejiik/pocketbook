@@ -30,7 +30,7 @@ const EVENT_OPTIONS: Array<{
 
 export function NotificationSettings({ initialSettings }: { initialSettings: PublicNotificationSettings }) {
   const [settings, setSettings] = useState(initialSettings)
-  const [webhookUrl, setWebhookUrl] = useState('')
+  const [webhookUrl, setWebhookUrl] = useState(initialSettings.webhookUrl ?? '')
   const [isPending, startTransition] = useTransition()
 
   function save() {
@@ -48,10 +48,10 @@ export function NotificationSettings({ initialSettings }: { initialSettings: Pub
           return
         }
         setSettings(result.settings)
-        setWebhookUrl('')
+        setWebhookUrl(result.settings.webhookUrl ?? '')
         toast.success('Notification settings saved')
       } catch {
-        toast.error('Check the webhook and avatar URLs, then try again.')
+        toast.error('Could not save notification settings. Try again.')
       }
     })
   }
@@ -102,14 +102,17 @@ export function NotificationSettings({ initialSettings }: { initialSettings: Pub
               <Label htmlFor="discord-webhook">Discord webhook URL</Label>
               <Input
                 id="discord-webhook"
-                type="password"
+                aria-describedby="discord-webhook-help"
+                type="url"
                 autoComplete="off"
+                autoCapitalize="none"
+                spellCheck={false}
                 value={webhookUrl}
                 onChange={(event) => setWebhookUrl(event.target.value)}
-                placeholder={settings.configured ? 'Connected · paste to replace' : 'https://discord.com/api/webhooks/…'}
+                placeholder="https://discord.com/api/webhooks/123456789/token"
               />
-              <p className="text-[10.5px] text-muted-foreground">
-                Stored only in Pocketbook&apos;s protected data volume and never returned to this page.
+              <p id="discord-webhook-help" className="text-[10.5px] text-muted-foreground">
+                This URL can post to your Discord channel. Keep it private.
               </p>
             </div>
             <div className="space-y-2">
