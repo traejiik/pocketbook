@@ -51,7 +51,7 @@ The image briefly starts its entrypoint as root to make `/data` and `/backups` w
 `/data` contains:
 
 - `.env-cache` — last-known-good validated environment values, mode `0600`.
-- `notifications.json` — the sole Discord configuration source, mode `0600`.
+- `notifications.json` — the production Discord configuration file, mode `0600`.
 - `jobs/<job>.json` — atomic occurrence and retry state.
 - `last-backup.json` — structured backup health and last verified metadata.
 - `startup-failures.log` — pre-supervisor startup diagnostics.
@@ -95,7 +95,9 @@ Operational state is atomic under `/data/jobs`. If a state file is missing or co
 3. Enter the webhook, optional username and public HTTPS avatar URL, choose event switches, and save.
 4. Send a test. The test bypasses the master/event switches but still requires a configured webhook.
 
-Pocketbook never sends the stored URL back to the browser. Disconnect deletes it from `/data/notifications.json`. Discord requests disable mentions, use `wait=true`, and time out after five seconds. Notification failures never roll back finance or backup work.
+The authenticated Settings page displays the saved webhook in an editable URL field and keeps it visible after Save. Treat it as a credential: anyone holding it can post to the Discord channel. Pocketbook does not log it, include it in toasts or errors, or expose it to unauthenticated clients. Disconnect removes it from `/data/notifications.json`. Discord requests disable mentions, use `wait=true`, and time out after five seconds. Notification failures never roll back finance or backup work.
+
+Production uses `/data/notifications.json`. Direct development runs use the repository-local `.data/notifications.json`, which Git ignores. `PB_NOTIFICATION_CONFIG_PATH` is an explicit path override for development or diagnostics; it selects the file location but is not a webhook environment fallback.
 
 The six event switches are system alerts, scheduled-job failures, recurring activity, monthly insight ready, backup completed, and backup failed. Messages are fixed typed presets with live values; templates and arbitrary payloads are intentionally unsupported.
 

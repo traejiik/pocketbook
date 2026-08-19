@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   DEFAULT_NOTIFICATION_CONFIG,
+  notificationConfigPath,
   readNotificationConfig,
   toPublicNotificationSettings,
   validateDiscordWebhookUrl,
@@ -17,6 +18,27 @@ async function tempConfigPath() {
 }
 
 describe('notification configuration', () => {
+  it('uses a local .data path for development runs', () => {
+    expect(notificationConfigPath({ NODE_ENV: 'development' }, '/repo/pocketbook')).toBe(
+      '/repo/pocketbook/.data/notifications.json',
+    )
+  })
+
+  it('uses the production data path in production', () => {
+    expect(notificationConfigPath({ NODE_ENV: 'production' }, '/repo/pocketbook')).toBe(
+      '/data/notifications.json',
+    )
+  })
+
+  it('prefers the explicit notification config path override', () => {
+    expect(
+      notificationConfigPath(
+        { NODE_ENV: 'production', PB_NOTIFICATION_CONFIG_PATH: '/tmp/pocketbook-notifications.json' },
+        '/repo/pocketbook',
+      ),
+    ).toBe('/tmp/pocketbook-notifications.json')
+  })
+
   it('starts disabled when no configuration file exists', async () => {
     const path = await tempConfigPath()
 
@@ -62,7 +84,7 @@ describe('notification configuration', () => {
     })
   })
 
-  it('never exposes the stored webhook URL to Settings clients', () => {
+  it('returns the stored webhook URL to authenticated Settings clients', () => {
     const config = {
       ...DEFAULT_NOTIFICATION_CONFIG,
       webhookUrl: 'https://discord.com/api/webhooks/123/super-secret-token',
@@ -70,8 +92,6 @@ describe('notification configuration', () => {
 
     const publicSettings = toPublicNotificationSettings(config, 'ready')
 
-    expect(publicSettings).toEqual(expect.objectContaining({ configured: true, status: 'ready' }))
-    expect(JSON.stringify(publicSettings)).not.toContain('super-secret-token')
-    expect(publicSettings).not.toHaveProperty('webhookUrl')
+    expect(publicSettings).toEqual({ ...config, configured: true, status: 'ready' })
   })
 })

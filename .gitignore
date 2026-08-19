@@ -57,6 +57,7 @@ CLAUDE.md
 /other
 
 # local tooling
+/.data/
 /graphify-out
 .graphifyignore
 .obsidian
