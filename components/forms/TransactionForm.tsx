@@ -12,7 +12,7 @@ import { deleteTransaction, type TxInput } from '@/server-actions/transactions';
 import { useTransactionSheet } from '@/contexts/sheet-context';
 import { useIsMobile } from '@/hooks/use-is-mobile';
 import { cn } from '@/lib/utils';
-import { fmtAnchor } from '@/lib/format';
+import { fmtAnchor, todayIso } from '@/lib/format';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -78,8 +78,6 @@ interface TransactionFormProps {
   anchorCurrency?: string;
 }
 
-function getToday() { return new Date().toISOString().slice(0, 10); }
-
 const TYPE_OPTIONS = [
   { value: 'EXPENSE' as const, label: 'Expense', tone: 'expense' as const },
   { value: 'INCOME' as const, label: 'Income', tone: 'income' as const },
@@ -111,7 +109,7 @@ export function TransactionForm({
   } = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      date: getToday(),
+      date: todayIso(),
       description: '',
       amount: '',
       currency: 'HUF',
@@ -135,7 +133,7 @@ export function TransactionForm({
       });
     } else if (open && !editingTx) {
       reset({
-        date: getToday(),
+        date: todayIso(),
         description: '',
         amount: '',
         currency: 'HUF',

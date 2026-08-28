@@ -30,7 +30,7 @@ import { upsertRecurringRule, archiveRecurringRule, unarchiveRecurringRule, dele
 import { useFabContext } from '@/contexts/fab-context'
 import { useIsMobile } from '@/hooks/use-is-mobile'
 import type { CardRule } from '@/components/finance/RecurringRuleCard'
-import { fmtAnchor, fmtCur, fmtDate } from '@/lib/format'
+import { fmtAnchor, fmtCur, fmtDate, todayIso } from '@/lib/format'
 import { hexToRgba } from '@/lib/colors'
 
 type Category = { id: string; name: string; color: string; kind: string }
@@ -336,7 +336,7 @@ export function RecurringView({ rules, archivedRules, categories, budget, anchor
     setEditing(null)
     reset({
       currency: 'HUF', cycle: 'MONTHLY', kind: tab as 'INCOME' | 'EXPENSE' | 'SAVINGS',
-      hasInstallment: false, nextDue: new Date().toISOString().split('T')[0],
+      hasInstallment: false, nextDue: todayIso(),
     })
     setSheetOpen(true)
   }, [tab, reset])
