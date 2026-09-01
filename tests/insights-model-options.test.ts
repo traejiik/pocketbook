@@ -60,8 +60,9 @@ describe('streamGenerate', () => {
       top_p: 0.9,
       repeat_penalty: 1.15,
       // Ollama defaults most models to 2048 and truncates from the front, which
-      // would silently eat the output rules at the top of the prompt.
-      num_ctx: 8192,
+      // would silently eat the output rules at the top of the prompt. 4096 is
+      // ~2x the measured worst-case prompt; a bigger window costs CPU time.
+      num_ctx: 4096,
     })
   })
 

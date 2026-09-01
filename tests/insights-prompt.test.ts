@@ -171,3 +171,44 @@ describe('buildPromptFromSnapshot', () => {
     expect(system).toContain('Generic advice is a failure')
   })
 })
+
+describe('amount fidelity rules', () => {
+  // A note came back saying "half an extra thousand pounds" against a HUF anchor,
+  // and spelled figures out as "one hundred fifty thousand forint". The rule
+  // existed but was one clause inside a paragraph of prose; a 4B model needs it
+  // isolated, explicit, and repeated at the end where recency helps.
+  it('states the amount rules as their own section', () => {
+    const { system } = buildPromptFromSnapshot(snapshot())
+    expect(system).toContain('AMOUNTS (THE STRICTEST RULE HERE)')
+    expect(system).toContain('Do not rename the currency')
+    expect(system).toContain('Do not spell any number out in words')
+    expect(system).toContain('never "150,000 pounds"')
+  })
+
+  it('repeats the amount rule in the closing instruction', () => {
+    const { prompt } = buildPromptFromSnapshot(snapshot())
+    expect(prompt).toContain('Copy every amount exactly as written above')
+    expect(prompt).toContain('never spelled out in words')
+  })
+})
+
+describe('sparse month directive', () => {
+  // On the 1st the month has not happened yet. The model narrated that absence as
+  // an event: "an abrupt end to your financial activity", "an administrative
+  // pause", "income dropped by 100% from last month".
+  it('forbids narrating an empty month as an event', () => {
+    const { prompt } = buildPromptFromSnapshot(snapshot({ verdict: 'sparse' }))
+    expect(prompt).toContain('Do not narrate the absence of data as if it were an event')
+    expect(prompt).toContain('the month simply has not happened yet')
+  })
+
+  it('forbids comparing empty figures against last month', () => {
+    const { prompt } = buildPromptFromSnapshot(snapshot({ verdict: 'sparse' }))
+    expect(prompt).toContain('a 100% fall from a month that has barely started is an artefact')
+  })
+
+  it('keeps those restrictions out of months that have data', () => {
+    const { prompt } = buildPromptFromSnapshot(snapshot({ verdict: 'steady' }))
+    expect(prompt).not.toContain('the month simply has not happened yet')
+  })
+})
