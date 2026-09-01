@@ -1,19 +1,54 @@
 export type OllamaStreamChunk = { response: string; done: boolean };
 
+/**
+ * Generation knobs. All optional so existing callers keep the old behaviour, but
+ * anything that cares about output quality should pass an explicit set — see
+ * `INSIGHT_MODEL_OPTIONS` in `lib/insights-generation.ts`.
+ *
+ * `numCtx` matters more than it looks: Ollama falls back to a 2048-token context
+ * for most models unless the Modelfile says otherwise, and it truncates from the
+ * *front* — so a long prompt silently loses its opening instructions rather than
+ * erroring. Any caller with a prompt bigger than a couple of paragraphs should set it.
+ */
+export type OllamaOptions = {
+  temperature?: number;
+  topP?: number;
+  repeatPenalty?: number;
+  numCtx?: number;
+  numPredict?: number;
+};
+
 export async function* streamGenerate(opts: {
   baseUrl: string;
   model: string;
   prompt: string;
+  /** Persona and hard rules. Ollama slots this into the model's chat template as
+   *  the system turn, which 8B-class models follow noticeably better than the
+   *  same text pasted at the top of `prompt`. */
+  system?: string;
+  options?: OllamaOptions;
+  /** @deprecated pass `options.temperature` instead. Kept so old call sites work. */
   temperature?: number;
 }): AsyncGenerator<OllamaStreamChunk> {
+  const o = opts.options ?? {};
   const res = await fetch(`${opts.baseUrl}/api/generate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model: opts.model,
       prompt: opts.prompt,
+      ...(opts.system ? { system: opts.system } : {}),
       stream: true,
-      options: { temperature: opts.temperature ?? 0.4 },
+      // Ollama uses snake_case for these; the camelCase names above are the JS-side
+      // spelling. Undefined keys are dropped by JSON.stringify, so an unset knob
+      // leaves Ollama on its own default rather than being sent as null.
+      options: {
+        temperature: o.temperature ?? opts.temperature ?? 0.4,
+        top_p: o.topP,
+        repeat_penalty: o.repeatPenalty,
+        num_ctx: o.numCtx,
+        num_predict: o.numPredict,
+      },
     }),
     signal: AbortSignal.timeout(600_000), // 10 min — small models can be slow on first run
   });

@@ -308,6 +308,72 @@ export const getMonthlyTrend = cache(async (months: number) => {
   return cachedMonthlyTrend(utcMonthStart(now, 0).toISOString(), months);
 });
 
+// Same window maths as `getMonthlyTrend`, but ending at an explicit `YYYY-MM`
+// rather than at today. The AI insight can be generated for a past month (the
+// cron run on the 1st summarises the month that just ended, and the month picker
+// reaches further back), and a trend pinned to *today* would compare that month
+// against a baseline it is not part of. Shares `cachedMonthlyTrend`, so this adds
+// no query — only a different `latestMonthIso` cache key.
+export const getMonthTrend = cache(async (monthKey: string, months: number) => {
+  return cachedMonthlyTrend(monthKeyRange(monthKey).start.toISOString(), months);
+});
+
+export type MonthExpenseHighlights = {
+  expenseCount: number;
+  largest: { description: string; category: string; amount: number; date: string }[];
+};
+
+// The single biggest expenses of a month, plus how many expense rows it had.
+// Category totals alone cannot explain a bad month — "Electronics: 240 000 Ft" is
+// one purchase or twenty, and the advice differs. `expenseCount` also drives the
+// `sparse` verdict, so a month with three rows is not written up as a trend.
+async function monthExpenseHighlights(
+  start: Date,
+  end: Date,
+  limit: number,
+): Promise<MonthExpenseHighlights> {
+  const txs = await prisma.transaction.findMany({
+    where: { type: 'EXPENSE', date: { gte: start, lt: end } },
+    select: {
+      ...FX_COLUMNS,
+      description: true,
+      date: true,
+      category: { select: { name: true } },
+    },
+  });
+
+  const converted: MonthExpenseHighlights['largest'] = [];
+  for (const t of txs) {
+    const amt = await txToAnchor(t);
+    if (amt === null) continue;
+    converted.push({
+      description: t.description,
+      category: t.category.name,
+      amount: Math.round(amt),
+      // `Date` does not survive the cache's JSON round-trip, so it is serialised
+      // here inside the cached callback (see the header note on `getUpcomingRenewals`).
+      date: t.date.toISOString(),
+    });
+  }
+
+  converted.sort((a, b) => b.amount - a.amount);
+  return { expenseCount: txs.length, largest: converted.slice(0, limit) };
+}
+
+const cachedMonthExpenseHighlights = cachedAggregation(
+  ['month-expense-highlights'],
+  [CACHE_TAGS.transactions, CACHE_TAGS.categories, CACHE_TAGS.fx],
+  (startIso: string, endIso: string, limit: number) =>
+    monthExpenseHighlights(new Date(startIso), new Date(endIso), limit),
+);
+
+export const getMonthExpenseHighlights = cache(
+  async (monthKey: string, limit: number): Promise<MonthExpenseHighlights> => {
+    const { start, end } = monthKeyRange(monthKey);
+    return cachedMonthExpenseHighlights(start.toISOString(), end.toISOString(), limit);
+  },
+);
+
 export const getRecurringRules = cache(async () => {
   return prisma.recurringRule.findMany({
     where: { archived: false },

@@ -1,78 +1,40 @@
 import { prisma } from './prisma'
-import { fmtHUF } from './format'
-import {
-  getMonthKpis,
-  getMonthExpensesByCategory,
-  getUpcomingRenewals,
-  getRecurringRules,
-} from './aggregations'
-import { streamGenerate } from './ollama'
+import { monthKeyOf } from './format'
+import { collectInsightSnapshot } from './insights-data'
+import { buildPromptFromSnapshot } from './insights-prompt'
+import { streamGenerate, type OllamaOptions } from './ollama'
 
-// `monthCovered` is a `YYYY-MM` key. The financial data in the prompt comes
-// from that month, so a cron run on the 1st can summarise the month that just
-// ended instead of the (empty) month that just started. Defaults to the
-// current month for on-demand generation from the insights stream.
-export async function buildInsightPrompt(monthCovered?: string): Promise<string> {
-  const monthKey = monthCovered ?? new Date().toISOString().slice(0, 7)
-  const [kpis, byCategory, upcoming, rules] = await Promise.all([
-    getMonthKpis(monthKey),
-    getMonthExpensesByCategory(monthKey),
-    getUpcomingRenewals(30),
-    getRecurringRules(),
-  ])
+/**
+ * Shared by both generation paths (the monthly cron and the on-demand SSE route)
+ * so a note never depends on which one produced it.
+ *
+ * `temperature` was 0.4, which reliably picked the blandest available phrasing and
+ * was a large part of why every month's note read the same. `numCtx` is not
+ * optional polish: Ollama defaults most models to a 2048-token context and
+ * truncates from the front, so without it the widened prompt would quietly lose
+ * its opening — which is where the output rules live.
+ */
+export const INSIGHT_MODEL_OPTIONS: OllamaOptions = {
+  temperature: 0.7,
+  topP: 0.9,
+  repeatPenalty: 1.15,
+  numCtx: 8192,
+  numPredict: 800,
+}
 
-  const [year, month] = monthKey.split('-').map(Number)
-  const monthName = new Date(Date.UTC(year, month - 1, 1)).toLocaleDateString('en-GB', {
-    month: 'long',
-    year: 'numeric',
-    timeZone: 'UTC',
-  })
-
-  const savingsRate = kpis.income > 0
-    ? Math.round(((kpis.savings) / kpis.income) * 100)
-    : 0
-
-  const topCategories = byCategory
-    .slice(0, 5)
-    .map(c => `  - ${c.name}: ${fmtHUF(c.value)}`)
-    .join('\n')
-
-  const upcomingList = upcoming
-    .slice(0, 5)
-    .map(u => `  - ${u.rule.name}: due in ${u.daysAway} day(s), ${fmtHUF(u.hufEquivalent ?? 0)}`)
-    .join('\n')
-
-  const installments = rules
-    .filter(r => r.installmentTotal != null && r.installmentPaid != null)
-    .map(r => `  - ${r.name}: ${r.installmentPaid}/${r.installmentTotal} paid`)
-    .join('\n')
-
-  return `You are a personal finance assistant giving a monthly summary for ${monthName}.
-
-FINANCIAL DATA:
-- Income: ${fmtHUF(kpis.income)}
-- Expenses: ${fmtHUF(kpis.expense)}
-- Savings: ${fmtHUF(kpis.savings)}
-- Net: ${fmtHUF(kpis.net)}
-- Savings rate: ${savingsRate}%
-
-TOP EXPENSE CATEGORIES:
-${topCategories || '  (no data)'}
-
-UPCOMING RENEWALS (next 30 days):
-${upcomingList || '  (none)'}
-
-INSTALLMENT PROGRESS:
-${installments || '  (none)'}
-
-INSTRUCTIONS:
-Write a conversational monthly summary in plain text. Rules:
-- Max 6 short paragraphs
-- No exclamation marks, no emoji, no bullet points in the output
-- All amounts in HUF (Forint) unless originally in another currency
-- Tone: calm, analytical, like a trusted financial advisor
-- Point out anything worth watching: doubled subscriptions, installments ending soon, trends
-- Do not start with "Here is" or "Based on" — start with the actual insight`
+/**
+ * `monthCovered` is a `YYYY-MM` key. The financial data in the prompt comes from
+ * that month, so a cron run on the 1st can summarise the month that just ended
+ * instead of the (empty) month that just started. Defaults to the current month on
+ * the viewer's calendar for on-demand generation from the insights stream —
+ * `toISOString()` would report the UTC month, which is still the previous one
+ * between local midnight and the UTC rollover (AGENTS.md §13).
+ */
+export async function buildInsightPrompt(
+  monthCovered?: string,
+): Promise<{ system: string; prompt: string }> {
+  const monthKey = monthCovered ?? monthKeyOf(new Date())
+  return buildPromptFromSnapshot(await collectInsightSnapshot(monthKey))
 }
 
 export async function generateAndSaveInsight(options: {
@@ -80,13 +42,15 @@ export async function generateAndSaveInsight(options: {
   ollamaUrl: string
   ollamaModel: string
 }): Promise<{ id: string }> {
-  const prompt = await buildInsightPrompt(options.monthCovered)
+  const { system, prompt } = await buildInsightPrompt(options.monthCovered)
   let content = ''
 
   for await (const chunk of streamGenerate({
     baseUrl: options.ollamaUrl,
     model: options.ollamaModel,
+    system,
     prompt,
+    options: INSIGHT_MODEL_OPTIONS,
   })) {
     content += chunk.response
     if (chunk.done) break
