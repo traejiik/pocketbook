@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { prisma } from '@/lib/prisma';
+import { monthKeyOf } from '@/lib/format';
 import { InsightCardClient } from '@/components/insights/InsightCardClient';
 
 export default async function AiInsightsPage() {
@@ -12,7 +13,10 @@ export default async function AiInsightsPage() {
   const ollamaUrl = settings?.ollamaUrl ?? 'http://ollama:11434';
   const ollamaModel = settings?.ollamaModel ?? 'llama3.1:8b';
 
-  const currentMonth = new Date().toISOString().slice(0, 7);
+  // The month the picker opens on, and the one it asks the stream route to
+  // generate. `toISOString()` reports the UTC month, which is still the previous
+  // one between local midnight and the UTC rollover (AGENTS.md §13).
+  const currentMonth = monthKeyOf(new Date());
 
   // Serialise dates for client
   const serialisedHistory = history.map((h: (typeof history)[number]) => ({
