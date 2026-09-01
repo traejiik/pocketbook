@@ -40,6 +40,42 @@ export type OllamaOptions = {
   numPredict?: number;
 };
 
+/** Backoff between connection attempts, in ms. Roughly ten seconds in total. */
+const RETRY_DELAYS_MS = [1_000, 3_000, 6_000];
+
+/**
+ * POST JSON, retrying only when the connection itself fails.
+ *
+ * A container that has just started refuses connections for a few seconds, and
+ * `fetch` rejects immediately rather than waiting — so a generation kicked off
+ * while Ollama was booting failed instantly and had to be retried by hand. An
+ * HTTP error status is *not* retried (it resolves, and the caller reports it),
+ * and neither is a timeout: the request budget is spent, so trying again just
+ * doubles the wait. Each attempt gets its own timeout signal.
+ */
+async function postWithRetry(url: string, body: unknown): Promise<Response> {
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
+    try {
+      return await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(600_000), // 10 min — small models can be slow on first run
+      });
+    } catch (err) {
+      const name = (err as { name?: string })?.name;
+      if (name === 'TimeoutError' || name === 'AbortError') throw err;
+      lastError = err;
+      const delay = RETRY_DELAYS_MS[attempt];
+      if (delay !== undefined) await new Promise((r) => setTimeout(r, delay));
+    }
+  }
+
+  throw lastError;
+}
+
 export async function* streamGenerate(opts: {
   baseUrl: string;
   model: string;
@@ -61,27 +97,22 @@ export async function* streamGenerate(opts: {
   temperature?: number;
 }): AsyncGenerator<OllamaStreamChunk> {
   const o = opts.options ?? {};
-  const res = await fetch(`${opts.baseUrl}/api/generate`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: opts.model,
-      prompt: opts.prompt,
-      ...(opts.system ? { system: opts.system } : {}),
-      ...(opts.think === undefined ? {} : { think: opts.think }),
-      stream: true,
-      // Ollama uses snake_case for these; the camelCase names above are the JS-side
-      // spelling. Undefined keys are dropped by JSON.stringify, so an unset knob
-      // leaves Ollama on its own default rather than being sent as null.
-      options: {
-        temperature: o.temperature ?? opts.temperature ?? 0.4,
-        top_p: o.topP,
-        repeat_penalty: o.repeatPenalty,
-        num_ctx: o.numCtx,
-        num_predict: o.numPredict,
-      },
-    }),
-    signal: AbortSignal.timeout(600_000), // 10 min — small models can be slow on first run
+  const res = await postWithRetry(`${opts.baseUrl}/api/generate`, {
+    model: opts.model,
+    prompt: opts.prompt,
+    ...(opts.system ? { system: opts.system } : {}),
+    ...(opts.think === undefined ? {} : { think: opts.think }),
+    stream: true,
+    // Ollama uses snake_case for these; the camelCase names above are the JS-side
+    // spelling. Undefined keys are dropped by JSON.stringify, so an unset knob
+    // leaves Ollama on its own default rather than being sent as null.
+    options: {
+      temperature: o.temperature ?? opts.temperature ?? 0.4,
+      top_p: o.topP,
+      repeat_penalty: o.repeatPenalty,
+      num_ctx: o.numCtx,
+      num_predict: o.numPredict,
+    },
   });
   if (!res.ok || !res.body) throw new Error(`Ollama: ${res.status}`);
 
