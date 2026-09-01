@@ -14,7 +14,10 @@ import { join } from 'node:path'
 import { z } from 'zod'
 
 import { sendNotification } from '@/lib/notifications/send'
+import { logger } from '@/lib/logger'
 import type { NotificationEvent } from '@/lib/notifications/types'
+
+const log = logger('backup')
 
 const BACKUP_TIMEOUT_MS = 30 * 60 * 1000
 const RETENTION_COUNT = 14
@@ -230,7 +233,8 @@ export async function runBackup(options: {
   const lockDirectory = options.lockDirectory ?? '/tmp/pocketbook-backup.lock'
   const commandRunner = options.commandRunner ?? runBackupCommand
   const clock = options.clock ?? Date.now
-  const deadline = clock() + BACKUP_TIMEOUT_MS
+  const startedAt = clock()
+  const deadline = startedAt + BACKUP_TIMEOUT_MS
   const remainingTimeout = () => Math.max(1, deadline - clock())
   const notify = options.notify ?? ((event) => sendNotification(event, { instanceName: process.env.PB_INSTANCE_NAME }))
   const notifyBestEffort = async (event: NotificationEvent) => {
@@ -261,7 +265,11 @@ export async function runBackup(options: {
     await chmod(backupDirectory, 0o700)
     await chmod(dataDirectory, 0o700)
     lockToken = await acquireBackupLock(lockDirectory, now)
-    if (!lockToken) return { status: 'already-running' }
+    if (!lockToken) {
+      log.warn('backup deferred', { source: options.source, reason: 'another backup holds the lock' })
+      return { status: 'already-running' }
+    }
+    log.info('backup started', { source: options.source, filename, directory: backupDirectory })
 
     const previous = await readBackupStatus(dataDirectory)
     lastVerified = previous?.successfulAt ? {
@@ -316,6 +324,13 @@ export async function runBackup(options: {
       kept,
     }
     await writeJsonAtomic(statusPath, status)
+    log.info('backup finished', {
+      source: options.source,
+      filename,
+      size: formatBytes(sizeBytes),
+      kept,
+      ms: clock() - startedAt,
+    })
     await notifyBestEffort({
       type: 'backupCompleted',
       filename,
@@ -339,6 +354,7 @@ export async function runBackup(options: {
       // Storage preparation itself may have failed before a partial could exist.
     }
     const message = (error instanceof Error ? error.message : String(error)).slice(0, 1500)
+    log.error('backup failed', { source: options.source, filename, err: error })
     try {
       await mkdir(dataDirectory, { recursive: true })
       await writeJsonAtomic(statusPath, {

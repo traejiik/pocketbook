@@ -7,6 +7,9 @@ import {
   type JobState,
 } from '@/lib/operations/schedule'
 import type { NotificationEvent } from '@/lib/notifications/types'
+import { logger } from '@/lib/logger'
+
+const log = logger('jobs')
 
 export type JobHandlerResult = { status: 'success' | 'skipped' | 'deferred'; summary: string }
 export type JobHandlers = Record<JobId, () => Promise<JobHandlerResult>>
@@ -25,6 +28,10 @@ export async function runDueJobsOnce(options: {
     if (!shouldRunOccurrence(previous, occurrence, options.now)) continue
 
     const attemptedAt = options.now.toISOString()
+    const timer = log.start(`${jobId} job`, {
+      occurrence: occurrence.id,
+      scheduledFor: occurrence.scheduledFor,
+    })
     await writeJobState({
       version: 1,
       jobId,
@@ -46,6 +53,7 @@ export async function runDueJobsOnce(options: {
           ...(previous?.failureNotifiedFor ? { failureNotifiedFor: previous.failureNotifiedFor } : {}),
           summary: result.summary.slice(0, 1500),
         }, options.stateDirectory)
+        timer.skip(result.summary)
         outcomes.push({ jobId, status: 'deferred', occurrenceId: occurrence.id })
         continue
       }
@@ -58,9 +66,12 @@ export async function runDueJobsOnce(options: {
         ...(previous?.failureNotifiedFor ? { failureNotifiedFor: previous.failureNotifiedFor } : {}),
         summary: result.summary.slice(0, 1500),
       }, options.stateDirectory)
+      if (result.status === 'skipped') timer.skip(result.summary)
+      else timer.ok({ summary: result.summary })
       outcomes.push({ jobId, status: result.status, occurrenceId: occurrence.id })
     } catch (error) {
       const message = (error instanceof Error ? error.message : String(error)).slice(0, 1500)
+      timer.fail(error)
       const firstFailure = previous?.failureNotifiedFor !== occurrence.id
       if (firstFailure) {
         try {

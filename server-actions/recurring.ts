@@ -6,6 +6,9 @@ import { prisma } from '@/lib/prisma';
 import { CACHE_TAGS, revalidateFinanceTags } from '@/lib/cache';
 import { requireAuthenticatedUser } from '@/lib/require-auth';
 import { planRecurringCatchUp, resumeNextDue } from '@/lib/recurring-backfill';
+import { logger } from '@/lib/logger';
+
+const log = logger('recurring');
 
 const ruleSchema = z.object({
   id: z.string().optional(),
@@ -46,6 +49,7 @@ export async function upsertRecurringRule(input: RecurringRuleInput): Promise<Re
     && fields.installmentTotal != null
     && fields.installmentPaid > fields.installmentTotal
   ) {
+    log.warn('rule rejected', { name: fields.name, reason: 'paid count exceeds total' });
     return { error: 'Installment paid count cannot exceed total installments.' };
   }
 
@@ -53,7 +57,10 @@ export async function upsertRecurringRule(input: RecurringRuleInput): Promise<Re
     const duplicate = await prisma.recurringRule.findFirst({
       where: { name: { equals: fields.name, mode: 'insensitive' }, archived: false },
     });
-    if (duplicate) return { error: 'A rule with that name already exists.' };
+    if (duplicate) {
+      log.warn('rule rejected', { name: fields.name, reason: 'duplicate name' });
+      return { error: 'A rule with that name already exists.' };
+    }
   }
 
   const data = {
@@ -73,6 +80,15 @@ export async function upsertRecurringRule(input: RecurringRuleInput): Promise<Re
 
   if (id) {
     await prisma.recurringRule.update({ where: { id }, data });
+    log.info('rule updated', {
+      id,
+      name: fields.name,
+      amount: fields.amount,
+      currency: fields.currency,
+      cycle: fields.cycle,
+      nextDue: fields.nextDue,
+      kind: fields.kind,
+    });
     revalidateFinanceTags(CACHE_TAGS.recurring);
     revalidatePath('/recurring');
     revalidatePath('/renewals');
@@ -118,6 +134,17 @@ export async function upsertRecurringRule(input: RecurringRuleInput): Promise<Re
     return created;
   });
 
+  log.info('rule created', {
+    name: fields.name,
+    amount: fields.amount,
+    currency: fields.currency,
+    cycle: fields.cycle,
+    nextDue: catchUp.nextDue,
+    kind: fields.kind,
+    backfilled: catchUp.transactions.length,
+    archived: catchUp.archived,
+  });
+
   // A new rule can backfill catch-up charges, which touches the ledger as well.
   revalidateFinanceTags(
     CACHE_TAGS.recurring,
@@ -145,6 +172,7 @@ export async function archiveRecurringRule(id: string) {
   await requireAuthenticatedUser();
 
   await prisma.recurringRule.update({ where: { id }, data: { archived: true } });
+  log.info('rule archived', { id });
 
   revalidateFinanceTags(CACHE_TAGS.recurring);
   revalidatePath('/recurring');
@@ -160,10 +188,12 @@ export async function deleteRecurringRule(id: string): Promise<{ ok: true } | { 
   // (mistakes created and never run) may be hard-deleted; everything else archives.
   const linkedCount = await prisma.transaction.count({ where: { recurringRuleId: id } });
   if (linkedCount > 0) {
+    log.warn('rule delete rejected', { id, linkedCount, reason: 'rule has logged charges' });
     return { error: 'Rules with logged charges can only be archived.' };
   }
 
   await prisma.recurringRule.delete({ where: { id } });
+  log.info('rule deleted', { id });
 
   revalidateFinanceTags(CACHE_TAGS.recurring);
   revalidatePath('/recurring');
@@ -179,11 +209,15 @@ export async function unarchiveRecurringRule(id: string): Promise<{ ok: true } |
     where: { id },
     select: { cycle: true, nextDue: true, installmentTotal: true, installmentPaid: true },
   });
-  if (!rule) return { error: 'Rule not found.' };
+  if (!rule) {
+    log.warn('rule restore rejected', { id, reason: 'rule not found' });
+    return { error: 'Rule not found.' };
+  }
 
   // Completed installment plans are terminal — restoring one is pointless because
   // it would immediately re-archive on the next sync (no installments left to log).
   if (rule.installmentTotal != null && (rule.installmentPaid ?? 0) >= rule.installmentTotal) {
+    log.warn('rule restore rejected', { id, reason: 'installment plan already complete' });
     return { error: 'Completed installment plans can’t be restored.' };
   }
 
@@ -194,6 +228,7 @@ export async function unarchiveRecurringRule(id: string): Promise<{ ok: true } |
     where: { id },
     data: { archived: false, nextDue: dateOnlyStringToDate(nextDue) },
   });
+  log.info('rule restored', { id, nextDue });
 
   revalidateFinanceTags(CACHE_TAGS.recurring);
   revalidatePath('/recurring');

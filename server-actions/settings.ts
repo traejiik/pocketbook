@@ -8,6 +8,9 @@ import { syncAllAutoRates } from '@/lib/frankfurter';
 import { lockRate } from '@/lib/fx';
 import { CACHE_TAGS, revalidateFinanceTags } from '@/lib/cache';
 import { requireAuthenticatedUser } from '@/lib/require-auth';
+import { logger } from '@/lib/logger';
+
+const log = logger('settings');
 
 const currencySchema = z.enum(['HUF', 'USD', 'EUR', 'GBP']);
 const rateSchema = z.object({
@@ -20,6 +23,7 @@ const rateSchema = z.object({
 export async function setAnchorCurrency(code: string) {
   await requireAuthenticatedUser();
   currencySchema.parse(code);
+  const timer = log.start('anchor currency change', { to: code });
   await prisma.appSettings.update({
     where: { id: 'singleton' },
     data: { anchorCurrency: code },
@@ -48,6 +52,8 @@ export async function setAnchorCurrency(code: string) {
     ),
   );
 
+  timer.ok({ relockedCurrencies: locks.length });
+
   // The anchor moved *and* every transaction was re-locked to it, so both the FX
   // and transaction reads are now wrong.
   revalidateFinanceTags(CACHE_TAGS.fx, CACHE_TAGS.transactions);
@@ -67,6 +73,7 @@ export async function setExchangeRate(input: {
     update: { rate, mode, updatedAt: new Date() },
     create: { fromCurrency: from, toCurrency: to, rate, mode },
   });
+  log.info('exchange rate set', { pair: `${from}/${to}`, rate, mode });
   revalidateFinanceTags(CACHE_TAGS.fx);
   revalidatePath('/', 'layout');
 }
@@ -82,15 +89,17 @@ export async function addTrackedCurrency(code: string) {
     update: {},
     create: { fromCurrency: code, toCurrency: anchor, rate: 1, mode: 'MANUAL' },
   });
+  log.info('currency tracked', { currency: code, anchor });
   revalidateFinanceTags(CACHE_TAGS.fx);
   revalidatePath('/settings');
 }
 
 export async function removeTrackedCurrency(from: string, to: string) {
   await requireAuthenticatedUser();
-  await prisma.exchangeRate.deleteMany({
+  const removed = await prisma.exchangeRate.deleteMany({
     where: { fromCurrency: from, toCurrency: to },
   });
+  log.info('currency untracked', { pair: `${from}/${to}`, removed: removed.count });
   revalidateFinanceTags(CACHE_TAGS.fx);
   revalidatePath('/settings');
 }
@@ -101,6 +110,7 @@ export async function setFxAutoSync(enabled: boolean) {
     where: { id: 'singleton' },
     data: { fxAutoSync: enabled },
   });
+  log.info('setting changed', { setting: 'fxAutoSync', value: enabled });
 }
 
 export async function setAutoInsights(enabled: boolean) {
@@ -109,6 +119,7 @@ export async function setAutoInsights(enabled: boolean) {
     where: { id: 'singleton' },
     data: { autoInsightsMonthly: enabled },
   });
+  log.info('setting changed', { setting: 'autoInsightsMonthly', value: enabled });
 }
 
 export async function setOllamaModel(model: string) {
@@ -117,25 +128,37 @@ export async function setOllamaModel(model: string) {
     where: { id: 'singleton' },
     data: { ollamaModel: model },
   });
+  // The model in use is the first thing to check when insight output changes
+  // character, so the switch itself is worth a line.
+  log.info('setting changed', { setting: 'ollamaModel', value: model });
   revalidatePath('/settings');
 }
 
 export async function changePassword(input: { current: string; next: string }) {
   await requireAuthenticatedUser();
   const user = await prisma.user.findFirst();
-  if (!user) return { error: 'No user found' };
+  if (!user) {
+    log.error('password change failed', { reason: 'no user row' });
+    return { error: 'No user found' };
+  }
 
   const valid = await bcrypt.compare(input.current, user.passwordHash);
-  if (!valid) return { error: 'Current password is incorrect' };
+  if (!valid) {
+    log.warn('password change rejected', { reason: 'current password incorrect' });
+    return { error: 'Current password is incorrect' };
+  }
 
   const hash = await bcrypt.hash(input.next, 12);
   await prisma.user.update({ where: { id: user.id }, data: { passwordHash: hash } });
+  log.info('password changed');
   return { success: true };
 }
 
 export async function forceFxSync(): Promise<{ synced: number }> {
   await requireAuthenticatedUser();
+  const timer = log.start('fx sync', { source: 'manual' });
   const synced = await syncAllAutoRates();
+  timer.ok({ synced });
   revalidateFinanceTags(CACHE_TAGS.fx);
   revalidatePath('/settings');
   return { synced };
@@ -143,10 +166,19 @@ export async function forceFxSync(): Promise<{ synced: number }> {
 
 export async function clearAllData(): Promise<void> {
   await requireAuthenticatedUser();
-  await prisma.aiInsight.deleteMany();
-  await prisma.transaction.deleteMany();
-  await prisma.recurringRule.deleteMany();
-  await prisma.category.deleteMany();
+  // Irreversible and operator-initiated, so it is logged with the row counts it
+  // destroyed — the only record that the data was wiped on purpose.
+  const timer = log.start('clear all data');
+  const insights = await prisma.aiInsight.deleteMany();
+  const transactions = await prisma.transaction.deleteMany();
+  const rules = await prisma.recurringRule.deleteMany();
+  const categories = await prisma.category.deleteMany();
+  timer.ok({
+    insights: insights.count,
+    transactions: transactions.count,
+    rules: rules.count,
+    categories: categories.count,
+  });
   revalidateFinanceTags(CACHE_TAGS.transactions, CACHE_TAGS.recurring, CACHE_TAGS.categories);
   revalidatePath('/', 'layout');
 }
@@ -158,7 +190,8 @@ export async function getDatabaseSize(): Promise<string> {
       SELECT pg_size_pretty(pg_database_size(current_database()))
     `;
     return result[0]?.pg_size_pretty ?? '—';
-  } catch {
+  } catch (err) {
+    log.warn('database size unavailable', { err });
     return '—';
   }
 }

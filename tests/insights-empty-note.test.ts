@@ -38,6 +38,9 @@ describe('generateAndSaveInsight', () => {
     vi.clearAllMocks()
     mocks.findFirst.mockResolvedValue({ id: 'user-1' })
     mocks.create.mockResolvedValue({ id: 'insight-1' })
+    // Prisma always answers a deleteMany with a batch payload; the generator
+    // reports how many stale notes it replaced.
+    mocks.deleteMany.mockResolvedValue({ count: 0 })
     mocks.snapshot.mockResolvedValue({ monthKey: '2026-09' })
     mocks.buildPrompt.mockReturnValue({ system: 'sys', prompt: 'usr' })
   })

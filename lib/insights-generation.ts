@@ -1,8 +1,11 @@
 import { prisma } from './prisma'
+import { logger } from './logger'
 import { monthKeyOf } from './format'
 import { collectInsightSnapshot } from './insights-data'
 import { buildPromptFromSnapshot } from './insights-prompt'
 import { streamGenerate, stripThinkTags, type OllamaOptions } from './ollama'
+
+const log = logger('insights')
 
 /**
  * Shared by both generation paths (the monthly cron and the on-demand SSE route)
@@ -67,18 +70,35 @@ export async function generateAndSaveInsight(options: {
   ollamaUrl: string
   ollamaModel: string
 }): Promise<{ id: string }> {
+  const timer = log.start('insight generation', {
+    month: options.monthCovered,
+    model: options.ollamaModel,
+    source: 'scheduled',
+  })
   const { system, prompt } = await buildInsightPrompt(options.monthCovered)
+  log.debug('prompt built', {
+    month: options.monthCovered,
+    promptChars: prompt.length,
+    systemChars: system.length,
+  })
   let content = ''
 
-  for await (const chunk of streamGenerate({
-    baseUrl: options.ollamaUrl,
-    model: options.ollamaModel,
-    system,
-    prompt,
-    ...INSIGHT_REQUEST,
-  })) {
-    content += chunk.response
-    if (chunk.done) break
+  try {
+    for await (const chunk of streamGenerate({
+      baseUrl: options.ollamaUrl,
+      model: options.ollamaModel,
+      system,
+      prompt,
+      ...INSIGHT_REQUEST,
+    })) {
+      content += chunk.response
+      if (chunk.done) break
+    }
+  } catch (error) {
+    // The scheduler records the job failure, but the note it was generating (and
+    // the model it was talking to) only exist here.
+    timer.fail(error)
+    throw error
   }
 
   content = stripThinkTags(content)
@@ -90,11 +110,17 @@ export async function generateAndSaveInsight(options: {
   // indistinguishable from a successful generation and blocking the month until
   // something replaces it.
   if (!content) {
-    throw new Error('Ollama returned no text — nothing was saved')
+    const error = new Error('Ollama returned no text — nothing was saved')
+    timer.fail(error)
+    throw error
   }
 
   const user = await prisma.user.findFirst()
-  if (!user) throw new Error('No user found')
+  if (!user) {
+    const error = new Error('No user found')
+    timer.fail(error)
+    throw error
+  }
 
   const record = await prisma.aiInsight.create({
     data: {
@@ -107,9 +133,13 @@ export async function generateAndSaveInsight(options: {
 
   // One insight per month: the freshly generated note replaces any earlier
   // (e.g. mid-month) notes for the same month.
-  await prisma.aiInsight.deleteMany({
+  const replaced = await prisma.aiInsight.deleteMany({
     where: { monthCovered: options.monthCovered, id: { not: record.id } },
   })
 
+  // At debug only: enough of the note to see *how* the model is behaving —
+  // wrong currency, amounts spelled as words — without reading the database.
+  log.debug('note preview', { month: options.monthCovered, preview: content.slice(0, 200) })
+  timer.ok({ id: record.id, chars: content.length, replaced: replaced.count })
   return record
 }

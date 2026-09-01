@@ -1,6 +1,10 @@
 import { PrismaClient } from '@prisma/client'
 import { PrismaPg } from '@prisma/adapter-pg'
 
+import { logger } from './logger'
+
+const log = logger('db')
+
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
 
 function buildPrismaClient(): PrismaClient {
@@ -47,7 +51,7 @@ async function connectWithRetry(attempts = 3, delayMs = 500): Promise<void> {
 }
 
 if (process.env.NODE_ENV === 'production' && process.env.NEXT_PHASE !== 'phase-production-build') {
-  connectWithRetry().catch((err) =>
-    console.error('[db] Failed to connect after retries:', err)
-  )
+  connectWithRetry()
+    .then(() => log.info('connected'))
+    .catch((err) => log.error('connection failed after retries', { err }))
 }

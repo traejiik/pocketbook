@@ -1,9 +1,12 @@
 import { createConnection } from 'node:net'
 
 import { sendNotification } from '@/lib/notifications/send'
+import { logger } from '@/lib/logger'
 import type { NotificationEvent } from '@/lib/notifications/types'
 import { runBackup, type BackupResult } from '@/lib/operations/backup'
 import { runDueJobsOnce, type JobHandlers } from '@/lib/operations/job-runner'
+
+const log = logger('scheduler')
 
 const LOOPBACK_BASE_URL = 'http://127.0.0.1:3000'
 
@@ -33,6 +36,7 @@ async function postInternalJob(
     })
     if (!response.ok) {
       const message = (await response.text()).slice(0, 1500)
+      log.warn('internal job call failed', { path, status: response.status, body: message })
       throw new Error(`${path} returned ${response.status}: ${message}`)
     }
     return await response.json() as Record<string, unknown>
@@ -111,6 +115,8 @@ export async function runScheduler() {
   const token = process.env.PB_INTERNAL_JOB_TOKEN
   if (!token) throw new Error('PB_INTERNAL_JOB_TOKEN is required for the scheduler')
 
+  log.info('scheduler starting', { pid: process.pid, tickSeconds: 60 })
+
   let stopping = false
   let active: Promise<unknown> | null = null
   const heartbeat = () => process.send?.({ type: 'heartbeat' })
@@ -118,6 +124,7 @@ export async function runScheduler() {
   const heartbeatTimer = setInterval(heartbeat, 30_000)
 
   await waitForWeb()
+  log.info('scheduler ready', { web: LOOPBACK_BASE_URL })
   const handlers = createJobHandlers({ token })
   const tick = () => {
     if (stopping || active) return
@@ -135,7 +142,7 @@ export async function runScheduler() {
         await sendNotification(event, { instanceName: process.env.PB_INSTANCE_NAME })
       },
     }).catch((error) => {
-      console.error('[scheduler] tick failed:', error)
+      log.error('tick failed', { err: error })
     }).finally(() => {
       active = null
     })
@@ -144,6 +151,7 @@ export async function runScheduler() {
   tick()
   const scheduleTimer = setInterval(tick, 60_000)
   const stop = () => {
+    log.info('scheduler stopping', { draining: !!active })
     stopping = true
     clearInterval(scheduleTimer)
     clearInterval(heartbeatTimer)
@@ -156,7 +164,7 @@ export async function runScheduler() {
 
 if (typeof require !== 'undefined' && require.main === module) {
   runScheduler().catch((error) => {
-    console.error('[scheduler] fatal:', error)
+    log.error('scheduler exited', { err: error })
     process.exit(1)
   })
 }
