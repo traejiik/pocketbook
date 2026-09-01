@@ -9,10 +9,14 @@ import { streamGenerate, stripThinkTags, type OllamaOptions } from './ollama'
  * so a note never depends on which one produced it.
  *
  * `temperature` was 0.4, which reliably picked the blandest available phrasing and
- * was a large part of why every month's note read the same. `numCtx` is not
- * optional polish: Ollama defaults most models to a 2048-token context and
- * truncates from the front, so without it the widened prompt would quietly lose
- * its opening — which is where the output rules live.
+ * was a large part of why every month's note read the same.
+ *
+ * `numCtx` has to be set at all because Ollama defaults most models to a
+ * 2048-token context and truncates from the front, which would quietly eat the
+ * opening of the prompt — where the output rules live. 4096 is deliberate rather
+ * than generous: the fullest prompt measures ~1200 tokens and ~2000 including a
+ * full-length note, so this is roughly double the worst case. A larger window
+ * costs real time on CPU inference for no benefit.
  *
  * There is deliberately no `numPredict`. A 800-token cap here produced empty
  * notes on a thinking model: reasoning is billed against the same budget, so the
@@ -25,7 +29,7 @@ export const INSIGHT_MODEL_OPTIONS: OllamaOptions = {
   temperature: 0.7,
   topP: 0.9,
   repeatPenalty: 1.15,
-  numCtx: 8192,
+  numCtx: 4096,
 }
 
 /**

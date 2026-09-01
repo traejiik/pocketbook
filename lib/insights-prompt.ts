@@ -18,8 +18,14 @@ NEVER OPEN WITH
 BANNED PHRASES
 "it's worth noting", "financial health", "keep up the good work", "stay on track", "moving forward", "at the end of the day", "as always", "a mixed picture".
 
+AMOUNTS (THE STRICTEST RULE HERE)
+Every amount is given to you already formatted. Copy it character for character.
+Do not convert it to another currency. Do not rename the currency. Do not rescale it into thousands or millions. Do not round it. Do not spell any number out in words.
+Write "150 000 Ft", never "one hundred fifty thousand forint", never "150 thousand", never "150,000 pounds".
+The only currency that exists in this note is the one in the figures below. If you catch yourself typing the name of any other currency, you have made an error.
+
 EVERY PARAGRAPH EARNS ITS PLACE
-Each one must carry at least one figure from the data, attached to something you name: a category, a recurring rule, or a specific transaction. A paragraph with no named specific is a paragraph to delete. Never invent a figure, a category, a merchant or a trend that is not in the data given to you — if the data does not support a claim, do not make it. Reproduce amounts exactly as they are formatted for you, including the currency symbol.
+Each one must carry at least one figure from the data, attached to something you name: a category, a recurring rule, or a specific transaction. A paragraph with no named specific is a paragraph to delete. Never invent a figure, a category, a merchant or a trend that is not in the data given to you — if the data does not support a claim, do not make it.
 
 THE LAST PARAGRAPH IS AN ACTION
 End with exactly one recommendation. It must name a real category, recurring rule or transaction from the data, carry a figure (what it costs now, or what changes if they act), and be something they could do in the next week or two. Generic advice is a failure: "consider budgeting", "track your spending", "review your subscriptions", "build an emergency fund" and anything of that kind are not acceptable endings. If the data supports no change worth making, say which specific thing you are recommending they leave alone, and why.`
@@ -50,9 +56,11 @@ If the net figure is negative, that is the savings transfer, not overspending. S
 
 Do not manufacture drama and do not pad. Find the one thing that actually moved — the biggest category change against last month, or the sharpest departure from the six-month pattern — and follow it properly instead of touring every category in turn. A short note about one real thing beats a long note about nothing. Write three or four paragraphs.`,
 
-  sparse: `There is very little data for this month.
+  sparse: `There is very little data for this month. It is probably early in the month rather than a month where nothing happened.
 
-Say that plainly in the first sentence and keep the note short. Do not extrapolate a trend, a rate or a habit from this few transactions, and do not describe the month as good or bad. Report only what is actually recorded, and let the closing recommendation be about the ledger itself if the spending data cannot support one. Write two paragraphs.`,
+Say so plainly in the first sentence and keep the note short. Report only what is actually recorded.
+
+Do not narrate the absence of data as if it were an event: there was no collapse, no pause, no silence, no abrupt end, and nothing "dropped to zero" — the month simply has not happened yet. Do not compare these empty figures against last month; a 100% fall from a month that has barely started is an artefact, not a finding. Do not extrapolate a trend, a rate or a habit, and do not call the month good or bad. If the spending data cannot support a recommendation, make the closing action about what is due next. Write two paragraphs.`,
 }
 
 /** `up 34% from 120 000 Ft`, `down 8% from …`, `new this month`, or empty. */
@@ -172,7 +180,7 @@ ${caveat}
 HOW TO WRITE THIS MONTH'S NOTE
 ${VERDICT_DIRECTIVES[s.verdict]}
 ${priorNotes}
-Write the note now. Plain paragraphs, no headings, and close with the one concrete action.`
+Write the note now. Plain paragraphs, no headings, and close with the one concrete action. Copy every amount exactly as written above — same digits, same currency, never spelled out in words.`
 
   return { system: INSIGHT_SYSTEM_PROMPT, prompt }
 }
