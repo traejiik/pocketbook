@@ -1,5 +1,6 @@
 import { auth } from '@/lib/auth';
-import { buildInsightPrompt } from '@/lib/insights-generation';
+import { buildInsightPrompt, INSIGHT_MODEL_OPTIONS } from '@/lib/insights-generation';
+import { monthKeyOf } from '@/lib/format';
 import { streamGenerate } from '@/lib/ollama';
 import { prisma } from '@/lib/prisma';
 
@@ -18,9 +19,11 @@ export async function GET(req: Request) {
   const requested = new URL(req.url).searchParams.get('month');
   const monthCovered = /^\d{4}-\d{2}$/.test(requested ?? '')
     ? (requested as string)
-    : new Date().toISOString().slice(0, 7);
+    // `toISOString()` reports the UTC month, which is still the previous one
+    // between local midnight and the UTC rollover (AGENTS.md §13).
+    : monthKeyOf(new Date());
 
-  const prompt = await buildInsightPrompt(monthCovered);
+  const { system, prompt } = await buildInsightPrompt(monthCovered);
 
   const encoder = new TextEncoder();
 
@@ -34,7 +37,9 @@ export async function GET(req: Request) {
         for await (const chunk of streamGenerate({
           baseUrl: settings.ollamaUrl,
           model: settings.ollamaModel,
+          system,
           prompt,
+          options: INSIGHT_MODEL_OPTIONS,
         })) {
           full += chunk.response;
           tokenCount++;
