@@ -24,6 +24,9 @@ import {
   type NotificationIdentity,
 } from '@/lib/notifications/types'
 import { requireAuthenticatedUser } from '@/lib/require-auth'
+import { logger } from '@/lib/logger'
+
+const log = logger('notifications')
 
 const eventFlagsSchema = z.object(
   Object.fromEntries(NOTIFICATION_EVENT_KEYS.map((key) => [key, z.boolean()])) as Record<
@@ -100,6 +103,7 @@ export async function saveNotificationSettings(
   await requireAuthenticatedUser()
   const parsedResult = notificationSettingsInputSchema.safeParse(input)
   if (!parsedResult.success) {
+    log.warn('settings save rejected', { reason: firstValidationError(parsedResult.error) })
     return {
       ok: false as const,
       error: firstValidationError(parsedResult.error),
@@ -124,6 +128,10 @@ export async function saveNotificationSettings(
       : null
 
     if (!identity.webhookUrl || (!persistedVerification && !receiptVerification)) {
+      log.warn('settings save rejected', {
+        reason: identity.webhookUrl ? 'identity not verified' : 'no webhook configured',
+        hasReceipt: !!receipt,
+      })
       return { ok: false as const, error: verificationRequiredError }
     }
 
@@ -140,12 +148,24 @@ export async function saveNotificationSettings(
     let config: NotificationConfig
     try {
       config = await writeNotificationConfig(nextConfig)
-    } catch {
+    } catch (err) {
+      log.error('settings save failed', { reason: 'config file not writable', err })
       return {
         ok: false as const,
         error: 'Could not save notification settings. Check that the notification data directory is writable.',
       }
     }
+
+    log.info('settings saved', {
+      enabled: config.enabled,
+      username: config.username,
+      hasAvatar: !!config.avatarUrl,
+      verified: !!config.verification,
+      events: Object.entries(config.events)
+        .filter(([, on]) => on)
+        .map(([key]) => key)
+        .join(',') || 'none',
+    })
 
     return {
       ok: true as const,
@@ -169,6 +189,7 @@ export async function disconnectDiscordNotifications() {
     })
   })
 
+  log.info('discord disconnected')
   revalidatePath('/settings')
   return {
     ok: true as const,
@@ -180,14 +201,22 @@ export async function sendTestNotification(input: NotificationIdentity) {
   await requireAuthenticatedUser()
   const parsedResult = notificationIdentityInputSchema.safeParse(input)
   if (!parsedResult.success) {
+    log.warn('test rejected', { reason: firstValidationError(parsedResult.error) })
     return { ok: false as const, error: firstValidationError(parsedResult.error) }
   }
 
   const identity = normaliseNotificationIdentity(parsedResult.data)
   const result = await deliverNotificationWithConfig(identity, { type: 'test' })
   if (!result.delivered) {
+    log.warn('test delivery failed', {
+      username: identity.username,
+      reason: result.reason,
+      status: result.status,
+    })
     return { ok: false as const, error: mapTestDeliveryError(result) }
   }
+
+  log.info('test delivered', { username: identity.username })
 
   const { receipt, expiresAt } = issueNotificationVerificationReceipt(identity)
   return { ok: true as const, receipt, expiresAt }

@@ -1,6 +1,9 @@
 import { prisma } from '@/lib/prisma'
 import { generateAndSaveInsight } from '@/lib/insights-generation'
 import { sendNotification } from '@/lib/notifications/send'
+import { logger } from '@/lib/logger'
+
+const log = logger('insights')
 
 export const dynamic = 'force-dynamic'
 
@@ -9,11 +12,13 @@ export async function POST(request: Request) {
   const expected = process.env.PB_INTERNAL_JOB_TOKEN
 
   if (!expected || secret !== expected) {
+    log.warn('monthly insight refused', { reason: expected ? 'bad token' : 'no job token configured' })
     return Response.json({ error: 'Unauthorised' }, { status: 401 })
   }
 
   const settings = await prisma.appSettings.findUnique({ where: { id: 'singleton' } })
   if (!settings?.autoInsightsMonthly) {
+    log.info('monthly insight skipped', { reason: 'automatic monthly insights disabled' })
     return Response.json({ generated: false, skipped: true })
   }
 
@@ -35,6 +40,11 @@ export async function POST(request: Request) {
     orderBy: { generatedAt: 'desc' },
   })
   if (latest && latest.generatedAt >= monthEnd) {
+    log.info('monthly insight skipped', {
+      month: monthCovered,
+      reason: 'a final note for that month already exists',
+      generatedAt: latest.generatedAt,
+    })
     return Response.json({ generated: false, skipped: true })
   }
 
@@ -57,5 +67,6 @@ export async function POST(request: Request) {
     instanceName: process.env.PB_INSTANCE_NAME,
   })
 
+  log.info('monthly insight generated', { month: monthCovered, id: insight.id })
   return Response.json({ generated: true, id: insight.id, monthCovered })
 }

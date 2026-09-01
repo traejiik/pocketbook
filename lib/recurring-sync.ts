@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { lockRate, type FxLock } from '@/lib/fx'
 import { sendNotification } from '@/lib/notifications/send'
+import { logger } from '@/lib/logger'
 import {
   type RecurringCycle,
   type RuleKind,
@@ -97,6 +98,8 @@ export function planDueRecurringRule(rule: DueRule, todayInput: Date = new Date(
   }
 }
 
+const log = logger('recurring')
+
 export async function syncDueRecurringRules(today: Date = new Date()): Promise<RecurringSyncResult> {
   const todayDate = startOfUtcDay(today)
   const dueRules = await prisma.recurringRule.findMany({
@@ -163,6 +166,29 @@ export async function syncDueRecurringRules(today: Date = new Date()): Promise<R
   })
 
   const created = plans.flatMap((plan) => plan.transactions)
+
+  // A generated charge is a write nobody asked for interactively, so each one is
+  // named here: this is the only place the ledger changes without a user action.
+  // `createMany` skips rows that already exist (the `[recurringRuleId, date]`
+  // uniqueness that makes generation idempotent), so the planned list can be
+  // longer than what was actually written — say so rather than over-reporting.
+  if (created.length > 0) {
+    for (const transaction of created) {
+      log.info('recurring charge planned', {
+        description: transaction.description,
+        amount: transaction.amount,
+        currency: transaction.currency,
+        date: transaction.date,
+        ruleId: transaction.recurringRuleId,
+      })
+    }
+    if (transactionsCreated !== created.length) {
+      log.info('recurring charges skipped as duplicates', {
+        planned: created.length,
+        written: transactionsCreated,
+      })
+    }
+  }
 
   // Notify after the transaction commits, never before — and never let a
   // webhook failure fail the sync itself (sendNotification does not throw).

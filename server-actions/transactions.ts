@@ -7,6 +7,9 @@ import { prisma } from '@/lib/prisma';
 import { lockRate } from '@/lib/fx';
 import { CACHE_TAGS, revalidateFinanceTags } from '@/lib/cache';
 import { requireAuthenticatedUser } from '@/lib/require-auth';
+import { logger } from '@/lib/logger';
+
+const log = logger('transactions');
 
 const txSchema = z.object({
   id: z.string().optional(),
@@ -93,6 +96,19 @@ export async function upsertTransaction(input: TxInput) {
     });
   }
 
+  log.info(id ? 'transaction updated' : 'transaction created', {
+    id,
+    description: fields.description,
+    amount: signedAmount,
+    currency: fields.currency,
+    type: fields.type,
+    date: fields.date,
+    categoryId: fields.categoryId,
+    ruleId: data.recurringRuleId ?? undefined,
+    fxRate: lock.fxRate,
+    fxAnchor: lock.fxAnchor,
+  });
+
   // `reconcileInstallmentRule` can move a rule's paid count / archived flag, so the
   // recurring reads are invalidated here too, not just the transaction ones.
   revalidateFinanceTags(CACHE_TAGS.transactions, CACHE_TAGS.recurring);
@@ -116,6 +132,8 @@ export async function deleteTransaction(id: string) {
     await tx.transaction.delete({ where: { id } });
     if (existing?.recurringRuleId) await reconcileInstallmentRule(tx, existing.recurringRuleId);
   });
+
+  log.info('transaction deleted', { id, ruleId: existing?.recurringRuleId ?? undefined });
 
   // `reconcileInstallmentRule` can move a rule's paid count / archived flag, so the
   // recurring reads are invalidated here too, not just the transaction ones.

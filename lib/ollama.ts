@@ -1,3 +1,7 @@
+import { logger } from './logger';
+
+const log = logger('ollama');
+
 export type OllamaStreamChunk = {
   response: string;
   /** Reasoning tokens from a thinking model. Ollama streams these in their own
@@ -66,13 +70,26 @@ async function postWithRetry(url: string, body: unknown): Promise<Response> {
       });
     } catch (err) {
       const name = (err as { name?: string })?.name;
-      if (name === 'TimeoutError' || name === 'AbortError') throw err;
+      if (name === 'TimeoutError' || name === 'AbortError') {
+        log.error('request timed out', { url, err });
+        throw err;
+      }
       lastError = err;
       const delay = RETRY_DELAYS_MS[attempt];
+      // Worth a line each time: a generation that "just hangs" for ten seconds is
+      // usually Ollama still starting, and this is the only evidence of it.
+      log.warn('connection failed', {
+        url,
+        attempt: attempt + 1,
+        of: RETRY_DELAYS_MS.length + 1,
+        retryInMs: delay,
+        err,
+      });
       if (delay !== undefined) await new Promise((r) => setTimeout(r, delay));
     }
   }
 
+  log.error('connection failed after all retries', { url, err: lastError });
   throw lastError;
 }
 
@@ -97,6 +114,18 @@ export async function* streamGenerate(opts: {
   temperature?: number;
 }): AsyncGenerator<OllamaStreamChunk> {
   const o = opts.options ?? {};
+  const startedAt = Date.now();
+  const request = {
+    model: opts.model,
+    promptChars: opts.prompt.length,
+    systemChars: opts.system?.length ?? 0,
+    think: opts.think,
+    temperature: o.temperature ?? opts.temperature ?? 0.4,
+    numCtx: o.numCtx,
+    numPredict: o.numPredict,
+  };
+  log.info('generate started', { ...request, url: `${opts.baseUrl}/api/generate` });
+
   const res = await postWithRetry(`${opts.baseUrl}/api/generate`, {
     model: opts.model,
     prompt: opts.prompt,
@@ -114,30 +143,97 @@ export async function* streamGenerate(opts: {
       num_predict: o.numPredict,
     },
   });
-  if (!res.ok || !res.body) throw new Error(`Ollama: ${res.status}`);
+  if (!res.ok || !res.body) {
+    log.error('generate rejected', {
+      ...request,
+      status: res.status,
+      body: res.ok ? 'empty response body' : undefined,
+      ms: Date.now() - startedAt,
+    });
+    throw new Error(`Ollama: ${res.status}`);
+  }
 
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
   let buf = '';
 
-  while (true) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    buf += decoder.decode(value, { stream: true });
-    const lines = buf.split('\n');
-    buf = lines.pop() ?? '';
-    for (const line of lines) {
-      if (!line.trim()) continue;
-      try {
-        const chunk = JSON.parse(line);
-        yield {
-          response: chunk.response ?? '',
-          thinking: chunk.thinking ?? '',
-          done: chunk.done ?? false,
-        };
-      } catch {
-        // Tolerate partial JSON lines
+  // Generation accounting. Ollama reports its own counters on the final chunk;
+  // they are the only reliable answer to "did the prompt fit in num_ctx?" and
+  // "where did the time go?", which is exactly what a slow or empty note needs.
+  let responseChars = 0;
+  let thinkingChars = 0;
+  let chunks = 0;
+  let firstTokenMs: number | undefined;
+  let doneReason: string | undefined;
+  let promptTokens: number | undefined;
+  let outputTokens: number | undefined;
+  let evalDurationNs: number | undefined;
+  let loadDurationNs: number | undefined;
+
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      const lines = buf.split('\n');
+      buf = lines.pop() ?? '';
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        try {
+          const chunk = JSON.parse(line);
+          const response: string = chunk.response ?? '';
+          const thinking: string = chunk.thinking ?? '';
+          chunks++;
+          responseChars += response.length;
+          thinkingChars += thinking.length;
+          if (firstTokenMs === undefined && (response || thinking)) {
+            firstTokenMs = Date.now() - startedAt;
+          }
+          if (chunk.done) {
+            doneReason = chunk.done_reason ?? undefined;
+            promptTokens = chunk.prompt_eval_count ?? undefined;
+            outputTokens = chunk.eval_count ?? undefined;
+            evalDurationNs = chunk.eval_duration ?? undefined;
+            loadDurationNs = chunk.load_duration ?? undefined;
+          }
+          yield {
+            response,
+            thinking,
+            done: chunk.done ?? false,
+          };
+        } catch {
+          // Tolerate partial JSON lines
+        }
       }
+    }
+  } finally {
+    // `finally`, not a trailing statement: every caller breaks out of its loop on
+    // the `done` chunk, which closes this generator before the loop above ends.
+    const ms = Date.now() - startedAt;
+    const summary = {
+      ...request,
+      ms,
+      ttftMs: firstTokenMs,
+      chars: responseChars,
+      thinkingChars,
+      chunks,
+      doneReason,
+      promptTokens,
+      outputTokens,
+      loadMs: loadDurationNs === undefined ? undefined : Math.round(loadDurationNs / 1e6),
+      tokensPerSec:
+        outputTokens && evalDurationNs
+          ? Number((outputTokens / (evalDurationNs / 1e9)).toFixed(1))
+          : undefined,
+    };
+    if (responseChars === 0) {
+      // The v2.13.1 failure mode: reasoning (or a num_predict cap) consumed the
+      // whole budget and the caller received a stream with no prose in it.
+      log.error('generate produced no text', summary);
+    } else if (doneReason && doneReason !== 'stop') {
+      log.warn('generate ended early', summary);
+    } else {
+      log.info('generate finished', summary);
     }
   }
 }

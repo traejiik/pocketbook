@@ -1,18 +1,27 @@
 import { auth } from '@/lib/auth';
 import { buildInsightPrompt, INSIGHT_REQUEST } from '@/lib/insights-generation';
 import { monthKeyOf } from '@/lib/format';
+import { logger } from '@/lib/logger';
 import { streamGenerate, stripThinkTags } from '@/lib/ollama';
 import { prisma } from '@/lib/prisma';
+
+const log = logger('insights');
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: Request) {
   const session = await auth();
-  if (!session?.user) return new Response('Unauthorised', { status: 401 });
+  if (!session?.user) {
+    log.warn('insight stream refused', { reason: 'unauthorised' });
+    return new Response('Unauthorised', { status: 401 });
+  }
 
   const settings = await prisma.appSettings.findUnique({ where: { id: 'singleton' } });
-  if (!settings) return new Response('Settings not found', { status: 500 });
+  if (!settings) {
+    log.error('insight stream refused', { reason: 'settings row missing' });
+    return new Response('Settings not found', { status: 500 });
+  }
 
   // Optional ?month=YYYY-MM to generate for a specific month (the insights
   // month picker). Falls back to the current month for on-demand generation.
@@ -24,6 +33,13 @@ export async function GET(req: Request) {
     : monthKeyOf(new Date());
 
   const { system, prompt } = await buildInsightPrompt(monthCovered);
+  const timer = log.start('insight generation', {
+    month: monthCovered,
+    model: settings.ollamaModel,
+    source: 'on-demand',
+    promptChars: prompt.length,
+    systemChars: system.length,
+  });
 
   const encoder = new TextEncoder();
 
@@ -57,6 +73,7 @@ export async function GET(req: Request) {
         // it — which also suppressed the "nothing generated yet" state for that
         // month until something replaced it. Fail visibly instead.
         if (!content) {
+          timer.fail(new Error('model returned no text'), { chars: full.length, chunks: tokenCount });
           controller.enqueue(
             encoder.encode(
               `data: ${JSON.stringify({
@@ -86,12 +103,18 @@ export async function GET(req: Request) {
           });
         }
 
+        // At debug only: enough of the note to see *how* the model is behaving —
+        // wrong currency, amounts spelled as words — without reading the database.
+        log.debug('note preview', { month: monthCovered, preview: content.slice(0, 200) });
+        timer.ok({ id: savedId, chars: content.length, chunks: tokenCount, elapsedSec: elapsed });
+
         controller.enqueue(
           encoder.encode(
             `data: ${JSON.stringify({ done: true, saved: true, id: savedId, tokens: tokenCount, elapsed })}\n\n`,
           ),
         );
       } catch (err) {
+        timer.fail(err, { chars: full.length, chunks: tokenCount });
         controller.enqueue(
           encoder.encode(`data: ${JSON.stringify({ error: String(err) })}\n\n`),
         );

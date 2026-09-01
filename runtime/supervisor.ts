@@ -3,7 +3,10 @@ import { randomBytes } from 'node:crypto'
 import type { EventEmitter } from 'node:events'
 
 import { sendNotification } from '@/lib/notifications/send'
+import { logger } from '@/lib/logger'
 import type { NotificationEvent } from '@/lib/notifications/types'
+
+const log = logger('supervisor')
 
 export interface ManagedChild extends EventEmitter {
   kill(signal: NodeJS.Signals): boolean
@@ -46,6 +49,7 @@ export function superviseChildren(options: {
   const fatal = async (title: string, description: string) => {
     if (fatalStarted) return
     fatalStarted = true
+    log.error(title, { detail: description })
     try {
       await options.notify({ type: 'systemAlerts', title, description })
     } finally {
@@ -56,6 +60,7 @@ export function superviseChildren(options: {
 
   options.web.on('exit', (code, signal) => {
     webStopped = true
+    log.info('web process exited', { code, signal, planned: stopping })
     if (stopping) return finishPlannedShutdown()
     if (!stopping) void fatal(
       'Pocketbook web server stopped',
@@ -64,6 +69,7 @@ export function superviseChildren(options: {
   })
   options.worker.on('exit', (code, signal) => {
     workerStopped = true
+    log.info('scheduler process exited', { code, signal, planned: stopping })
     if (stopping) return finishPlannedShutdown()
     if (!stopping) void fatal(
       'Pocketbook scheduler stopped',
@@ -85,6 +91,7 @@ export function superviseChildren(options: {
     },
     shutdown(signal: NodeJS.Signals) {
       if (stopping) return
+      log.info('shutting down', { signal, forceKillAfterMs })
       stopping = true
       terminateBoth(signal)
       forceKillTimer = setTimeout(() => terminateBoth('SIGKILL'), forceKillAfterMs)
@@ -100,6 +107,12 @@ export function runSupervisor() {
   const worker = fork('/app/runtime/scheduler.js', [], {
     env,
     stdio: ['inherit', 'inherit', 'inherit', 'ipc'],
+  })
+  log.info('children started', {
+    supervisor: process.pid,
+    web: web.pid,
+    scheduler: worker.pid,
+    node: process.version,
   })
   const control = superviseChildren({
     web,

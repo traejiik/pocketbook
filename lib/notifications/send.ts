@@ -1,10 +1,13 @@
 import { readNotificationConfig, validateDiscordWebhookUrl } from '@/lib/notifications/config'
+import { logger } from '@/lib/logger'
 import type {
   NotificationConfig,
   NotificationDeliveryResult,
   NotificationEvent,
   NotificationEventKey,
 } from '@/lib/notifications/types'
+
+const log = logger('notifications')
 
 const DISCORD_GREEN = 0x2ecc71
 const DISCORD_RED = 0xe74c3c
@@ -102,6 +105,7 @@ export async function deliverNotificationWithConfig(
 ): Promise<NotificationDeliveryResult> {
   if (!config.webhookUrl) return { delivered: false, reason: 'not-configured' }
   if (!validateDiscordWebhookUrl(config.webhookUrl)) {
+    log.warn('delivery skipped', { event: event.type, reason: 'stored webhook URL is not a Discord webhook' })
     return { delivered: false, reason: 'delivery-failed' }
   }
 
@@ -133,9 +137,16 @@ export async function deliverNotificationWithConfig(
       }),
       signal: controller.signal,
     })
-    if (!response.ok) return { delivered: false, reason: 'delivery-failed', status: response.status }
+    if (!response.ok) {
+      log.warn('delivery failed', { event: event.type, status: response.status })
+      return { delivered: false, reason: 'delivery-failed', status: response.status }
+    }
+    log.info('delivered', { event: event.type, title: rendered.title })
     return { delivered: true }
-  } catch {
+  } catch (err) {
+    // Discord being unreachable is the common case here, and it is silent by
+    // design: notifications never change the outcome of the thing they report on.
+    log.warn('delivery failed', { event: event.type, err })
     return { delivered: false, reason: 'delivery-failed' }
   } finally {
     clearTimeout(timer)
@@ -151,8 +162,12 @@ export async function sendNotification(
 
   const rendered = renderNotification(event)
   if (event.type !== 'test') {
-    if (!config.enabled) return { delivered: false, reason: 'disabled' }
+    if (!config.enabled) {
+      log.debug('delivery skipped', { event: event.type, reason: 'notifications disabled' })
+      return { delivered: false, reason: 'disabled' }
+    }
     if (rendered.eventKey && !config.events[rendered.eventKey]) {
+      log.debug('delivery skipped', { event: event.type, reason: 'event switched off' })
       return { delivered: false, reason: 'event-disabled' }
     }
   }
