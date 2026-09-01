@@ -35,6 +35,9 @@ Optional:
 | `PB_INSTANCE_NAME` | empty |
 | `PB_OLLAMA_BASE_URL` | `http://ollama:11434` |
 | `PB_DOCKER_DIR` | `/opt/docker` |
+| `PB_LOG_LEVEL` | `info` (`debug` \| `info` \| `warn` \| `error` \| `silent`) |
+| `PB_LOG_FORMAT` | `pretty` (or `json`) |
+| `PB_LOG_REQUESTS` | on (`0` disables per-request lines) |
 
 Do not add a Discord webhook, alert webhook, or scheduler secret to Portainer. Discord is configured only after authentication in Settings → Notifications.
 
@@ -143,6 +146,32 @@ docker compose exec pocketbook-db dropdb -U pocketbook pocketbook_restore_drill
 
 For an intentional real restore, stop the web service first, explicitly name the target database, take a fresh safety dump, and review the `pg_restore` flags. Pocketbook deliberately provides no restore button.
 
+## Application logs
+
+The web container logs every meaningful action to stdout, so `docker logs` is the primary diagnostic surface: sign-ins, requests, mutations, scheduled job outcomes, model generations, notification delivery, and errors. One event per line — timestamp, level, `[scope]`, then `key=value` fields.
+
+| Scope | What it covers |
+| --- | --- |
+| `boot` | one startup banner: image version, Node, timezone, log settings, Ollama URL |
+| `http` | one line per request that reaches the app (prefetches drop to `debug`) |
+| `auth` | sign-in success and failure (never the password) |
+| `db` | connection state |
+| `transactions`, `recurring`, `categories`, `settings`, `import` | every mutation, with the values written |
+| `insights`, `ollama` | generation lifecycle: prompt size, time to first token, token counts, `done_reason`, retries |
+| `fx`, `notifications`, `backup` | rate syncs, Discord delivery outcomes, backup runs |
+| `jobs`, `scheduler`, `supervisor` | scheduled occurrences, ticks, child process starts and exits |
+| `error` | anything Next.js caught on the server, with the route it surfaced on |
+
+```bash
+docker logs -f pocketbook-web | grep '\[ollama\]'          # why a note was slow or empty
+docker logs pocketbook-web | grep -E 'WARN|ERROR'           # only the problems
+docker logs --since 30m pocketbook-web | grep '\[jobs\]'   # what the scheduler did
+```
+
+Warnings and errors go to stderr, everything else to stdout; errors carry an indented stack trace on the following lines. Secrets are redacted by field name and by pattern (passwords, `*token`, `*secret`, Discord webhook URLs), but transaction amounts and descriptions are logged verbatim — redact before sharing the output.
+
+Set `PB_LOG_LEVEL=debug` while troubleshooting (prompt sizes, a 200-character preview of each generated note, per-pair FX updates, skipped notifications), `PB_LOG_LEVEL=warn` for a quiet instance, and `PB_LOG_FORMAT=json` when shipping into a log collector. `PB_LOG_REQUESTS=0` silences the per-request lines without touching the rest.
+
 ## Useful commands
 
 ```bash
@@ -166,6 +195,8 @@ Avoid `docker compose down -v` unless you have confirmed the exact storage layou
 | Internal route returns 401 | only the worker can call it; a stale process or manual HTTP request has no current per-boot token |
 | Backup says already running forever | upgrade to v2.11.0+ for stale-lock recovery; inspect `/tmp/pocketbook-backup.lock` inside the current container |
 | Backup failed | Settings error, web logs, database reachability, and host free space |
+| Insight is blank or slow | `docker logs pocketbook-web \| grep '[ollama]'` — check `doneReason`, `outputTokens`, `ttftMs`, and connection retries |
+| Nothing in the log but the banner | `PB_LOG_LEVEL` set to `warn`/`error`/`silent`, or nothing has happened yet |
 | Discord test fails | exact `https://discord.com/api/webhooks/...` URL, public avatar reachability, Discord permissions |
 | Notifications disappeared after redeploy | confirm the `/data` bind mount persists and contains `notifications.json` owned by UID 1001 |
 

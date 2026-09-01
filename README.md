@@ -160,6 +160,9 @@ An avatar is an optional direct public HTTPS image URL sent with each Pocketbook
 | `PB_USER_DISPLAY_NAME` | – | Name shown in the sidebar header and login page. |
 | `PB_INSTANCE_NAME` | – | Optional label in the login footer (e.g. `home`, `work`). |
 | `AUTH_TRUST_HOST` | – | Set `true` for custom hostnames like `pocketbook.home`. |
+| `PB_LOG_LEVEL` | – | `debug` \| `info` \| `warn` \| `error` \| `silent` (default `info`). |
+| `PB_LOG_FORMAT` | – | `pretty` (default) or `json` for line-delimited JSON. |
+| `PB_LOG_REQUESTS` | – | `0` to stop logging one line per request. |
 
 See [`.env.example`](.env.example) for the full annotated template and [`DEPLOY.md`](DEPLOY.md) for homelab deployment notes.
 
@@ -168,6 +171,25 @@ See [`.env.example`](.env.example) for the full annotated template and [`DEPLOY.
 Production uses two containers: `pocketbook-web` and `pocketbook-db`. The web image schedules fixed UTC jobs serially: verified backup at 02:30, FX sync at 03:00, monthly insight at 03:05 on day 1, and recurring reconciliation at 03:10. Startup catches up only the latest relevant state; failed occurrences retry every 15 minutes and emit at most one Discord failure notification per occurrence.
 
 Backups are custom-format PostgreSQL archives written through `.partial`, checked with `pg_restore --list`, atomically promoted to `.dump`, and retained to the newest 14 under `${PB_DOCKER_DIR}/pocketbook/backups`. Settings shows health and supports an authenticated manual run. Restore remains a deliberate CLI workflow—see [`DEPLOY.md`](DEPLOY.md#restore-drill).
+
+### Logs
+
+Everything the server does is logged to stdout, so `docker logs -f pocketbook-web` shows requests, mutations, scheduled jobs, model generations, delivery attempts, and errors — one event per line, with a timestamp, a level, a `[scope]`, and `key=value` fields:
+
+```
+2026-09-01T21:03:11.412Z INFO  [ollama] generate finished model=qwen3.5:4b ms=104213 ttftMs=8123 chars=1840 doneReason=stop promptTokens=1180 outputTokens=604 tokensPerSec=6.1
+2026-09-01T21:03:11.481Z INFO  [insights] insight generation ok month=2026-08 model=qwen3.5:4b source=on-demand id=clx… chars=1840 ms=104802
+2026-09-01T21:07:44.019Z INFO  [transactions] transaction created description="Spar groceries" amount=−8450 currency=HUF type=EXPENSE date=2026-09-01
+```
+
+Filter by scope — `boot`, `http`, `auth`, `db`, `transactions`, `recurring`, `categories`, `settings`, `import`, `insights`, `ollama`, `fx`, `notifications`, `backup`, `jobs`, `scheduler`, `supervisor`, `error`:
+
+```bash
+docker logs -f pocketbook-web | grep '\[ollama\]'     # model behaviour: timings, token counts, retries
+docker logs pocketbook-web | grep -E 'WARN|ERROR'      # just the problems
+```
+
+Credentials never reach the log (passwords, secrets, tokens and Discord webhooks are redacted by field name and by pattern), but ordinary financial detail does — amounts, descriptions, and category ids — so treat the output as private and redact before sharing. `PB_LOG_LEVEL=warn` keeps only problems; `PB_LOG_LEVEL=debug` adds prompt sizes, a 200-character preview of each generated note, per-rate FX updates, and router prefetches.
 
 ---
 
