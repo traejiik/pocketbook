@@ -40,6 +40,10 @@ export type OllamaOptions = {
   temperature?: number;
   topP?: number;
   repeatPenalty?: number;
+  /** Flat logit penalty on any token seen in the recent window. Ollama's library
+   *  Qwen Modelfiles ship it at 1.5, so a caller that needs figures copied
+   *  verbatim must send an explicit 0 — leaving it unset does not turn it off. */
+  presencePenalty?: number;
   numCtx?: number;
   numPredict?: number;
 };
@@ -139,6 +143,7 @@ export async function* streamGenerate(opts: {
       temperature: o.temperature ?? opts.temperature ?? 0.4,
       top_p: o.topP,
       repeat_penalty: o.repeatPenalty,
+      presence_penalty: o.presencePenalty,
       num_ctx: o.numCtx,
       num_predict: o.numPredict,
     },

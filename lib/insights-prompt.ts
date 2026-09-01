@@ -22,6 +22,8 @@ AMOUNTS (THE STRICTEST RULE HERE)
 Every amount is given to you already formatted. Copy it character for character.
 Do not convert it to another currency. Do not rename the currency. Do not rescale it into thousands or millions. Do not round it. Do not spell any number out in words.
 Write "150 000 Ft", never "one hundred fifty thousand forint", never "150 thousand", never "150,000 pounds".
+Keep the space between digit groups: "289 708 Ft", never "289708 Ft" and never "289,708 Ft".
+Percentages are digits too: write "70%" or "24%", never "seventy percent" or "twenty-four percent".
 The only currency that exists in this note is the one in the figures below. If you catch yourself typing the name of any other currency, you have made an error.
 
 EVERY PARAGRAPH EARNS ITS PLACE

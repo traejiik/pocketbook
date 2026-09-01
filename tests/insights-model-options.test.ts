@@ -58,7 +58,11 @@ describe('streamGenerate', () => {
     expect(body.options).toMatchObject({
       temperature: 0.7,
       top_p: 0.9,
-      repeat_penalty: 1.15,
+      // Both penalties off. Qwen's digits tokenise one per character and every
+      // amount ends in the same `Ft` token, so a penalty on recently used tokens
+      // pushed the model into "forty thousand" and "F" instead of copying figures.
+      repeat_penalty: 1,
+      presence_penalty: 0,
       // Ollama defaults most models to 2048 and truncates from the front, which
       // would silently eat the output rules at the top of the prompt. 4096 is
       // ~2x the measured worst-case prompt; a bigger window costs CPU time.

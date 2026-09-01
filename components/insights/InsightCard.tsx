@@ -103,12 +103,15 @@ export function InsightCard({ ollamaUrl, ollamaModel, history, currentMonth, def
       }
 
       if (data.done && data.saved) {
+        // What was saved is the streamed text after the server's figure repair
+        // (thousands grouping), so prefer it: the live card then matches a reload.
+        const finalText: string = data.content ?? fullText;
         setGen(g => g && g.month === month
-          ? { ...g, state: 'done', id: data.id ?? null, tokens: data.tokens, elapsed: data.elapsed }
+          ? { ...g, state: 'done', text: finalText, id: data.id ?? null, tokens: data.tokens, elapsed: data.elapsed }
           : g);
         // Reflect the new note in the in-page history (replace any same-month entry).
         setItems(prev => [
-          { id: data.id ?? month, monthCovered: month, content: fullText, modelUsed: model, generatedAt: new Date().toISOString(), feedback: null },
+          { id: data.id ?? month, monthCovered: month, content: finalText, modelUsed: model, generatedAt: new Date().toISOString(), feedback: null },
           ...prev.filter(p => p.monthCovered !== month),
         ]);
         es.close();
