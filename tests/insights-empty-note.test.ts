@@ -91,4 +91,13 @@ describe('generateAndSaveInsight', () => {
     await expect(run()).rejects.toThrow(/no text/i)
     expect(mocks.create).not.toHaveBeenCalled()
   })
+
+  // The lossless half of the figure-fidelity problem: the model drops the space
+  // between digit groups, and that can be put back without guessing.
+  it('restores the thousands grouping the model dropped before saving', async () => {
+    mocks.snapshot.mockResolvedValue({ monthKey: '2026-09', anchor: 'HUF' })
+    yields({ response: 'August ran short by 85000 Ft.' })
+    await run()
+    expect(mocks.create.mock.calls[0][0].data.content).toBe('August ran short by 85 000 Ft.')
+  })
 })

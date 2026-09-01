@@ -1,8 +1,8 @@
 import { auth } from '@/lib/auth';
-import { buildInsightPrompt, INSIGHT_REQUEST } from '@/lib/insights-generation';
+import { buildInsightPrompt, finaliseNote, INSIGHT_REQUEST } from '@/lib/insights-generation';
 import { monthKeyOf } from '@/lib/format';
 import { logger } from '@/lib/logger';
-import { streamGenerate, stripThinkTags } from '@/lib/ollama';
+import { streamGenerate } from '@/lib/ollama';
 import { prisma } from '@/lib/prisma';
 
 const log = logger('insights');
@@ -32,7 +32,7 @@ export async function GET(req: Request) {
     // between local midnight and the UTC rollover (AGENTS.md §13).
     : monthKeyOf(new Date());
 
-  const { system, prompt } = await buildInsightPrompt(monthCovered);
+  const { system, prompt, anchor } = await buildInsightPrompt(monthCovered);
   const timer = log.start('insight generation', {
     month: monthCovered,
     model: settings.ollamaModel,
@@ -66,7 +66,8 @@ export async function GET(req: Request) {
         }
 
         const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-        const content = stripThinkTags(full);
+        const note = finaliseNote(full, anchor);
+        const content = note.content;
 
         // A run that produced no prose must not be persisted. Saving it created a
         // row the UI reads as a real note — heading, timestamp, and nothing under
@@ -103,14 +104,28 @@ export async function GET(req: Request) {
           });
         }
 
+        // The prompt forbids every one of these; when they show up anyway the
+        // sampling settings or the model have changed, and that should be
+        // visible in the log before anyone reads the note.
+        if (note.defectCount > 0) {
+          log.warn('note re-expressed its figures', { month: monthCovered, ...note.defects });
+        }
         // At debug only: enough of the note to see *how* the model is behaving —
         // wrong currency, amounts spelled as words — without reading the database.
         log.debug('note preview', { month: monthCovered, preview: content.slice(0, 200) });
-        timer.ok({ id: savedId, chars: content.length, chunks: tokenCount, elapsedSec: elapsed });
+        timer.ok({
+          id: savedId,
+          chars: content.length,
+          chunks: tokenCount,
+          repaired: note.repaired,
+          elapsedSec: elapsed,
+        });
 
+        // `content` is what was saved. It differs from the streamed deltas when
+        // grouping was repaired, so the client swaps it in for its live copy.
         controller.enqueue(
           encoder.encode(
-            `data: ${JSON.stringify({ done: true, saved: true, id: savedId, tokens: tokenCount, elapsed })}\n\n`,
+            `data: ${JSON.stringify({ done: true, saved: true, id: savedId, content, tokens: tokenCount, elapsed })}\n\n`,
           ),
         );
       } catch (err) {

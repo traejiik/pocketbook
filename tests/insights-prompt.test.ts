@@ -185,6 +185,12 @@ describe('amount fidelity rules', () => {
     expect(system).toContain('never "150,000 pounds"')
   })
 
+  it('extends the rule to percentages and digit grouping', () => {
+    const { system } = buildPromptFromSnapshot(snapshot())
+    expect(system).toContain('never "seventy percent"')
+    expect(system).toContain('never "289708 Ft"')
+  })
+
   it('repeats the amount rule in the closing instruction', () => {
     const { prompt } = buildPromptFromSnapshot(snapshot())
     expect(prompt).toContain('Copy every amount exactly as written above')
