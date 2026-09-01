@@ -30,7 +30,8 @@ type Props = {
   ollamaUrl: string;
   ollamaModel: string;
   history: HistoryItem[];
-  currentMonth: string; // YYYY-MM
+  currentMonth: string; // YYYY-MM — the calendar month, always offered
+  defaultMonth: string; // YYYY-MM — where the picker opens (newest month with data)
 };
 
 // "2026-06" -> "June 2026"
@@ -43,9 +44,9 @@ function monthLabel(key: string): string {
   });
 }
 
-export function InsightCard({ ollamaUrl, ollamaModel, history, currentMonth }: Props) {
+export function InsightCard({ ollamaUrl, ollamaModel, history, currentMonth, defaultMonth }: Props) {
   const [items, setItems] = useState<HistoryItem[]>(history);
-  const [selectedMonth, setSelectedMonth] = useState(currentMonth);
+  const [selectedMonth, setSelectedMonth] = useState(defaultMonth);
   const [model] = useState(ollamaModel);
 
   // A single in-flight (or just-finished) generation, tied to one month.
@@ -65,12 +66,15 @@ export function InsightCard({ ollamaUrl, ollamaModel, history, currentMonth }: P
     [items, selectedMonth],
   );
 
-  // Months offered in the picker: every month with a note, plus the current month.
+  // Months offered in the picker: every month with a note, plus the calendar month
+  // and the default. The calendar month stays selectable even when it holds no data
+  // and is not where the picker opens.
   const pickerMonths = useMemo(() => {
     const set = new Set(items.map(i => i.monthCovered));
     set.add(currentMonth);
+    set.add(defaultMonth);
     return [...set].sort((a, b) => b.localeCompare(a));
-  }, [items, currentMonth]);
+  }, [items, currentMonth, defaultMonth]);
 
   const isLive = gen?.month === selectedMonth;
   const busy = gen?.state === 'loading' || gen?.state === 'streaming';

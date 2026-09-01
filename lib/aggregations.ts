@@ -462,6 +462,23 @@ const cachedCategoriesWithStats = cachedAggregation(
 
 export const getCategoriesWithStats = cache(() => cachedCategoriesWithStats());
 
+/**
+ * `YYYY-MM` of the most recent transaction, or null when the ledger is empty.
+ *
+ * Read from UTC parts: `@db.Date` values come back as UTC midnight, and local
+ * parts would roll back a day — and sometimes a month — in negative offsets.
+ * Single trivial query, so React `cache` alone (see the header note).
+ */
+export const getLatestTransactionMonth = cache(async (): Promise<string | null> => {
+  const latest = await prisma.transaction.findFirst({
+    orderBy: { date: 'desc' },
+    select: { date: true },
+  });
+  if (!latest) return null;
+  const d = latest.date;
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+});
+
 export const getLastAiInsight = cache(async () => {
   return prisma.aiInsight.findFirst({ orderBy: { generatedAt: 'desc' } });
 });
