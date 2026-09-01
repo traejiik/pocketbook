@@ -1,4 +1,26 @@
-export type OllamaStreamChunk = { response: string; done: boolean };
+export type OllamaStreamChunk = {
+  response: string;
+  /** Reasoning tokens from a thinking model. Ollama streams these in their own
+   *  field, separate from `response` — a caller that accumulates only `response`
+   *  correctly gets prose, but gets *nothing* if the whole budget went here. */
+  thinking: string;
+  done: boolean;
+};
+
+/**
+ * Remove `<think>` blocks from model output.
+ *
+ * Ollama separates reasoning into its own response field for models whose
+ * template declares thinking, so this is belt-and-braces for the case where a
+ * template mismatch leaves the tags inline instead. The second pattern handles
+ * output truncated mid-reasoning, where there is no closing tag to match.
+ */
+export function stripThinkTags(text: string): string {
+  return text
+    .replace(/<think>[\s\S]*?<\/think>/gi, '')
+    .replace(/<think>[\s\S]*$/i, '')
+    .trim();
+}
 
 /**
  * Generation knobs. All optional so existing callers keep the old behaviour, but
@@ -26,6 +48,14 @@ export async function* streamGenerate(opts: {
    *  the system turn, which 8B-class models follow noticeably better than the
    *  same text pasted at the top of `prompt`. */
   system?: string;
+  /**
+   * Hybrid reasoning models (Qwen3 and friends) think before answering unless
+   * told not to. Reasoning tokens are billed against `numPredict` and against
+   * the request timeout, so leaving this on for a long prompt on modest hardware
+   * can consume the entire budget before any prose is emitted. Sent only when
+   * set, so models with no thinking support never see the field.
+   */
+  think?: boolean;
   options?: OllamaOptions;
   /** @deprecated pass `options.temperature` instead. Kept so old call sites work. */
   temperature?: number;
@@ -38,6 +68,7 @@ export async function* streamGenerate(opts: {
       model: opts.model,
       prompt: opts.prompt,
       ...(opts.system ? { system: opts.system } : {}),
+      ...(opts.think === undefined ? {} : { think: opts.think }),
       stream: true,
       // Ollama uses snake_case for these; the camelCase names above are the JS-side
       // spelling. Undefined keys are dropped by JSON.stringify, so an unset knob
@@ -68,7 +99,11 @@ export async function* streamGenerate(opts: {
       if (!line.trim()) continue;
       try {
         const chunk = JSON.parse(line);
-        yield { response: chunk.response ?? '', done: chunk.done ?? false };
+        yield {
+          response: chunk.response ?? '',
+          thinking: chunk.thinking ?? '',
+          done: chunk.done ?? false,
+        };
       } catch {
         // Tolerate partial JSON lines
       }

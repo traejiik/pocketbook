@@ -1,7 +1,7 @@
 import { auth } from '@/lib/auth';
-import { buildInsightPrompt, INSIGHT_MODEL_OPTIONS } from '@/lib/insights-generation';
+import { buildInsightPrompt, INSIGHT_REQUEST } from '@/lib/insights-generation';
 import { monthKeyOf } from '@/lib/format';
-import { streamGenerate } from '@/lib/ollama';
+import { streamGenerate, stripThinkTags } from '@/lib/ollama';
 import { prisma } from '@/lib/prisma';
 
 export const runtime = 'nodejs';
@@ -39,7 +39,7 @@ export async function GET(req: Request) {
           model: settings.ollamaModel,
           system,
           prompt,
-          options: INSIGHT_MODEL_OPTIONS,
+          ...INSIGHT_REQUEST,
         })) {
           full += chunk.response;
           tokenCount++;
@@ -50,6 +50,24 @@ export async function GET(req: Request) {
         }
 
         const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+        const content = stripThinkTags(full);
+
+        // A run that produced no prose must not be persisted. Saving it created a
+        // row the UI reads as a real note — heading, timestamp, and nothing under
+        // it — which also suppressed the "nothing generated yet" state for that
+        // month until something replaced it. Fail visibly instead.
+        if (!content) {
+          controller.enqueue(
+            encoder.encode(
+              `data: ${JSON.stringify({
+                error:
+                  'The model returned no text. If it is a thinking model, its reasoning may have consumed the whole response budget.',
+              })}\n\n`,
+            ),
+          );
+          return;
+        }
+
         const user = await prisma.user.findFirst();
         let savedId: string | undefined;
         if (user) {
@@ -58,7 +76,7 @@ export async function GET(req: Request) {
               userId: user.id,
               monthCovered,
               modelUsed: settings.ollamaModel,
-              content: full,
+              content,
             },
           });
           savedId = record.id;
