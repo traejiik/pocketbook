@@ -25,10 +25,12 @@ export default async function SettingsPage() {
     listOllamaModels(ollamaUrl),
   ]);
 
+  // Shown only when Ollama is unreachable, so these are suggestions rather than
+  // an inventory. Sizes are nominal download sizes for display.
   const FALLBACK_MODELS = [
-    { name: 'llama3.1:8b', size: 4_900_000_000 },
+    { name: 'llama3.2:latest', size: 2_000_000_000 },
+    { name: 'qwen3.5:4b', size: 2_600_000_000 },
     { name: 'mistral:7b', size: 4_100_000_000 },
-    { name: 'qwen2.5:14b', size: 8_700_000_000 },
   ];
 
   const models = ollamaModels.length > 0 ? ollamaModels : FALLBACK_MODELS;
