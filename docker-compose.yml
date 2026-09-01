@@ -43,6 +43,10 @@ services:
       - PB_INSTANCE_NAME=${PB_INSTANCE_NAME:-}
       - PB_SEED_USER_EMAIL=${PB_SEED_USER_EMAIL:-}
       - PB_SEED_USER_PASSWORD=${PB_SEED_USER_PASSWORD:-}
+      # Logging (all optional). Level defaults to info; requests default to on.
+      - PB_LOG_LEVEL=${PB_LOG_LEVEL:-}
+      - PB_LOG_FORMAT=${PB_LOG_FORMAT:-}
+      - PB_LOG_REQUESTS=${PB_LOG_REQUESTS:-}
     volumes:
       # Runtime configuration, job state, and startup diagnostics.
       - ${PB_DOCKER_DIR:-/opt/docker}/pocketbook/data:/data
