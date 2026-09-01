@@ -16,17 +16,28 @@ const log = logger('insights')
  *
  * `numCtx` has to be set at all because Ollama defaults most models to a
  * 2048-token context and truncates from the front, which would quietly eat the
- * opening of the prompt — where the output rules live. 4096 is deliberate rather
- * than generous: the fullest prompt measures ~1200 tokens and ~2000 including a
- * full-length note, so this is roughly double the worst case. A larger window
- * costs real time on CPU inference for no benefit.
+ * opening of the prompt — where the output rules live.
+ *
+ * 4096 is now measured rather than estimated (corrected 2026-09-02). A real
+ * July generation on qwen3.5:4b reported `prompt_eval_count: 1697` for a
+ * 5,735-character prompt (3,406 user + 2,329 system) and 381 output tokens —
+ * 2,078 of the window, about half. The ratio is the part worth remembering:
+ * **3.4 characters per token, not the 4 an English-prose estimate assumes**,
+ * because Hungarian number formatting and the `−`/`·`/`Ft` characters tokenise
+ * poorly. That is why the earlier `~1200 tokens` figure for this same prompt —
+ * derived by dividing characters by four — was 40% low, and why 2048 would
+ * silently truncate. A busier month runs higher, but the headroom is real: even
+ * a 50% larger prompt plus a full-length note stays inside 4096. Going wider
+ * costs real time on CPU inference for no benefit — prompt evaluation on that
+ * hardware measured roughly 68 tokens/second.
  *
  * There is deliberately no `numPredict`. A 800-token cap here produced empty
  * notes on a thinking model: reasoning is billed against the same budget, so the
  * cap was exhausted before any prose was emitted (`done_reason: length`, zero
  * response tokens). Even with reasoning disabled a full note measured ~750
- * tokens, so any cap in that range risks truncating mid-sentence. The request
- * timeout in `streamGenerate` is the runaway backstop instead.
+ * tokens (the July note came in at 381 tokens for 1,851 characters), so any cap
+ * in that range risks truncating mid-sentence. The request timeout in
+ * `streamGenerate` is the runaway backstop instead.
  */
 export const INSIGHT_MODEL_OPTIONS: OllamaOptions = {
   temperature: 0.7,
