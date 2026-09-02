@@ -239,7 +239,7 @@ pnpm prisma db seed
 pnpm dev                      # http://localhost:3000
 ```
 
-Useful scripts: `pnpm test` (Vitest), `pnpm lint`, `pnpm db:generate`, `pnpm db:migrate`, `pnpm db:seed`, `pnpm db:backfill-fx` (local FX-lock diagnostics), and `pnpm analyze:bundle` (per-route client JS, run after `pnpm build`).
+Useful scripts: `pnpm test` (Vitest), `pnpm lint`, `pnpm db:generate`, `pnpm db:migrate`, `pnpm db:seed`, `pnpm db:backfill-fx` (local FX-lock diagnostics), `pnpm analyze:bundle` (per-route client JS, run after `pnpm build`), and `pnpm insights:probe` (generate one month's insight note against a live Ollama with reasoning off and on, persisting nothing, and write a side-by-side report — the header of `scripts/insight-thinking-probe.ts` has the recipe for running it inside the production container).
 
 Prisma 7 does not load `.env` implicitly, and the Prisma CLI runs outside Next.js — so `prisma.config.ts` reads `.env.local` then `.env` itself to pick up `PB_DATABASE_URL`. Real environment variables always take precedence, and a missing file is not an error, which is why the Docker runner (where `entrypoint.sh` exports the variable) is unaffected. The same loader lives in `prisma/seed.ts` and `prisma/backfill-fx.ts` for the scripts that `tsx` runs directly.
 
