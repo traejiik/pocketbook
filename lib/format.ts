@@ -56,3 +56,22 @@ export function dayOfWeek(iso: string | Date): string {
   const d = typeof iso === 'string' ? new Date(iso.includes('T') ? iso : iso + 'T00:00') : iso;
   return d.toLocaleDateString('en-GB', { weekday: 'short' });
 }
+
+/**
+ * Short chart label: `142k`, `1.2M`, `850`. Keeps the U+2212 minus, adds `+` on request,
+ * and prefixes the symbol for non-HUF anchors (`$1k`); HUF drops the `Ft` because the
+ * label sits over a 64px bar.
+ */
+export function fmtCompact(n: number, anchor: string, opts?: { signed?: boolean }): string {
+  const abs = Math.abs(n);
+  const sign = n < 0 ? '−' : opts?.signed && n > 0 ? '+' : '';
+  const symbol = anchor === 'USD' ? '$' : anchor === 'EUR' ? '€' : anchor === 'GBP' ? '£' : '';
+  // Thresholds sit at the rounding boundary so 999 700 reads as 1M, not 1000k.
+  const body =
+    abs >= 999_500
+      ? `${(abs / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`
+      : abs >= 999.5
+        ? `${Math.round(abs / 1000)}k`
+        : `${Math.round(abs)}`;
+  return `${sign}${symbol}${body}`;
+}

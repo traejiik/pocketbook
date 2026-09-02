@@ -145,6 +145,16 @@ export const getExpensesByCategory = cache(async () => {
   );
 });
 
+// The previous month's breakdown labels the dashboard's resting chart while the
+// current month has no expenses yet.
+export const getLastMonthExpensesByCategory = cache(async () => {
+  const now = new Date();
+  return cachedExpensesByCategoryForRange(
+    utcMonthStart(now, -1).toISOString(),
+    utcMonthStart(now, 0).toISOString(),
+  );
+});
+
 export const getMonthExpensesByCategory = cache(async (monthKey: string) => {
   const { start, end } = monthKeyRange(monthKey);
   return cachedExpensesByCategoryForRange(start.toISOString(), end.toISOString());
@@ -267,13 +277,16 @@ async function monthlyTrendFrom(latestMonthIso: string, months: number) {
 
   // Seed a slot per month up front so months with no transactions still emit a
   // zero point rather than dropping out of the chart. Insertion order is oldest →
-  // newest, which is the order the chart renders in.
-  const buckets = new Map<string, { month: string; net: number }>();
+  // newest, which is the order the chart renders in. `count` lets the chart tell a
+  // month that netted to zero from one with no rows at all, which it draws as a
+  // placeholder instead of a bar.
+  const buckets = new Map<string, { month: string; net: number; count: number }>();
   for (let i = months - 1; i >= 0; i--) {
     const d = utcMonthStart(latest, -i);
     buckets.set(utcMonthKey(d), {
       month: d.toLocaleDateString('en-GB', { month: 'short', timeZone: 'UTC' }),
       net: 0,
+      count: 0,
     });
   }
 
@@ -287,6 +300,7 @@ async function monthlyTrendFrom(latestMonthIso: string, months: number) {
   for (const t of txs) {
     const bucket = buckets.get(utcMonthKey(t.date));
     if (!bucket) continue;   // outside the window; the `where` already excludes these
+    bucket.count++;          // before conversion, so an unconvertible row still marks the month as having data
     const amt = await txToAnchor(t);
     if (amt === null) continue;
     if (t.type === 'INCOME')  bucket.net += amt;
@@ -294,7 +308,7 @@ async function monthlyTrendFrom(latestMonthIso: string, months: number) {
     if (t.type === 'SAVINGS') bucket.net -= amt;
   }
 
-  return [...buckets.values()].map((b) => ({ month: b.month, net: Math.round(b.net) }));
+  return [...buckets.values()].map((b) => ({ month: b.month, net: Math.round(b.net), count: b.count }));
 }
 
 const cachedMonthlyTrend = cachedAggregation(
