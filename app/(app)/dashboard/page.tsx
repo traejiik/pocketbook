@@ -6,6 +6,7 @@ import {
   getCurrentMonthKpis,
   getLastMonthKpis,
   getExpensesByCategory,
+  getLastMonthExpensesByCategory,
   getUpcomingRenewals,
   getRecentTransactions,
   getMonthlyTrend,
@@ -27,10 +28,11 @@ export default async function DashboardPage() {
   const settingsPromise = prisma.appSettings.findUnique({ where: { id: 'singleton' } })
   const pingPromise = settingsPromise.then(s => pingOllama(s?.ollamaUrl ?? 'http://ollama:11434'))
 
-  const [kpis, lastKpis, byCategory, upcoming, recentTx, trend6mo, lastInsight, insightCount, settings, ollamaReachable] = await Promise.all([
+  const [kpis, lastKpis, byCategory, lastMonthByCategory, upcoming, recentTx, trend6mo, lastInsight, insightCount, settings, ollamaReachable] = await Promise.all([
     getCurrentMonthKpis(),
     getLastMonthKpis(),
     getExpensesByCategory(),
+    getLastMonthExpensesByCategory(),
     getUpcomingRenewals(30),
     getRecentTransactions(4),
     getMonthlyTrend(6),
@@ -97,6 +99,7 @@ export default async function DashboardPage() {
         {/* Expenses by category (client island) */}
         <DashboardChartSection
           byCategory={byCategory}
+          lastMonthByCategory={lastMonthByCategory}
           trend6mo={trend6mo}
           totalExpense={kpis.expense}
           anchorCurrency={anchor}
