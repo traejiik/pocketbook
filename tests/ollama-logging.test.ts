@@ -83,6 +83,44 @@ describe('generation logging', () => {
     expect(text()).toContain('numCtx=4096')
   })
 
+  // The same counters, handed to the caller instead of only written to the log:
+  // a diagnostic comparing two runs wants the numbers, not the line.
+  it('hands the counters to the caller on the final chunk only', async () => {
+    respondWith(
+      { response: 'August ran short.', done: false },
+      {
+        response: '',
+        done: true,
+        done_reason: 'stop',
+        prompt_eval_count: 1180,
+        eval_count: 604,
+        eval_duration: 100_000_000_000,
+        load_duration: 2_000_000_000,
+      },
+    )
+
+    const chunks = []
+    for await (const chunk of streamGenerate({ baseUrl: 'http://ollama:11434', model: 'm', prompt: 'x' })) {
+      chunks.push(chunk)
+    }
+
+    expect(chunks[0]).not.toHaveProperty('stats')
+    expect(chunks[1].stats).toEqual({
+      doneReason: 'stop',
+      promptTokens: 1180,
+      outputTokens: 604,
+      evalMs: 100_000,
+      loadMs: 2000,
+    })
+  })
+
+  it('records the request budget so a timed-out run shows what it was given', async () => {
+    respondWith({ response: 'hi', done: true, done_reason: 'stop' })
+
+    await drain()
+    expect(text()).toContain('timeoutMs=600000')
+  })
+
   // The v2.13.1 regression: reasoning consumed the whole budget and the caller
   // received a stream containing no prose at all.
   it('raises an error when the model streams no prose', async () => {
