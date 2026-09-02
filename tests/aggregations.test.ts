@@ -37,6 +37,7 @@ import {
   getCurrentMonthKpis,
   getLastMonthKpis,
   getExpensesByCategory,
+  getLastMonthExpensesByCategory,
   getUpcomingRenewals,
   getMonthlyTrend,
 } from '@/lib/aggregations'
@@ -92,6 +93,13 @@ describe('aggregation date boundaries are UTC', () => {
     expect(iso(lt)).toBe('2026-07-01T00:00:00.000Z')
   })
 
+  it('getLastMonthExpensesByCategory spans the previous UTC month', async () => {
+    await getLastMonthExpensesByCategory()
+    const { gte, lt } = lastDateWhere()
+    expect(iso(gte)).toBe('2026-05-01T00:00:00.000Z')
+    expect(iso(lt)).toBe('2026-06-01T00:00:00.000Z')
+  })
+
   it('getUpcomingRenewals anchors today/horizon at UTC midnight', async () => {
     await getUpcomingRenewals(7)
     const where = mocks.ruleFindMany.mock.calls.at(-1)?.[0]?.where as {
@@ -125,7 +133,7 @@ describe('getMonthlyTrend buckets one row set by UTC month', () => {
     type,
   })
 
-  it('splits rows into their own month and keeps empty months as zero', async () => {
+  it('splits rows into their own month, keeps empty months as zero and counts rows per month', async () => {
     mocks.findMany.mockResolvedValue([
       tx('2026-04-10T00:00:00.000Z', 'INCOME', 1000),
       tx('2026-04-30T00:00:00.000Z', 'EXPENSE', 300),
@@ -135,9 +143,9 @@ describe('getMonthlyTrend buckets one row set by UTC month', () => {
     ])
 
     expect(await getMonthlyTrend(3)).toEqual([
-      { month: 'Apr', net: 700 },
-      { month: 'May', net: 0 },
-      { month: 'Jun', net: 300 },
+      { month: 'Apr', net: 700, count: 2 },
+      { month: 'May', net: 0, count: 0 },   // no rows: the chart draws a placeholder, not a zero bar
+      { month: 'Jun', net: 300, count: 2 },
     ])
   })
 
@@ -149,9 +157,9 @@ describe('getMonthlyTrend buckets one row set by UTC month', () => {
     ])
 
     expect(await getMonthlyTrend(3)).toEqual([
-      { month: 'Apr', net: 0 },
-      { month: 'May', net: 100 },
-      { month: 'Jun', net: 0 },
+      { month: 'Apr', net: 0, count: 0 },
+      { month: 'May', net: 100, count: 1 },
+      { month: 'Jun', net: 0, count: 0 },
     ])
   })
 
@@ -162,9 +170,9 @@ describe('getMonthlyTrend buckets one row set by UTC month', () => {
     ])
 
     expect(await getMonthlyTrend(3)).toEqual([
-      { month: 'Apr', net: 0 },
-      { month: 'May', net: 250 },
-      { month: 'Jun', net: 0 },
+      { month: 'Apr', net: 0, count: 0 },
+      { month: 'May', net: 250, count: 2 },
+      { month: 'Jun', net: 0, count: 0 },
     ])
   })
 })
