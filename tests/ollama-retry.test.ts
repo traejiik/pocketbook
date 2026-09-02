@@ -24,7 +24,10 @@ async function drain(gen: AsyncGenerator<unknown>) {
 
 const run = () => streamGenerate({ baseUrl: 'http://ollama:11434', model: 'm', prompt: 'x' })
 
-afterEach(() => vi.useRealTimers())
+afterEach(() => {
+  vi.useRealTimers()
+  vi.restoreAllMocks()
+})
 
 describe('streamGenerate connection retry', () => {
   // A container that has just started refuses connections for a few seconds and
@@ -64,6 +67,28 @@ describe('streamGenerate connection retry', () => {
 
     await expect(drain(run())).rejects.toThrow(/timed out/)
     expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  // The budget is per attempt and defaults to ten minutes; a caller that turns
+  // reasoning on has to raise it, because a timeout is not retried. The signal
+  // itself cannot be inspected, so the factory call is the only seam.
+  it('gives each attempt the default ten-minute budget', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(okResponse()))
+    const timeout = vi.spyOn(AbortSignal, 'timeout')
+
+    await drain(run())
+    expect(timeout).toHaveBeenCalledWith(600_000)
+  })
+
+  it('honours an explicit timeoutMs', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(okResponse()))
+    const timeout = vi.spyOn(AbortSignal, 'timeout')
+
+    await drain(
+      streamGenerate({ baseUrl: 'http://ollama:11434', model: 'm', prompt: 'x', timeoutMs: 1_800_000 }),
+    )
+    expect(timeout).toHaveBeenCalledWith(1_800_000)
+    expect(timeout).not.toHaveBeenCalledWith(600_000)
   })
 
   // An HTTP error status resolves rather than rejecting; the caller reports it.

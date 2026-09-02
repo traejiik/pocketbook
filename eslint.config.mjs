@@ -3,7 +3,7 @@ import nextConfig from 'eslint-config-next/core-web-vitals';
 const config = [
   ...nextConfig,
   {
-    ignores: ['other/', 'node_modules/', '.next/', 'ds-bundle/'],
+    ignores: ['other/', 'node_modules/', '.next/', '.data/', 'ds-bundle/'],
   },
   {
     rules: {

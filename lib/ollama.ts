@@ -2,6 +2,21 @@ import { logger } from './logger';
 
 const log = logger('ollama');
 
+/**
+ * Ollama's own accounting for a finished generation, reported on its final
+ * chunk. `outputTokens` includes reasoning tokens, so on a thinking model it is
+ * the number to compare against `numCtx` together with `promptTokens`.
+ */
+export type OllamaGenerateStats = {
+  /** `stop` when the model finished; `length` when a cap cut it off. */
+  doneReason?: string;
+  promptTokens?: number;
+  outputTokens?: number;
+  /** Time spent generating, excluding the model load. */
+  evalMs?: number;
+  loadMs?: number;
+};
+
 export type OllamaStreamChunk = {
   response: string;
   /** Reasoning tokens from a thinking model. Ollama streams these in their own
@@ -9,6 +24,9 @@ export type OllamaStreamChunk = {
    *  correctly gets prose, but gets *nothing* if the whole budget went here. */
   thinking: string;
   done: boolean;
+  /** Present only on the `done` chunk. The same counters go to the log summary;
+   *  this is for a caller that wants the numbers rather than the line. */
+  stats?: OllamaGenerateStats;
 };
 
 /**
@@ -51,6 +69,9 @@ export type OllamaOptions = {
 /** Backoff between connection attempts, in ms. Roughly ten seconds in total. */
 const RETRY_DELAYS_MS = [1_000, 3_000, 6_000];
 
+/** Per-attempt request budget. Ten minutes: small models can be slow on first run. */
+const DEFAULT_TIMEOUT_MS = 600_000;
+
 /**
  * POST JSON, retrying only when the connection itself fails.
  *
@@ -61,7 +82,7 @@ const RETRY_DELAYS_MS = [1_000, 3_000, 6_000];
  * and neither is a timeout: the request budget is spent, so trying again just
  * doubles the wait. Each attempt gets its own timeout signal.
  */
-async function postWithRetry(url: string, body: unknown): Promise<Response> {
+async function postWithRetry(url: string, body: unknown, timeoutMs: number): Promise<Response> {
   let lastError: unknown;
 
   for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
@@ -70,7 +91,7 @@ async function postWithRetry(url: string, body: unknown): Promise<Response> {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
-        signal: AbortSignal.timeout(600_000), // 10 min — small models can be slow on first run
+        signal: AbortSignal.timeout(timeoutMs),
       });
     } catch (err) {
       const name = (err as { name?: string })?.name;
@@ -114,10 +135,17 @@ export async function* streamGenerate(opts: {
    */
   think?: boolean;
   options?: OllamaOptions;
+  /**
+   * Wall-clock budget for the whole generation, reasoning included. Defaults to
+   * ten minutes, which fits a note with reasoning off; a caller that turns
+   * reasoning on must raise it, because the timeout is not retried.
+   */
+  timeoutMs?: number;
   /** @deprecated pass `options.temperature` instead. Kept so old call sites work. */
   temperature?: number;
 }): AsyncGenerator<OllamaStreamChunk> {
   const o = opts.options ?? {};
+  const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const startedAt = Date.now();
   const request = {
     model: opts.model,
@@ -127,27 +155,32 @@ export async function* streamGenerate(opts: {
     temperature: o.temperature ?? opts.temperature ?? 0.4,
     numCtx: o.numCtx,
     numPredict: o.numPredict,
+    timeoutMs,
   };
   log.info('generate started', { ...request, url: `${opts.baseUrl}/api/generate` });
 
-  const res = await postWithRetry(`${opts.baseUrl}/api/generate`, {
-    model: opts.model,
-    prompt: opts.prompt,
-    ...(opts.system ? { system: opts.system } : {}),
-    ...(opts.think === undefined ? {} : { think: opts.think }),
-    stream: true,
-    // Ollama uses snake_case for these; the camelCase names above are the JS-side
-    // spelling. Undefined keys are dropped by JSON.stringify, so an unset knob
-    // leaves Ollama on its own default rather than being sent as null.
-    options: {
-      temperature: o.temperature ?? opts.temperature ?? 0.4,
-      top_p: o.topP,
-      repeat_penalty: o.repeatPenalty,
-      presence_penalty: o.presencePenalty,
-      num_ctx: o.numCtx,
-      num_predict: o.numPredict,
+  const res = await postWithRetry(
+    `${opts.baseUrl}/api/generate`,
+    {
+      model: opts.model,
+      prompt: opts.prompt,
+      ...(opts.system ? { system: opts.system } : {}),
+      ...(opts.think === undefined ? {} : { think: opts.think }),
+      stream: true,
+      // Ollama uses snake_case for these; the camelCase names above are the JS-side
+      // spelling. Undefined keys are dropped by JSON.stringify, so an unset knob
+      // leaves Ollama on its own default rather than being sent as null.
+      options: {
+        temperature: o.temperature ?? opts.temperature ?? 0.4,
+        top_p: o.topP,
+        repeat_penalty: o.repeatPenalty,
+        presence_penalty: o.presencePenalty,
+        num_ctx: o.numCtx,
+        num_predict: o.numPredict,
+      },
     },
-  });
+    timeoutMs,
+  );
   if (!res.ok || !res.body) {
     log.error('generate rejected', {
       ...request,
@@ -201,10 +234,22 @@ export async function* streamGenerate(opts: {
             evalDurationNs = chunk.eval_duration ?? undefined;
             loadDurationNs = chunk.load_duration ?? undefined;
           }
+          // The key is present only on the final chunk, so a consumer comparing
+          // earlier chunks structurally sees exactly the three streaming fields.
+          const stats: OllamaGenerateStats | undefined = chunk.done
+            ? {
+                doneReason,
+                promptTokens,
+                outputTokens,
+                evalMs: evalDurationNs === undefined ? undefined : Math.round(evalDurationNs / 1e6),
+                loadMs: loadDurationNs === undefined ? undefined : Math.round(loadDurationNs / 1e6),
+              }
+            : undefined;
           yield {
             response,
             thinking,
             done: chunk.done ?? false,
+            ...(stats ? { stats } : {}),
           };
         } catch {
           // Tolerate partial JSON lines
