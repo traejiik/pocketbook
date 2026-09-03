@@ -35,14 +35,26 @@ export type OllamaStreamChunk = {
  * Ollama separates reasoning into its own response field for models whose
  * template declares thinking, so this is belt-and-braces for the case where a
  * template mismatch leaves the tags inline instead. The second pattern handles
- * output truncated mid-reasoning, where there is no closing tag to match.
+ * output truncated mid-reasoning, where there is no closing tag to match. The
+ * third handles the opposite: a template that pre-fills the opening tag, so the
+ * model emits only the reasoning body and `</think>` (granite4 does this) —
+ * everything before an orphan closing tag is reasoning too.
  */
 export function stripThinkTags(text: string): string {
   return text
     .replace(/<think>[\s\S]*?<\/think>/gi, '')
     .replace(/<think>[\s\S]*$/i, '')
+    .replace(/^[\s\S]*<\/think>/i, '')
     .trim();
 }
+
+/**
+ * What to send as `think`. Hybrid models such as Qwen3 only switch reasoning on
+ * or off; models whose template understands an effort level (gpt-oss, granite4)
+ * take one of the three strings. Ollama accepts a level for any thinking model
+ * but silently treats it as `true` where the template has no use for it.
+ */
+export type OllamaThink = boolean | 'low' | 'medium' | 'high';
 
 /**
  * Generation knobs. All optional so existing callers keep the old behaviour, but
@@ -133,7 +145,7 @@ export async function* streamGenerate(opts: {
    * can consume the entire budget before any prose is emitted. Sent only when
    * set, so models with no thinking support never see the field.
    */
-  think?: boolean;
+  think?: OllamaThink;
   options?: OllamaOptions;
   /**
    * Wall-clock budget for the whole generation, reasoning included. Defaults to

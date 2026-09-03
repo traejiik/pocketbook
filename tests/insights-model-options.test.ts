@@ -95,6 +95,13 @@ describe('streamGenerate', () => {
     expect(JSON.parse(fetchMock.mock.calls[0][1].body).think).toBe(false)
   })
 
+  it('sends a reasoning level verbatim for models that understand one', async () => {
+    const fetchMock = stubOllama()
+    await drain(streamGenerate({ baseUrl: 'http://ollama:11434', model: 'granite4.2:3b', prompt: 'x', think: 'low' }))
+
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).think).toBe('low')
+  })
+
   it('omits `think` entirely when the caller does not set it', async () => {
     const fetchMock = stubOllama()
     await drain(streamGenerate({ baseUrl: 'http://ollama:11434', model: 'm', prompt: 'x' }))
@@ -138,6 +145,14 @@ describe('stripThinkTags', () => {
 
   it('removes an unterminated block from output truncated mid-reasoning', () => {
     expect(stripThinkTags('<think>still reasoning and then cut off')).toBe('')
+  })
+
+  // granite4's template pre-fills the opening tag, so the model's output starts
+  // with the reasoning body and the first tag Ollama relays is the closing one.
+  it('removes reasoning that arrives with only a closing tag', () => {
+    expect(stripThinkTags('User says "Say hi". Just respond hi.\n</think>\nHi! How can I help you today?')).toBe(
+      'Hi! How can I help you today?',
+    )
   })
 
   it('leaves ordinary prose untouched', () => {

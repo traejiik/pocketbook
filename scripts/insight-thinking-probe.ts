@@ -18,7 +18,7 @@
 // `next/cache` to `scripts/stubs/next-cache.ts`, producing one self-contained
 // `.cjs` that also runs inside the production image (Node 24, no tsx).
 //
-//   pnpm insights:probe [--month 2026-08] [--arms off,on] [--runs 1]
+//   pnpm insights:probe [--month 2026-08] [--arms off,on,low,medium,high] [--runs 1]
 //                       [--timeout 1800] [--num-ctx 4096] [--out DIR]
 //                       [--ollama URL] [--model NAME] [--skip-warmup]
 //   pnpm insights:probe --dump prompt.json           build the prompt only
@@ -37,6 +37,9 @@
 //   docker cp pocketbook-web:/app/.probe/out ./insight-probe-2026-08
 //   docker exec pocketbook-web rm -rf /app/.probe
 //
+// Arms map to the request's `think`: `off` → false, `on` → true, and `low` /
+// `medium` / `high` → that level, for models whose template understands one.
+//
 // The bundle must sit under /app so `@prisma/client` resolves from the standalone
 // node_modules. Run it detached: the thinking arm can take 20–30 minutes and an
 // SSH drop must not kill it. Compose delivers PB_POSTGRES_USER / PASSWORD / DB
@@ -49,7 +52,7 @@ import { dirname, join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 
 import type { NoteDefects } from '../lib/insights-generation';
-import type { OllamaGenerateStats, OllamaStreamChunk } from '../lib/ollama';
+import type { OllamaGenerateStats, OllamaStreamChunk, OllamaThink } from '../lib/ollama';
 
 // Load .env.local then .env so PB_DATABASE_URL is available when run on a dev
 // machine. Earlier files win; a real environment variable wins over both.
@@ -84,7 +87,7 @@ if (!process.env.PB_DATABASE_URL) {
 const USAGE = `insight-thinking-probe — compare an insight note with reasoning off and on
 
   --month YYYY-MM   month to summarise (default: newest month with transactions)
-  --arms off,on     which arms to run, in order (default: off,on)
+  --arms LIST       arms to run, in order, from off,on,low,medium,high (default: off,on)
   --runs N          samples per arm (default: 1)
   --timeout S       per-run budget in seconds (default: 1800, the cron budget)
   --num-ctx N       context window (default: INSIGHT_MODEL_OPTIONS.numCtx)
@@ -113,7 +116,11 @@ const { values: args } = parseArgs({
   },
 });
 
-type Arm = 'off' | 'on';
+type Arm = 'off' | 'on' | 'low' | 'medium' | 'high';
+
+const ARMS: readonly Arm[] = ['off', 'on', 'low', 'medium', 'high'];
+
+const thinkOf = (arm: Arm): OllamaThink => (arm === 'off' ? false : arm === 'on' ? true : arm);
 
 type PromptFile = {
   month: string;
@@ -142,7 +149,7 @@ type RunResult = {
   firstResponseMs?: number;
   thinkingChars: number;
   responseChars: number;
-  /** `<think>` tags left inline in the prose: an Ollama too old to split reasoning out. */
+  /** `<think>`/`</think>` tags left inline in the prose: reasoning Ollama did not split out. */
   inlineThinkTags: number;
   stats?: OllamaGenerateStats;
   note: NoteScore;
@@ -155,7 +162,7 @@ type Generate = (opts: {
   model: string;
   prompt: string;
   system?: string;
-  think?: boolean;
+  think?: OllamaThink;
   options?: Record<string, number | undefined>;
   timeoutMs?: number;
 }) => AsyncGenerator<OllamaStreamChunk>;
@@ -192,9 +199,11 @@ function parseArms(raw: string | undefined): Arm[] {
     .split(',')
     .map((arm) => arm.trim())
     .filter(Boolean);
-  if (arms.length === 0) throw new Error('--arms needs at least one of "off", "on"');
+  if (arms.length === 0) throw new Error(`--arms needs at least one of ${ARMS.join(', ')}`);
   for (const arm of arms) {
-    if (arm !== 'off' && arm !== 'on') throw new Error(`--arms accepts "off" and "on", got "${arm}"`);
+    if (!(ARMS as readonly string[]).includes(arm)) {
+      throw new Error(`--arms accepts ${ARMS.join(', ')}; got "${arm}"`);
+    }
   }
   return arms as Arm[];
 }
@@ -277,14 +286,14 @@ async function runOne(ctx: Context, arm: Arm, run: number): Promise<RunResult> {
     );
   }, 30_000);
 
-  console.log(`run: think=${arm === 'on'} #${run} started`);
+  console.log(`run: think=${thinkOf(arm)} #${run} started`);
   try {
     for await (const chunk of ctx.generate({
       baseUrl: ctx.baseUrl,
       model: ctx.model,
       system,
       prompt,
-      think: arm === 'on',
+      think: thinkOf(arm),
       options: ctx.options,
       timeoutMs: ctx.timeoutMs,
     })) {
@@ -320,7 +329,7 @@ async function runOne(ctx: Context, arm: Arm, run: number): Promise<RunResult> {
     firstResponseMs: firstResponseMs === undefined ? undefined : Math.round(firstResponseMs),
     thinkingChars: thinking.length,
     responseChars: response.length,
-    inlineThinkTags: (response.match(/<think>/gi) ?? []).length,
+    inlineThinkTags: (response.match(/<\/?think>/gi) ?? []).length,
     stats,
     note: ctx.finalise(response, anchor),
     thinking,
@@ -336,7 +345,7 @@ function outcome(result: RunResult): string {
 function summaryLine(result: RunResult): string {
   const s = result.stats;
   return [
-    `run: think=${result.arm === 'on'} #${result.run} ${outcome(result)}`,
+    `run: think=${thinkOf(result.arm)} #${result.run} ${outcome(result)}`,
     `${secs(result.wallMs)} s`,
     `thinking ${result.thinkingChars} chars`,
     `note ${result.note.content.length} chars`,
@@ -393,7 +402,7 @@ function writeReport(outDir: string, ctx: Context, header: ReportHeader, results
   lines.push('');
 
   for (const r of results) {
-    lines.push(`## think=${r.arm === 'on'} · run ${r.run} — ${outcome(r)} in ${secs(r.wallMs)} s`, '');
+    lines.push(`## think=${thinkOf(r.arm)} · run ${r.run} — ${outcome(r)} in ${secs(r.wallMs)} s`, '');
     if (r.inlineThinkTags > 0) {
       lines.push(`> ${r.inlineThinkTags} \`<think>\` tag(s) arrived inline in the prose; this Ollama did not split reasoning into its own field. The note below has them stripped.`, '');
     }
