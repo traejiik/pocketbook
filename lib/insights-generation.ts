@@ -66,11 +66,19 @@ export const INSIGHT_MODEL_OPTIONS: OllamaOptions = {
  * The full request shape for a note, kept in one object so the cron and SSE paths
  * cannot drift apart.
  *
- * `think: false` matters twice over. A monthly note is prose, not a puzzle, so
- * reasoning buys nothing — and on modest hardware it is actively unaffordable:
- * reasoning tokens count against the request timeout, and a capped run measured
- * 185–341s producing no output at all where the same prompt with thinking off
- * finished in 105s.
+ * `think: false` is a measured decision, not a hunch. `pnpm insights:probe` ran
+ * the real August 2026 prompt on qwen3.5:4b (Ollama 0.33.2, ~4 tokens/s) both
+ * ways on 2026-09-03. With reasoning off the note took 126 s: first word at
+ * 23 s, 460 output tokens. With reasoning on the same prompt produced no prose in
+ * either configuration. At `numCtx` 4096 the model filled the whole window with
+ * 7 200 characters of reasoning and Ollama stopped with `done_reason: length`
+ * after 576 s. At 8192 it reasoned for 20 000 characters (~6 500 tokens), spent
+ * the last tenth in a repetition loop, overran that window too, and hit the
+ * scheduler's 30-minute budget still without a first word. The reasoning itself
+ * was careful and got every figure right; the problem is that a 4B model at this
+ * speed cannot think through this prompt inside any budget the app has, and the
+ * interactive path's 600 s is out of reach by an order of magnitude. A bigger
+ * window does not help. Revisit only on much faster hardware.
  */
 export const INSIGHT_REQUEST = {
   think: false,
