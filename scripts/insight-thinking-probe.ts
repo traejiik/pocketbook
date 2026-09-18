@@ -21,7 +21,7 @@
 //   pnpm insights:probe [--month 2026-08] [--arms off,on,low,medium,high] [--runs 1]
 //                       [--timeout 1800] [--num-ctx 4096] [--out DIR]
 //                       [--ollama URL] [--model NAME] [--skip-warmup]
-//                       [--abs-deltas] [--no-state-verdict] [--no-prior-openings]
+//                       [--abs-deltas] [--no-state-verdict] [--no-prior-openings] [--no-story]
 //   pnpm insights:probe --dump prompt.json           build the prompt only
 //   pnpm insights:probe --prompt prompt.json ...     replay it; no database
 //
@@ -104,6 +104,7 @@ Prompt variants (combine freely, and pair each with a control run):
   --abs-deltas         give every delta its absolute size, not only a percentage
   --no-state-verdict   restore the old net line that leaves the sign unstated
   --no-prior-openings  drop the do-not-repeat block of recent note openings
+  --no-story           restore the full data dump instead of the brief chosen in code
 `;
 
 const { values: args } = parseArgs({
@@ -122,6 +123,7 @@ const { values: args } = parseArgs({
     'abs-deltas': { type: 'boolean', default: false },
     'no-state-verdict': { type: 'boolean', default: false },
     'no-prior-openings': { type: 'boolean', default: false },
+    'no-story': { type: 'boolean', default: false },
     help: { type: 'boolean', default: false },
   },
 });
@@ -229,12 +231,13 @@ function describeVariants(v: PromptVariants | undefined): string {
     v.absoluteDeltas ? 'abs-deltas' : null,
     v.stateVerdict === false ? 'no-state-verdict' : null,
     v.priorOpenings === false ? 'no-prior-openings' : null,
+    v.story === false ? 'no-story' : null,
   ].filter(Boolean);
   return on.length ? on.join(' + ') : 'default';
 }
 
 const variantFlagsPassed = (a: typeof args): boolean =>
-  Boolean(a['abs-deltas'] || a['no-state-verdict'] || a['no-prior-openings']);
+  Boolean(a['abs-deltas'] || a['no-state-verdict'] || a['no-prior-openings'] || a['no-story']);
 
 const secs = (ms: number | undefined): string => (ms === undefined ? '–' : (ms / 1000).toFixed(1));
 const num = (n: number | undefined): string => (n === undefined ? '–' : String(n));
@@ -468,6 +471,7 @@ async function main(): Promise<void> {
     absoluteDeltas: args['abs-deltas'],
     stateVerdict: !args['no-state-verdict'],
     priorOpenings: !args['no-prior-openings'],
+    story: !args['no-story'],
   };
 
   let prisma: { $disconnect(): Promise<void> } | undefined;

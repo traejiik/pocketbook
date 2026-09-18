@@ -1,5 +1,6 @@
 import { fmtAnchor } from './format'
 import type { InsightSnapshot, MonthVerdict } from './insights-data'
+import { HEADLINE_FLOOR_SHARE, pickStory, type CategoryMove, type Story } from './insights-story'
 
 /**
  * Persona and the rules that do not change month to month. Sent as Ollama's
@@ -78,8 +79,9 @@ Do not narrate the absence of data as if it were an event: there was no collapse
 }
 
 /**
- * Prompt shapes the probe can toggle. `stateVerdict` is on by default because it
- * earned it; the other two are experiments, off unless a caller opts in.
+ * Prompt shapes the probe can toggle. `stateVerdict` and `story` are on by default
+ * because probe runs earned it; the other two are experiments, off unless a caller
+ * opts in.
  * `pnpm insights:probe` sets them from flags; nothing else passes this argument.
  *
  * Each one exists because every model tested on the August 2026 prompt — qwen3.5:4b,
@@ -113,6 +115,19 @@ export type PromptVariants = {
    * importing July's verdict along with its phrasing.
    */
   priorOpenings?: boolean
+  /**
+   * Replace the data dump with a brief chosen in code (`pickStory`): the one move
+   * the note is about, whether one purchase explains it, and the recommendation.
+   * On unless set to `false`. Sparse months, and months with nothing to compare
+   * against, still get the full prompt.
+   *
+   * Measured on llama3.2, August 2026, three notes each (2026-09-18): the full
+   * prompt headlined Other Expense once, by percentage, and produced no passing
+   * recommendation; the brief headlined it with the AirPods purchase and closed on
+   * a passing recommendation in all three, with no invented figures. `false`
+   * restores the full prompt for control runs; `absoluteDeltas` only affects it.
+   */
+  story?: boolean
 }
 
 /**
@@ -136,6 +151,79 @@ function deltaOf(
   const direction = pct > 0 ? 'up' : 'down'
   const size = absolute ? `${fmtAnchor(Math.abs(current - previous), anchor)}, ` : ''
   return ` (${direction} ${size}${Math.abs(pct)}% from ${fmtAnchor(previous, anchor)} last month)`
+}
+
+/**
+ * The frame for a story-mode note, per verdict. Shorter than `VERDICT_DIRECTIVES`
+ * because the choosing those spell out ("find the one thing that moved", "name the
+ * two categories most responsible") has already been done in code.
+ *
+ * None of this wording says "story" or "action". The first version did, under
+ * headings `THE STORY` and `THE ACTION`, and two of three probe notes opened "The
+ * story of August 2026…" — the model narrates its instructions when they name the
+ * thing it is writing.
+ */
+const STORY_DIRECTIVES: Record<Exclude<MonthVerdict, 'sparse'>, string> = {
+  deficit: `This month spent more than it took in. Open with the shortfall and its size, from the net line above, then write about what moved: it is what drove the shortfall. Do not soften it, and do not end on reassurance the figures do not support.`,
+  tight: `The month stayed positive, but barely. Say by how much in the first sentence, then write about what moved: it is what consumed the margin.`,
+  strong: `The month ran a real surplus. Say so once, in the first sentence, then write about what moved: it is what is still drifting. Do not congratulate.`,
+  steady: `Nothing dramatic happened this month. Write about what moved: it is the one thing that changed. Do not manufacture drama.`,
+}
+
+const STORY_RULES = `What moved and the recommendation are the whole note. Use only the figures above: no other amounts, shares or percentages, and none worked out from them. The lines under WHAT MOVED say what changed and, where they say so, which expense was behind it; they do not say why, so offer no cause of your own. Close with the recommendation, in your own words, keeping its figure. The capitalised headings are labels for you: do not repeat them or refer to them. Write two or three paragraphs.`
+
+function storyMoveLine(m: CategoryMove, money: (n: number) => string): string {
+  if (m.prevValue === null || m.prevValue === 0) {
+    return `${m.name}: ${money(m.value)}, with no spending in it last month.`
+  }
+  const pct = Math.round((Math.abs(m.change) / Math.abs(m.prevValue)) * 100)
+  const direction = m.change > 0 ? 'up' : 'down'
+  return `${m.name}: ${money(m.value)}, ${direction} ${money(Math.abs(m.change))} (${pct}%) from ${money(m.prevValue)} last month.`
+}
+
+function storyDetail(m: CategoryMove, money: (n: number) => string): string | null {
+  const l = m.largest
+  if (!l) return null
+  const on = `${money(l.amount)} on ${l.date.slice(0, 10)}`
+  switch (m.explainedBy) {
+    case 'one-purchase':
+      return `Most of that rise was one purchase: ${l.description}, ${on}. It was not a recurring charge.`
+    case 'recurring-charge':
+      return `Most of that rise was one recurring charge: ${l.description}, ${on}.`
+    case 'many':
+      return `It was spread across ${m.count ?? 'several'} expenses; the largest was ${l.description}, ${on}.`
+    default:
+      return null
+  }
+}
+
+function storyLines(story: Story, s: InsightSnapshot, money: (n: number) => string): string[] {
+  if (!story.headline) {
+    return [
+      `  No category changed by more than ${money(Math.round(s.kpis.expense * HEADLINE_FLOOR_SHARE))} (${Math.round(HEADLINE_FLOOR_SHARE * 100)}% of this month's expenses), so there is no single thing to single out.`,
+    ]
+  }
+  const lines = [`  ${storyMoveLine(story.headline, money)}`]
+  const detail = storyDetail(story.headline, money)
+  if (detail) lines.push(`  ${detail}`)
+  if (story.also) lines.push(`  Also: ${storyMoveLine(story.also, money)}`)
+  return lines
+}
+
+function actionLine(story: Story, money: (n: number) => string): string {
+  const a = story.action
+  switch (a.kind) {
+    case 'leave-alone':
+      return `Recommend leaving the ${a.description} purchase (${money(a.amount)}) as it is: it was a single purchase, not a recurring cost, so there is nothing to cancel.`
+    case 'renewal':
+      return `${a.name} renews in ${a.daysAway} day(s) for ${money(a.amount)}. Recommend deciding before then whether it is still worth that, and changing or cancelling it if not.`
+    case 'watch':
+      return a.prevValue === null || a.prevValue === 0
+        ? `Recommend watching ${a.category} next month: ${money(a.value)} this month, with nothing in it last month and no single expense to cancel.`
+        : `Recommend watching ${a.category} next month: ${money(a.value)} this month against ${money(a.prevValue)} last month, with no single expense to cancel.`
+    case 'no-change':
+      return `Nothing needs changing. Recommend leaving spending as it is; the largest category was ${a.category} at ${money(a.value)}.`
+  }
 }
 
 function section(title: string, lines: string[], empty: string): string {
@@ -176,12 +264,16 @@ export function buildPromptFromSnapshot(
           `  Net after savings: ${money(kpis.net)} — the same figure, because nothing was put aside this month`,
         ]
 
+  const incomeLine = `  Income: ${money(kpis.income)}${s.prev ? delta(kpis.income, s.prev.income) : ''}`
+  const expenseLine = `  Expenses: ${money(kpis.expense)}${s.prev ? delta(kpis.expense, s.prev.expense) : ''}`
+  const savingsLine = `  Savings put aside: ${money(kpis.savings)}${s.prev ? delta(kpis.savings, s.prev.savings) : ''}`
+  const rateLine = `  Savings rate: ${kpis.savingsRate}% of income`
   const headline = [
-    `  Income: ${money(kpis.income)}${s.prev ? delta(kpis.income, s.prev.income) : ''}`,
-    `  Expenses: ${money(kpis.expense)}${s.prev ? delta(kpis.expense, s.prev.expense) : ''}`,
-    `  Savings put aside: ${money(kpis.savings)}${s.prev ? delta(kpis.savings, s.prev.savings) : ''}`,
+    incomeLine,
+    expenseLine,
+    savingsLine,
     ...netLines,
-    `  Savings rate: ${kpis.savingsRate}% of income`,
+    rateLine,
     `  Expense transactions recorded: ${s.expenseCount}`,
   ]
 
@@ -240,6 +332,37 @@ export function buildPromptFromSnapshot(
         .map((n) => `  ${n.monthName}: "${n.opening}"`)
         .join('\n')}\n`
     : ''
+
+  const story = variants.story !== false && s.verdict !== 'sparse' ? pickStory(s) : null
+  if (story && s.verdict !== 'sparse') {
+    // Only what the frame needs. With all seven lines, two of three probe notes
+    // recited them — savings rate, transaction count — and ran to four paragraphs.
+    // A strong month's frame is its savings, so it keeps those lines.
+    const storyFigures = [
+      incomeLine,
+      expenseLine,
+      netLines[0],
+      ...(s.verdict === 'strong' ? [savingsLine, netLines[1], rateLine] : []),
+    ]
+    const brief = `Monthly note for ${s.monthName}. All amounts are in ${s.anchor} and are already formatted — reproduce them exactly as written.
+
+THE MONTH IN FIGURES
+${storyFigures.join('\n')}
+
+WHAT MOVED
+${storyLines(story, s, money).join('\n')}
+
+WHAT TO RECOMMEND
+  ${actionLine(story, money)}
+${caveat}
+HOW TO WRITE THIS MONTH'S NOTE
+${STORY_DIRECTIVES[s.verdict]}
+
+${STORY_RULES}
+${priorNotes}
+Write the note now. Plain paragraphs, no headings, and close with the recommendation. Copy every amount exactly as written above — same digits, same currency, never spelled out in words.`
+    return { system: INSIGHT_SYSTEM_PROMPT, prompt: brief }
+  }
 
   const prompt = `Monthly note for ${s.monthName}. All amounts are in ${s.anchor} and are already formatted — reproduce them exactly as written.
 

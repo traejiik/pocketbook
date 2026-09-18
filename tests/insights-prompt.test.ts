@@ -1,6 +1,16 @@
 import { describe, expect, it } from 'vitest'
 import { classifyMonth, type InsightKpis, type InsightSnapshot } from '@/lib/insights-data'
-import { buildPromptFromSnapshot, INSIGHT_SYSTEM_PROMPT } from '@/lib/insights-prompt'
+import {
+  buildPromptFromSnapshot as buildPrompt,
+  INSIGHT_SYSTEM_PROMPT,
+  type PromptVariants,
+} from '@/lib/insights-prompt'
+
+// This file covers the full data prompt — what sparse months and months with
+// nothing to compare against get, and the control for probe runs. Production
+// months with a story get the brief instead; `insights-story.test.ts` covers that.
+const buildPromptFromSnapshot = (s: InsightSnapshot, variants: PromptVariants = {}) =>
+  buildPrompt(s, { story: false, ...variants })
 
 type SnapshotOverride = Partial<Omit<InsightSnapshot, 'kpis'>> & { kpis?: Partial<InsightKpis> }
 
@@ -30,8 +40,12 @@ function snapshot(over: SnapshotOverride = {}): InsightSnapshot {
     largest: [
       { description: 'Laptop', category: 'Electronics', amount: 240_000, date: '2026-08-12T00:00:00.000Z' },
     ],
+    categoryDetail: [
+      { category: 'Groceries', count: 12, largest: { description: 'Tesco', amount: 30_000, date: '2026-08-09T00:00:00.000Z', recurring: false } },
+      { category: 'Transport', count: 5, largest: { description: 'Train', amount: 20_000, date: '2026-08-03T00:00:00.000Z', recurring: false } },
+    ],
     expenseCount: 42,
-    upcoming: [{ name: 'Netflix', daysAway: 6, amount: 4_990 }],
+    upcoming: [{ name: 'Netflix', category: 'Subscriptions', daysAway: 6, amount: 4_990 }],
     installments: [
       { name: 'Phone', paid: 10, total: 12, endsOn: '2026-10-01T00:00:00.000Z', monthlyAmount: 25_000 },
     ],
@@ -129,7 +143,7 @@ describe('buildPromptFromSnapshot', () => {
 
   it('reports an unconvertible renewal as unavailable rather than free', () => {
     const { prompt } = buildPromptFromSnapshot(
-      snapshot({ upcoming: [{ name: 'Spotify', daysAway: 3, amount: null }] }),
+      snapshot({ upcoming: [{ name: 'Spotify', category: 'Subscriptions', daysAway: 3, amount: null }] }),
     )
     expect(prompt).toContain('Spotify: due in 3 day(s), amount unavailable (no exchange rate)')
     expect(prompt).not.toContain('Spotify: due in 3 day(s), 0 Ft')

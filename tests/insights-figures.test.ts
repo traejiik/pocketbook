@@ -1,68 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { finaliseNote } from '@/lib/insights-generation'
-import type { InsightSnapshot } from '@/lib/insights-data'
 import { findInventedFigures } from '@/lib/insights-figures'
 import { buildPromptFromSnapshot, INSIGHT_SYSTEM_PROMPT } from '@/lib/insights-prompt'
+import { august } from './fixtures/insight-august-2026'
 
-// The real August 2026 ledger, as the notes read by hand in September were given
-// it. Every "invented" case below is a figure one of those notes actually wrote.
-const august: InsightSnapshot = {
-  monthKey: '2026-08',
-  monthName: 'August 2026',
-  anchor: 'HUF',
-  kpis: {
-    income: 585_140,
-    expense: 468_482,
-    savings: 50_000,
-    net: 66_658,
-    operatingNet: 116_658,
-    savingsRate: 9,
-    unconvertibleCount: 0,
-  },
-  prev: { income: 287_505, expense: 289_708, savings: 0, operatingNet: -2_203 },
-  categories: [
-    { name: 'Housing', value: 150_000, prevValue: 150_000 },
-    { name: 'Other Expense', value: 120_734, prevValue: 7_963 },
-    { name: 'Food & Groceries', value: 86_165, prevValue: 38_947 },
-    { name: 'Subscriptions', value: 32_920, prevValue: 35_238 },
-    { name: 'Fitness', value: 29_570, prevValue: 1_190 },
-    { name: 'Eating Out', value: 21_293, prevValue: 12_920 },
-  ],
-  trend: [
-    { month: 'Mar', net: 0 },
-    { month: 'Apr', net: 0 },
-    { month: 'May', net: 66_372 },
-    { month: 'Jun', net: 2_416 },
-    { month: 'Jul', net: -2_203 },
-    { month: 'Aug', net: 66_658 },
-  ],
-  largest: [
-    { description: 'Rent', category: 'Housing', amount: 150_000, date: '2026-08-10T00:00:00.000Z' },
-    { description: 'AirPods Pro 3', category: 'Other Expense', amount: 89_897, date: '2026-08-22T00:00:00.000Z' },
-    { description: 'Spar Groceries', category: 'Food & Groceries', amount: 22_201, date: '2026-08-15T00:00:00.000Z' },
-  ],
-  expenseCount: 42,
-  upcoming: [
-    { name: 'PS Plus Extra', daysAway: 20, amount: 5_590 },
-    { name: 'Rent', daysAway: 22, amount: 150_000 },
-  ],
-  installments: [],
-  committed: {
-    monthlyIncome: 585_140,
-    monthlyExpenses: 200_871,
-    monthlySavings: 50_000,
-    netUsable: 0,
-    expenseRatio: 0.34,
-    hasNormalisedAnnuals: true,
-    expensesByCategory: [],
-  },
-  priorNotes: [
-    { monthName: 'June 2026', opening: 'Your income for June 2026 came in at 277,047 Ft, which is a stable amount.' },
-  ],
-  verdict: 'steady',
-}
-
-const { prompt } = buildPromptFromSnapshot(august)
+// The full data prompt: these tests are about the checker, so they give it every
+// figure. The story brief narrows that; `insights-story.test.ts` checks it.
+const { prompt } = buildPromptFromSnapshot(august, { story: false })
 const invented = (note: string) => findInventedFigures(note, prompt)
 
 describe('findInventedFigures', () => {
@@ -127,7 +71,7 @@ describe('findInventedFigures', () => {
   })
 
   it('handles anchors written with a leading symbol', () => {
-    const usd = buildPromptFromSnapshot({ ...august, anchor: 'USD', priorNotes: [] }).prompt
+    const usd = buildPromptFromSnapshot({ ...august, anchor: 'USD', priorNotes: [] }, { story: false }).prompt
     expect(usd).toContain('$150000.00')
     expect(findInventedFigures('Rent was $150,000.00 and something cost $123.45.', usd)).toEqual(['$123.45'])
   })
