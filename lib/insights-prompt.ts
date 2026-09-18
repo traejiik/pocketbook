@@ -115,6 +115,13 @@ export type PromptVariants = {
   priorOpenings?: boolean
 }
 
+/**
+ * Heads the block of recent note openings. Exported because the figure check has
+ * to leave that block out of the data: those are earlier *notes*, not ledger
+ * figures, and some of what they quote was wrong when it was written.
+ */
+export const PRIOR_OPENINGS_HEADING = 'YOU ALREADY WROTE THESE'
+
 /** `up 34% from 120 000 Ft`, `down 8% from …`, `new this month`, or empty. */
 function deltaOf(
   current: number,
@@ -229,7 +236,7 @@ export function buildPromptFromSnapshot(
       : ''
 
   const priorNotes = s.priorNotes.length && variants.priorOpenings !== false
-    ? `\nYOU ALREADY WROTE THESE\nThese are the openings of your recent notes. Do not reuse their opening line, their framing, or their structure — find a different way in this month.\n${s.priorNotes
+    ? `\n${PRIOR_OPENINGS_HEADING}\nThese are the openings of your recent notes. Do not reuse their opening line, their framing, or their structure — find a different way in this month.\n${s.priorNotes
         .map((n) => `  ${n.monthName}: "${n.opening}"`)
         .join('\n')}\n`
     : ''
