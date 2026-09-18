@@ -6,6 +6,12 @@ import type { InsightSnapshot, MonthVerdict } from './insights-data'
  * `system` field rather than pasted at the top of the prompt — the model's chat
  * template gives that slot more weight, which is what makes an 8B model actually
  * honour the bans below.
+ *
+ * The action's figure must be copied, not derived. The rule used to allow "what
+ * changes if they act", a number the data never contains, so it asked for exactly
+ * what the invention ban forbids — and none of the thirteen notes measured produced a
+ * passing action. Those that tried priced a saving from nothing ("cancelling
+ * would save 29 570 Ft", for a renewal that does not exist).
  */
 export const INSIGHT_SYSTEM_PROMPT = `You are the analyst behind a personal finance ledger, writing the monthly note its owner reads. You have their real figures in front of you. Write like someone who has read them, not like someone filling in a template.
 
@@ -30,12 +36,18 @@ EVERY PARAGRAPH EARNS ITS PLACE
 Each one must carry at least one figure from the data, attached to something you name: a category, a recurring rule, or a specific transaction. A paragraph with no named specific is a paragraph to delete. Never invent a figure, a category, a merchant or a trend that is not in the data given to you — if the data does not support a claim, do not make it.
 
 THE LAST PARAGRAPH IS AN ACTION
-End with exactly one recommendation. It must name a real category, recurring rule or transaction from the data, carry a figure (what it costs now, or what changes if they act), and be something they could do in the next week or two. Generic advice is a failure: "consider budgeting", "track your spending", "review your subscriptions", "build an emergency fund" and anything of that kind are not acceptable endings. If the data supports no change worth making, say which specific thing you are recommending they leave alone, and why.`
+End with exactly one recommendation. It must name a real category, recurring rule or transaction from the data, carry a figure copied from the data above, and be something they could do in the next week or two. Quote what the thing costs now; do not work out a new figure for what they would save or spend instead. Generic advice is a failure: "consider budgeting", "track your spending", "review your subscriptions", "build an emergency fund" and anything of that kind are not acceptable endings. If the data supports no change worth making, say which specific thing you are recommending they leave alone, and why.`
 
 /**
  * The month-specific directive. Chosen by `classifyMonth`, not by the model, so a
  * bad month cannot be written up as a reassuring one just because reassurance is
  * the likeliest next token.
+ *
+ * `steady` once asked for "the sharpest departure from the six-month pattern", but
+ * the only six-month figures in the prompt are net totals. Applied to a category
+ * that comparison has nothing behind it, and three measured notes invented a
+ * category history to answer it ("relatively stable", "from 38 947 Ft in June to
+ * 40 000 Ft in July"). It now says outright that category history is one month deep.
  */
 const VERDICT_DIRECTIVES: Record<MonthVerdict, string> = {
   deficit: `This month spent more than it took in. That is the note.
@@ -56,7 +68,7 @@ If the net figure is negative, that is the savings transfer, not overspending. S
 
   steady: `Nothing dramatic happened this month.
 
-Do not manufacture drama and do not pad. Find the one thing that actually moved — the biggest category change against last month, or the sharpest departure from the six-month pattern — and follow it properly instead of touring every category in turn. A short note about one real thing beats a long note about nothing. Write three or four paragraphs.`,
+Do not manufacture drama and do not pad. Find the one thing that actually moved — usually the biggest category change against last month — and follow it properly instead of touring every category in turn. Category figures go back one month only: the six-month history is net totals, so compare a category with last month and say nothing about how it behaved before that. A short note about one real thing beats a long note about nothing. Write three or four paragraphs.`,
 
   sparse: `There is very little data for this month. It is probably early in the month rather than a month where nothing happened.
 
@@ -65,23 +77,83 @@ Say so plainly in the first sentence and keep the note short. Report only what i
 Do not narrate the absence of data as if it were an event: there was no collapse, no pause, no silence, no abrupt end, and nothing "dropped to zero" — the month simply has not happened yet. Do not compare these empty figures against last month; a 100% fall from a month that has barely started is an artefact, not a finding. Do not extrapolate a trend, a rate or a habit, and do not call the month good or bad. If the spending data cannot support a recommendation, make the closing action about what is due next. Write two paragraphs.`,
 }
 
+/**
+ * Prompt shapes the probe can toggle. `stateVerdict` is on by default because it
+ * earned it; the other two are experiments, off unless a caller opts in.
+ * `pnpm insights:probe` sets them from flags; nothing else passes this argument.
+ *
+ * Each one exists because every model tested on the August 2026 prompt — qwen3.5:4b,
+ * granite4.2:3b and a third model under two runtimes — failed in the same two ways,
+ * which points at the prompt rather than the model. See `other/docs/memory.md`.
+ */
+export type PromptVariants = {
+  /**
+   * Give each category delta its absolute size, not just a percentage. Ranking the
+   * month's real movements currently requires subtracting six pairs of numbers, and
+   * no model tested has found Other Expense's +112 771 Ft — they reach for the
+   * largest *percentage* (Fitness, 2385%, worth only +28 380 Ft) or the most
+   * familiar category instead.
+   */
+  absoluteDeltas?: boolean
+  /**
+   * Say which direction the operating net runs. On unless set to `false`. The old
+   * line put the word "overspent" beside the figure without stating its sign, and
+   * three of the seven runs that reached prose called August 2026's surplus an
+   * overspend — two lifting 116 658 Ft verbatim as the shortfall. In the llama3.2 A/B
+   * on 2026-09-18 two of three notes with the direction stated repeated it correctly;
+   * none of three without it mentioned the direction at all. `false` restores the old
+   * wording for control runs.
+   */
+  stateVerdict?: boolean
+  /**
+   * Include the do-not-repeat block. On by default, because varying the opening is
+   * why it exists. Worth turning off to test the opposite risk: it is the only
+   * fully-formed example sentence in the prompt, and one granite run reproduced
+   * July's "overspent by X, a shortfall driven primarily by…" skeleton verbatim,
+   * importing July's verdict along with its phrasing.
+   */
+  priorOpenings?: boolean
+}
+
 /** `up 34% from 120 000 Ft`, `down 8% from …`, `new this month`, or empty. */
-function deltaOf(current: number, previous: number | null, anchor: string): string {
+function deltaOf(
+  current: number,
+  previous: number | null,
+  anchor: string,
+  absolute = false,
+): string {
   if (previous === null) return ' (not present last month)'
   if (previous === 0) return ' (new this month)'
   const pct = Math.round(((current - previous) / Math.abs(previous)) * 100)
   if (pct === 0) return ` (flat vs ${fmtAnchor(previous, anchor)} last month)`
   const direction = pct > 0 ? 'up' : 'down'
-  return ` (${direction} ${Math.abs(pct)}% from ${fmtAnchor(previous, anchor)} last month)`
+  const size = absolute ? `${fmtAnchor(Math.abs(current - previous), anchor)}, ` : ''
+  return ` (${direction} ${size}${Math.abs(pct)}% from ${fmtAnchor(previous, anchor)} last month)`
 }
 
 function section(title: string, lines: string[], empty: string): string {
   return `${title}\n${lines.length ? lines.join('\n') : `  ${empty}`}`
 }
 
-export function buildPromptFromSnapshot(s: InsightSnapshot): { system: string; prompt: string } {
+export function buildPromptFromSnapshot(
+  s: InsightSnapshot,
+  variants: PromptVariants = {},
+): { system: string; prompt: string } {
   const money = (n: number) => fmtAnchor(n, s.anchor)
   const { kpis } = s
+  const delta = (current: number, previous: number | null) =>
+    deltaOf(current, previous, s.anchor, variants.absoluteDeltas)
+
+  // State which side of zero the month fell on rather than leaving the sign for
+  // the model to read off the figure. The old wording is kept for control runs.
+  const operatingNetNote =
+    variants.stateVerdict === false
+      ? `this is the figure that says whether the month overspent`
+      : kpis.operatingNet > 0
+        ? `income exceeded expenses by this much, so the month did not overspend`
+        : kpis.operatingNet < 0
+          ? `expenses exceeded income by ${money(Math.abs(kpis.operatingNet))}, so the month overspent`
+          : `income exactly covered expenses, so the month did not overspend`
 
   // With no savings the two net figures are identical, and spelling out the
   // savings caveat there just invites the model to explain a distinction the
@@ -89,25 +161,25 @@ export function buildPromptFromSnapshot(s: InsightSnapshot): { system: string; p
   const netLines =
     kpis.savings > 0
       ? [
-          `  Income minus expenses: ${money(kpis.operatingNet)} — this is the figure that says whether the month overspent`,
+          `  Income minus expenses: ${money(kpis.operatingNet)} — ${operatingNetNote}`,
           `  Net after savings: ${money(kpis.net)} — savings are subtracted here, so this can be negative in a month that spent well within its income`,
         ]
       : [
-          `  Income minus expenses: ${money(kpis.operatingNet)} — this is the figure that says whether the month overspent`,
+          `  Income minus expenses: ${money(kpis.operatingNet)} — ${operatingNetNote}`,
           `  Net after savings: ${money(kpis.net)} — the same figure, because nothing was put aside this month`,
         ]
 
   const headline = [
-    `  Income: ${money(kpis.income)}${s.prev ? deltaOf(kpis.income, s.prev.income, s.anchor) : ''}`,
-    `  Expenses: ${money(kpis.expense)}${s.prev ? deltaOf(kpis.expense, s.prev.expense, s.anchor) : ''}`,
-    `  Savings put aside: ${money(kpis.savings)}${s.prev ? deltaOf(kpis.savings, s.prev.savings, s.anchor) : ''}`,
+    `  Income: ${money(kpis.income)}${s.prev ? delta(kpis.income, s.prev.income) : ''}`,
+    `  Expenses: ${money(kpis.expense)}${s.prev ? delta(kpis.expense, s.prev.expense) : ''}`,
+    `  Savings put aside: ${money(kpis.savings)}${s.prev ? delta(kpis.savings, s.prev.savings) : ''}`,
     ...netLines,
     `  Savings rate: ${kpis.savingsRate}% of income`,
     `  Expense transactions recorded: ${s.expenseCount}`,
   ]
 
   const categories = s.categories.map(
-    (c) => `  - ${c.name}: ${money(c.value)}${deltaOf(c.value, c.prevValue, s.anchor)}`,
+    (c) => `  - ${c.name}: ${money(c.value)}${delta(c.value, c.prevValue)}`,
   )
 
   const trendNets = s.trend.map((t) => t.net)
@@ -156,7 +228,7 @@ export function buildPromptFromSnapshot(s: InsightSnapshot): { system: string; p
       ? `\nINCOMPLETE FIGURES\n  ${kpis.unconvertibleCount} transaction(s) had no exchange rate available and are missing from every total above. Say so once, briefly, and treat the totals as a floor rather than exact.\n`
       : ''
 
-  const priorNotes = s.priorNotes.length
+  const priorNotes = s.priorNotes.length && variants.priorOpenings !== false
     ? `\nYOU ALREADY WROTE THESE\nThese are the openings of your recent notes. Do not reuse their opening line, their framing, or their structure — find a different way in this month.\n${s.priorNotes
         .map((n) => `  ${n.monthName}: "${n.opening}"`)
         .join('\n')}\n`

@@ -2,7 +2,7 @@ import { prisma } from './prisma'
 import { logger } from './logger'
 import { fmtHUF, monthKeyOf } from './format'
 import { collectInsightSnapshot } from './insights-data'
-import { buildPromptFromSnapshot } from './insights-prompt'
+import { buildPromptFromSnapshot, type PromptVariants } from './insights-prompt'
 import { streamGenerate, stripThinkTags, type OllamaOptions } from './ollama'
 
 const log = logger('insights')
@@ -98,10 +98,11 @@ export const INSIGHT_REQUEST = {
  */
 export async function buildInsightPrompt(
   monthCovered?: string,
+  variants?: PromptVariants,
 ): Promise<{ system: string; prompt: string; anchor: string }> {
   const monthKey = monthCovered ?? monthKeyOf(new Date())
   const snapshot = await collectInsightSnapshot(monthKey)
-  return { ...buildPromptFromSnapshot(snapshot), anchor: snapshot.anchor }
+  return { ...buildPromptFromSnapshot(snapshot, variants), anchor: snapshot.anchor }
 }
 
 /**

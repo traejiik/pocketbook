@@ -21,6 +21,7 @@
 //   pnpm insights:probe [--month 2026-08] [--arms off,on,low,medium,high] [--runs 1]
 //                       [--timeout 1800] [--num-ctx 4096] [--out DIR]
 //                       [--ollama URL] [--model NAME] [--skip-warmup]
+//                       [--abs-deltas] [--no-state-verdict] [--no-prior-openings]
 //   pnpm insights:probe --dump prompt.json           build the prompt only
 //   pnpm insights:probe --prompt prompt.json ...     replay it; no database
 //
@@ -52,6 +53,7 @@ import { dirname, join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 
 import type { NoteDefects } from '../lib/insights-generation';
+import type { PromptVariants } from '../lib/insights-prompt';
 import type { OllamaGenerateStats, OllamaStreamChunk, OllamaThink } from '../lib/ollama';
 
 // Load .env.local then .env so PB_DATABASE_URL is available when run on a dev
@@ -97,6 +99,11 @@ const USAGE = `insight-thinking-probe — compare an insight note with reasoning
   --skip-warmup     do not load the model with a one-token request first
   --dump FILE       write the prompt as JSON and exit
   --prompt FILE     replay a dumped prompt instead of reading the database
+
+Prompt variants (combine freely, and pair each with a control run):
+  --abs-deltas         give every delta its absolute size, not only a percentage
+  --no-state-verdict   restore the old net line that leaves the sign unstated
+  --no-prior-openings  drop the do-not-repeat block of recent note openings
 `;
 
 const { values: args } = parseArgs({
@@ -112,6 +119,9 @@ const { values: args } = parseArgs({
     dump: { type: 'string' },
     prompt: { type: 'string' },
     'skip-warmup': { type: 'boolean', default: false },
+    'abs-deltas': { type: 'boolean', default: false },
+    'no-state-verdict': { type: 'boolean', default: false },
+    'no-prior-openings': { type: 'boolean', default: false },
     help: { type: 'boolean', default: false },
   },
 });
@@ -130,6 +140,8 @@ type PromptFile = {
   model?: string;
   ollamaUrl?: string;
   builtAt: string;
+  /** Which prompt variants built this text. Absent on files dumped before they existed. */
+  variants?: PromptVariants;
 };
 
 type NoteScore = {
@@ -208,6 +220,20 @@ function parseArms(raw: string | undefined): Arm[] {
   return arms as Arm[];
 }
 
+/** `default` or `abs-deltas + no-state-verdict`, for the console line and the report. */
+function describeVariants(v: PromptVariants | undefined): string {
+  if (!v) return 'none recorded (file predates variants; old net wording)';
+  const on = [
+    v.absoluteDeltas ? 'abs-deltas' : null,
+    v.stateVerdict === false ? 'no-state-verdict' : null,
+    v.priorOpenings === false ? 'no-prior-openings' : null,
+  ].filter(Boolean);
+  return on.length ? on.join(' + ') : 'default';
+}
+
+const variantFlagsPassed = (a: typeof args): boolean =>
+  Boolean(a['abs-deltas'] || a['no-state-verdict'] || a['no-prior-openings']);
+
 const secs = (ms: number | undefined): string => (ms === undefined ? '–' : (ms / 1000).toFixed(1));
 const num = (n: number | undefined): string => (n === undefined ? '–' : String(n));
 const stamp = (): string => new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
@@ -223,7 +249,10 @@ async function fetchVersion(baseUrl: string): Promise<string> {
   }
 }
 
-async function buildPromptFile(monthArg: string | undefined): Promise<PromptFile> {
+async function buildPromptFile(
+  monthArg: string | undefined,
+  variants: PromptVariants,
+): Promise<PromptFile> {
   const { prisma } = await import('../lib/prisma');
   const { getLatestTransactionMonth } = await import('../lib/aggregations');
   const { buildInsightPrompt } = await import('../lib/insights-generation');
@@ -231,7 +260,7 @@ async function buildPromptFile(monthArg: string | undefined): Promise<PromptFile
 
   const settings = await prisma.appSettings.findUnique({ where: { id: 'singleton' } });
   const month = monthArg ?? (await getLatestTransactionMonth()) ?? monthKeyOf(new Date());
-  const { system, prompt, anchor } = await buildInsightPrompt(month);
+  const { system, prompt, anchor } = await buildInsightPrompt(month, variants);
   return {
     month,
     anchor,
@@ -240,6 +269,7 @@ async function buildPromptFile(monthArg: string | undefined): Promise<PromptFile
     model: settings?.ollamaModel,
     ollamaUrl: settings?.ollamaUrl,
     builtAt: new Date().toISOString(),
+    variants,
   };
 }
 
@@ -373,6 +403,7 @@ function writeReport(outDir: string, ctx: Context, header: ReportHeader, results
   lines.push(
     `- Model: \`${ctx.model}\` at ${ctx.baseUrl} (${header.ollamaVersion}) · Node ${process.version}`,
     `- Prompt: ${promptFile.prompt.length} chars user + ${promptFile.system.length} chars system · anchor ${promptFile.anchor} · built ${promptFile.builtAt}`,
+    `- Prompt variants: ${describeVariants(promptFile.variants)}`,
     `- Options: \`${JSON.stringify(ctx.options)}\` · timeout ${secs(ctx.timeoutMs)} s · arms ${header.arms.join(', ')} × ${header.runs}`,
     `- Warm-up: ${header.warmup}`,
     '',
@@ -427,6 +458,12 @@ async function main(): Promise<void> {
     throw new Error(`--month must be YYYY-MM, got "${args.month}"`);
   }
 
+  const variants: PromptVariants = {
+    absoluteDeltas: args['abs-deltas'],
+    stateVerdict: !args['no-state-verdict'],
+    priorOpenings: !args['no-prior-openings'],
+  };
+
   let prisma: { $disconnect(): Promise<void> } | undefined;
   try {
     let promptFile: PromptFile;
@@ -437,10 +474,15 @@ async function main(): Promise<void> {
       process.env.NEXT_PHASE = 'phase-production-build';
       promptFile = JSON.parse(readFileSync(resolve(args.prompt), 'utf-8')) as PromptFile;
       console.log(`prompt: replaying ${args.prompt} (${promptFile.month}, built ${promptFile.builtAt})`);
+      console.log(`         variants ${describeVariants(promptFile.variants)} — as dumped`);
+      if (variantFlagsPassed(args)) {
+        console.log('         note: variant flags are ignored on replay; the text is already built');
+      }
     } else {
       prisma = (await import('../lib/prisma')).prisma;
-      promptFile = await buildPromptFile(args.month);
+      promptFile = await buildPromptFile(args.month, variants);
       console.log(`prompt: built for ${promptFile.month} from the database (${promptFile.prompt.length} + ${promptFile.system.length} chars)`);
+      console.log(`         variants ${describeVariants(variants)}`);
     }
 
     if (args.dump) {
