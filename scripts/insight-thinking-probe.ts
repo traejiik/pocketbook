@@ -9,7 +9,7 @@
 //
 // It uses the exact production request: `buildInsightPrompt()` for the prompt,
 // `INSIGHT_REQUEST` for the options (only `think` varies between arms), and
-// `finaliseNote()` for the defect counts. It never calls
+// `finaliseNote()` for the defect and invented-figure counts. It never calls
 // `generateAndSaveInsight` and never writes an `AiInsight` row.
 //
 // Why it is bundled instead of run with tsx. Every aggregation behind the prompt
@@ -149,6 +149,8 @@ type NoteScore = {
   repaired: number;
   defects: NoteDefects;
   defectCount: number;
+  /** Amounts and percentages in the note that the prompt's data does not contain. */
+  invented: string[];
 };
 
 type RunResult = {
@@ -187,7 +189,7 @@ type Context = {
   numCtx: number;
   timeoutMs: number;
   generate: Generate;
-  finalise: (raw: string, anchor: string) => NoteScore;
+  finalise: (raw: string, anchor: string, prompt: string) => NoteScore;
 };
 
 type ReportHeader = {
@@ -361,7 +363,7 @@ async function runOne(ctx: Context, arm: Arm, run: number): Promise<RunResult> {
     responseChars: response.length,
     inlineThinkTags: (response.match(/<\/?think>/gi) ?? []).length,
     stats,
-    note: ctx.finalise(response, anchor),
+    note: ctx.finalise(response, anchor, ctx.promptFile.prompt),
     thinking,
     response,
   };
@@ -382,6 +384,7 @@ function summaryLine(result: RunResult): string {
     `tokens ${num(s?.promptTokens)}+${num(s?.outputTokens)}`,
     `repaired ${result.note.repaired}`,
     `defects ${result.note.defectCount}`,
+    `invented ${result.note.invented.length}`,
   ].join(' · ');
 }
 
@@ -415,8 +418,8 @@ function writeReport(outDir: string, ctx: Context, header: ReportHeader, results
     'drops the front of the window — the system rules — and a worse note is a context',
     'overflow, not a verdict on reasoning. Rerun that arm with `--num-ctx 8192` to separate the two.',
     '',
-    '| arm | run | outcome | wall s | first thinking s | first prose s | thinking chars | note chars | prompt tokens | output tokens | prompt + output / numCtx | tok/s | load s | done reason | repaired | defects spelled / foreign / renamed |',
-    '|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|',
+    '| arm | run | outcome | wall s | first thinking s | first prose s | thinking chars | note chars | prompt tokens | output tokens | prompt + output / numCtx | tok/s | load s | done reason | repaired | defects spelled / foreign / renamed | invented figures |',
+    '|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|',
   );
   for (const r of results) {
     const s = r.stats ?? {};
@@ -427,7 +430,7 @@ function writeReport(outDir: string, ctx: Context, header: ReportHeader, results
     const tokPerSec = s.outputTokens && s.evalMs ? (s.outputTokens / (s.evalMs / 1000)).toFixed(1) : '–';
     const d = r.note.defects;
     lines.push(
-      `| ${r.arm} | ${r.run} | ${outcome(r)} | ${secs(r.wallMs)} | ${secs(r.firstThinkingMs)} | ${secs(r.firstResponseMs)} | ${r.thinkingChars} | ${r.note.content.length} | ${num(s.promptTokens)} | ${num(s.outputTokens)} | ${total} | ${tokPerSec} | ${secs(s.loadMs)} | ${s.doneReason ?? '–'} | ${r.note.repaired} | ${d.spelledNumbers} / ${d.foreignCurrency} / ${d.renamedCurrency} |`,
+      `| ${r.arm} | ${r.run} | ${outcome(r)} | ${secs(r.wallMs)} | ${secs(r.firstThinkingMs)} | ${secs(r.firstResponseMs)} | ${r.thinkingChars} | ${r.note.content.length} | ${num(s.promptTokens)} | ${num(s.outputTokens)} | ${total} | ${tokPerSec} | ${secs(s.loadMs)} | ${s.doneReason ?? '–'} | ${r.note.repaired} | ${d.spelledNumbers} / ${d.foreignCurrency} / ${d.renamedCurrency} | ${r.note.invented.length} |`,
     );
   }
   lines.push('');
@@ -438,6 +441,9 @@ function writeReport(outDir: string, ctx: Context, header: ReportHeader, results
       lines.push(`> ${r.inlineThinkTags} \`<think>\` tag(s) arrived inline in the prose; this Ollama did not split reasoning into its own field. The note below has them stripped.`, '');
     }
     lines.push(r.note.content.length > 0 ? r.note.content : '_(no prose)_', '');
+    if (r.note.invented.length > 0) {
+      lines.push(`> **Invented figures (${r.note.invented.length}):** ${r.note.invented.map((f) => `\`${f}\``).join(', ')} — not in the prompt's data.`, '');
+    }
     if (r.thinking.length > 0) {
       lines.push('<details>', `<summary>Reasoning (${r.thinking.length} chars)</summary>`, '', '```text', r.thinking, '```', '', '</details>', '');
     }

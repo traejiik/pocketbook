@@ -16,7 +16,11 @@ vi.mock('@/lib/prisma', () => ({
   },
 }))
 vi.mock('@/lib/insights-data', () => ({ collectInsightSnapshot: mocks.snapshot }))
-vi.mock('@/lib/insights-prompt', () => ({ buildPromptFromSnapshot: mocks.buildPrompt }))
+vi.mock('@/lib/insights-prompt', async (importOriginal) => ({
+  // Constants stay real — the figure check reads the prior-openings heading.
+  ...(await importOriginal<typeof import('@/lib/insights-prompt')>()),
+  buildPromptFromSnapshot: mocks.buildPrompt,
+}))
 vi.mock('@/lib/ollama', async (importOriginal) => ({
   // `stripThinkTags` stays real — it is part of what is under test here.
   ...(await importOriginal<typeof import('@/lib/ollama')>()),

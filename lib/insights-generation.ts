@@ -2,6 +2,7 @@ import { prisma } from './prisma'
 import { logger } from './logger'
 import { fmtHUF, monthKeyOf } from './format'
 import { collectInsightSnapshot } from './insights-data'
+import { findInventedFigures } from './insights-figures'
 import { buildPromptFromSnapshot, type PromptVariants } from './insights-prompt'
 import { streamGenerate, stripThinkTags, type OllamaOptions } from './ollama'
 
@@ -155,11 +156,23 @@ export type NoteDefects = {
  *
  * Only HUF is regrouped: the other anchors are formatted without grouping
  * (`fmtCur`), so there is nothing to restore.
+ *
+ * Given the prompt, it also lists the figures the note states that the data does
+ * not contain (`invented`, see `findInventedFigures`). That is a separate question
+ * from form — "89,897 Ft" is badly grouped but real, "24 742 Ft" is well formed
+ * and made up — and is reported, never repaired.
  */
 export function finaliseNote(
   raw: string,
   anchor: string,
-): { content: string; repaired: number; defects: NoteDefects; defectCount: number } {
+  prompt?: string,
+): {
+  content: string
+  repaired: number
+  defects: NoteDefects
+  defectCount: number
+  invented: string[]
+} {
   let content = stripThinkTags(raw)
   let repaired = 0
 
@@ -181,8 +194,9 @@ export function finaliseNote(
     renamedCurrency: own ? count(own.name) : 0,
   }
   const defectCount = defects.spelledNumbers + defects.foreignCurrency + defects.renamedCurrency
+  const invented = prompt === undefined ? [] : findInventedFigures(content, prompt)
 
-  return { content, repaired, defects, defectCount }
+  return { content, repaired, defects, defectCount, invented }
 }
 
 export async function generateAndSaveInsight(options: {
@@ -221,7 +235,7 @@ export async function generateAndSaveInsight(options: {
     throw error
   }
 
-  const note = finaliseNote(content, anchor)
+  const note = finaliseNote(content, anchor, prompt)
 
   // A run that produced no prose must not be persisted. The write path has no
   // other signal for failure, so an empty note used to save as a normal row:
@@ -263,6 +277,15 @@ export async function generateAndSaveInsight(options: {
   if (note.defectCount > 0) {
     log.warn('note re-expressed its figures', { month: options.monthCovered, ...note.defects })
   }
+  // Reported, not acted on: whether to regenerate or drop the sentence waits
+  // until the probe shows how often this fires and whether it ever fires wrongly.
+  if (note.invented.length > 0) {
+    log.warn('note invented figures', {
+      month: options.monthCovered,
+      count: note.invented.length,
+      figures: note.invented.join(', '),
+    })
+  }
   // At debug only: enough of the note to see *how* the model is behaving —
   // wrong currency, amounts spelled as words — without reading the database.
   log.debug('note preview', { month: options.monthCovered, preview: note.content.slice(0, 200) })
@@ -271,6 +294,7 @@ export async function generateAndSaveInsight(options: {
     chars: note.content.length,
     replaced: replaced.count,
     repaired: note.repaired,
+    invented: note.invented.length,
   })
   return record
 }

@@ -66,7 +66,7 @@ export async function GET(req: Request) {
         }
 
         const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-        const note = finaliseNote(full, anchor);
+        const note = finaliseNote(full, anchor, prompt);
         const content = note.content;
 
         // A run that produced no prose must not be persisted. Saving it created a
@@ -110,6 +110,13 @@ export async function GET(req: Request) {
         if (note.defectCount > 0) {
           log.warn('note re-expressed its figures', { month: monthCovered, ...note.defects });
         }
+        if (note.invented.length > 0) {
+          log.warn('note invented figures', {
+            month: monthCovered,
+            count: note.invented.length,
+            figures: note.invented.join(', '),
+          });
+        }
         // At debug only: enough of the note to see *how* the model is behaving —
         // wrong currency, amounts spelled as words — without reading the database.
         log.debug('note preview', { month: monthCovered, preview: content.slice(0, 200) });
@@ -118,6 +125,7 @@ export async function GET(req: Request) {
           chars: content.length,
           chunks: tokenCount,
           repaired: note.repaired,
+          invented: note.invented.length,
           elapsedSec: elapsed,
         });
 
