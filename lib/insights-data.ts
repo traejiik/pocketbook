@@ -43,8 +43,14 @@ export type InsightSnapshot = {
   categories: { name: string; value: number; prevValue: number | null }[]
   trend: { month: string; net: number }[]
   largest: { description: string; category: string; amount: number; date: string }[]
+  /** Per category this month: expense count and the single largest expense. */
+  categoryDetail: {
+    category: string
+    count: number
+    largest: { description: string; amount: number; date: string; recurring: boolean }
+  }[]
   expenseCount: number
-  upcoming: { name: string; daysAway: number; amount: number | null }[]
+  upcoming: { name: string; category: string; daysAway: number; amount: number | null }[]
   installments: { name: string; paid: number; total: number; endsOn: string | null; monthlyAmount: number | null }[]
   committed: RecurringBudgetSummary
   priorNotes: { monthName: string; opening: string }[]
@@ -178,9 +184,11 @@ export async function collectInsightSnapshot(monthKey: string): Promise<InsightS
     })),
     trend,
     largest: highlights.largest,
+    categoryDetail: highlights.byCategory,
     expenseCount: highlights.expenseCount,
     upcoming: upcomingRaw.slice(0, 5).map((u) => ({
       name: u.rule.name,
+      category: u.rule.category.name,
       daysAway: u.daysAway,
       // Stays null when no FX path exists. The old prompt coerced this to 0 and
       // told the model the renewal was free.
