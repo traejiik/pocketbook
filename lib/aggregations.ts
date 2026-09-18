@@ -4,6 +4,7 @@ import { toAnchor, frozenToAnchor } from './fx';
 import { CACHE_TAGS, cachedAggregation } from './cache';
 
 export { getAnchorCurrency } from './fx';
+import { Prisma } from '@prisma/client';
 import type { Category, RecurringRule } from '@prisma/client';
 
 export type RuleWithCategory = RecurringRule & { category: Category };
@@ -508,6 +509,160 @@ const cachedCategoriesWithStats = cachedAggregation(
 );
 
 export const getCategoriesWithStats = cache(() => cachedCategoriesWithStats());
+
+// ── Month-to-month carry-over ───────────────────────────────────────────────
+//
+// Nothing stores a running balance. The balance a month opens with is *derived*:
+// the signed sum of every transaction dated before its first day (a prefix sum),
+// plus the optional starting balance from Settings. Deriving it means an edit to
+// any past month corrects every later month for free, where a stored figure would
+// have to be re-posted.
+
+type SignedNetGroup = {
+  type: string;
+  currency: string;
+  fxRate: unknown;
+  fxAnchor: string | null;
+  total: string;   // SUM(ABS(amount)) — numeric
+  n: string;       // COUNT(*)         — bigint
+};
+
+// Signed net (income − expense − savings) of every transaction in
+// `[startDay, endDay)`, or of all history before `endDay` when `startDay` is null.
+// Grouped by (type, currency, locked rate) with `ABS()` inside the `SUM`, for the
+// reasons documented above `categoriesWithStats`: the row count stays bounded as
+// history grows, and the stored sign is not reliable. Day bounds are `YYYY-MM-DD`
+// strings cast to `date` in SQL so the comparison never passes through the
+// session timezone.
+async function cumulativeNetBetween(
+  startDay: string | null,
+  endDay: string,
+): Promise<{ net: number; unconvertibleCount: number }> {
+  const lowerBound = startDay ? Prisma.sql`AND "date" >= ${startDay}::date` : Prisma.empty;
+  const groups = await prisma.$queryRaw<SignedNetGroup[]>`
+    SELECT "type", "currency", "fxRate", "fxAnchor",
+           SUM(ABS("amount")) AS total,
+           COUNT(*)           AS n
+    FROM "Transaction"
+    WHERE "date" < ${endDay}::date ${lowerBound}
+    GROUP BY "type", "currency", "fxRate", "fxAnchor"
+  `;
+
+  let net = 0, unconvertibleCount = 0;
+  for (const g of groups) {
+    const converted = await txToAnchor({ ...g, amount: g.total });
+    if (converted === null) { unconvertibleCount += Number(g.n); continue; }
+    if (g.type === 'INCOME')  net += converted;
+    if (g.type === 'EXPENSE') net -= converted;
+    if (g.type === 'SAVINGS') net -= converted;
+  }
+
+  return { net, unconvertibleCount };
+}
+
+// Both bounds are arguments so they land in the cache key; the Settings starting
+// balance is added *outside* the cache, so a Settings edit needs no tag of its own.
+const cachedCumulativeNet = cachedAggregation(
+  ['cumulative-net'],
+  [CACHE_TAGS.transactions, CACHE_TAGS.fx],
+  cumulativeNetBetween,
+);
+
+export type OpeningBalance = {
+  /** Balance the month opens with, in the anchor. Null only when the Settings starting balance has no FX path. */
+  opening: number | null;
+  /** The ledger's contribution (signed net of prior transactions) before the starting balance is added. */
+  carriedFromLedger: number;
+  /** The Settings starting balance converted to the anchor; null when unset or unconvertible. */
+  startingBalance: number | null;
+  /** Prior transactions with no FX path — excluded from `opening`, never coerced to zero. */
+  unconvertibleCount: number;
+};
+
+function dayKeyUtc(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+/**
+ * What `monthKey` (`YYYY-MM`) opens with.
+ *
+ * With no starting balance configured: the signed net of all history before the
+ * month. With one configured at `openingBalanceMonth`, and `monthKey` at or after
+ * it: the starting balance plus the net of transactions from that month up to
+ * `monthKey`; earlier rows are excluded because the starting balance already
+ * represents them. For months *before* the configured month the starting balance
+ * does not apply and the all-history sum is used.
+ */
+export const getOpeningBalance = cache(async (monthKey: string): Promise<OpeningBalance> => {
+  const settings = await prisma.appSettings.findUnique({
+    where: { id: 'singleton' },
+    select: { openingBalance: true, openingBalanceCurrency: true, openingBalanceMonth: true },
+  });
+  const monthStart = monthKeyRange(monthKey).start;
+
+  const effectiveMonth = settings?.openingBalanceMonth ?? null;
+  const applies = effectiveMonth !== null && effectiveMonth <= monthKey;   // `YYYY-MM` sorts lexically
+  const lower = applies ? dayKeyUtc(monthKeyRange(effectiveMonth).start) : null;
+
+  const ledger = await cachedCumulativeNet(lower, dayKeyUtc(monthStart));
+
+  let startingBalance: number | null = null;
+  if (applies && settings) {
+    // Live conversion, like recurring rules — a single figure with no lock (AGENTS.md §9).
+    startingBalance = await toAnchor(
+      Number(settings.openingBalance),
+      settings.openingBalanceCurrency as 'HUF' | 'USD' | 'EUR' | 'GBP',
+    );
+  }
+
+  const opening = applies
+    ? (startingBalance === null ? null : startingBalance + ledger.net)
+    : ledger.net;
+
+  return {
+    opening: opening === null ? null : Math.round(opening),
+    carriedFromLedger: Math.round(ledger.net),
+    startingBalance: startingBalance === null ? null : Math.round(startingBalance),
+    unconvertibleCount: ledger.unconvertibleCount,
+  };
+});
+
+// Keyed by the same UTC months as `getCurrentMonthKpis`, so `opening + kpis.net`
+// on the dashboard describes one and the same month.
+function utcMonthKeyAt(now: Date, offset: number): string {
+  const d = utcMonthStart(now, offset);
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+}
+
+export const getCurrentMonthOpeningBalance = cache(async (): Promise<OpeningBalance> =>
+  getOpeningBalance(utcMonthKeyAt(new Date(), 0)),
+);
+
+/**
+ * Month-end running balance for each of the last `months` months (oldest first),
+ * for the dashboard Balance hero. Each point is that month's own opening plus its
+ * net, rather than one opening plus a cumulative sum: when the Settings starting
+ * month falls inside the window, the months before it open from all history and
+ * the months from it open at the starting balance, and only per-month openings
+ * reproduce that jump faithfully. Every read is already cached (`monthly-trend`,
+ * `cumulative-net`), and the current month's opening is shared with the page via
+ * React `cache`. `balance` is null for a month whose starting balance has no FX path.
+ */
+export type BalancePoint = { month: string; balance: number | null };
+
+export const getBalanceTrend = cache(async (months: number): Promise<BalancePoint[]> => {
+  const now = new Date();
+  const [trend, openings] = await Promise.all([
+    getMonthlyTrend(months),
+    Promise.all(
+      Array.from({ length: months }, (_, i) => getOpeningBalance(utcMonthKeyAt(now, i - (months - 1)))),
+    ),
+  ]);
+  return trend.map((t, i) => {
+    const opening = openings[i].opening;
+    return { month: t.month, balance: opening === null ? null : Math.round(opening + t.net) };
+  });
+});
 
 /**
  * `YYYY-MM` of the most recent transaction, or null when the ledger is empty.

@@ -53,6 +53,9 @@ export default async function SettingsPage() {
       ollamaModel={settings?.ollamaModel ?? 'llama3.1:8b'}
       ollamaModels={models}
       autoInsightsMonthly={settings?.autoInsightsMonthly ?? true}
+      openingBalance={Number(settings?.openingBalance ?? 0)}
+      openingBalanceCurrency={settings?.openingBalanceCurrency ?? settings?.anchorCurrency ?? 'HUF'}
+      openingBalanceMonth={settings?.openingBalanceMonth ?? null}
       notificationSettings={toAuthenticatedNotificationSettings(notificationConfig.config, notificationConfig.status)}
       backupStatus={backupStatus}
       nextBackupRun={nextOccurrence('backup', new Date()).scheduledFor}

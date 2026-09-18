@@ -9,10 +9,12 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { DatePicker } from '@/components/ui/date-picker';
 import { toast } from 'sonner';
 import { notify } from '@/lib/ui-notify';
 import { cn } from '@/lib/utils';
-import { fmtDate } from '@/lib/format';
+import { fmtDate, fmtAnchor, monthKeyOf } from '@/lib/format';
 import {
   setAnchorCurrency,
   setExchangeRate,
@@ -20,6 +22,8 @@ import {
   removeTrackedCurrency,
   setFxAutoSync,
   setAutoInsights,
+  setOpeningBalance,
+  clearOpeningBalance,
   setOllamaModel,
   changePassword,
   forceFxSync,
@@ -50,6 +54,10 @@ type Props = {
   ollamaModel: string;
   ollamaModels: Array<{ name: string; size: number }>;
   autoInsightsMonthly: boolean;
+  openingBalance: number;
+  openingBalanceCurrency: string;
+  /** `YYYY-MM`, or null when carry-over has no configured starting point. */
+  openingBalanceMonth: string | null;
   notificationSettings: AuthenticatedNotificationSettings;
   backupStatus: BackupStatus | null;
   nextBackupRun: string;
@@ -187,6 +195,9 @@ export function SettingsView({
   ollamaModel: initialModel,
   ollamaModels,
   autoInsightsMonthly: initialAutoInsights,
+  openingBalance: initialOpeningBalance,
+  openingBalanceCurrency: initialOpeningCurrency,
+  openingBalanceMonth: initialOpeningMonth,
   notificationSettings,
   backupStatus,
   nextBackupRun,
@@ -216,6 +227,18 @@ export function SettingsView({
   const [autoSync, setAutoSync] = useState(initialAutoSync);
   const [model, setModel] = useState(initialModel);
   const [autoInsights, setAutoInsightsState] = useState(initialAutoInsights);
+  // Opening balance form. Strings while editing so a half-typed amount is not
+  // coerced; parsed once on Save.
+  const [openingAmount, setOpeningAmount] = useState(
+    initialOpeningMonth ? String(initialOpeningBalance) : '',
+  );
+  const [openingCurrency, setOpeningCurrency] = useState(initialOpeningCurrency);
+  // Stored as `YYYY-MM`; the shared DatePicker works in whole days, so it shows
+  // the 1st of that month and any picked day is reduced back to its month.
+  const [openingMonth, setOpeningMonth] = useState(initialOpeningMonth ?? '');
+  const [savedOpening, setSavedOpening] = useState<{ amount: number; currency: string; month: string } | null>(
+    initialOpeningMonth ? { amount: initialOpeningBalance, currency: initialOpeningCurrency, month: initialOpeningMonth } : null,
+  );
   const [addCurrencyOpen, setAddCurrencyOpen] = useState(false);
   const [newCurrencyCode, setNewCurrencyCode] = useState('');
   const [clearDbOpen, setClearDbOpen] = useState(false);
@@ -236,6 +259,39 @@ export function SettingsView({
   const handleAnchorClick = (code: string) => {
     if (code === anchor) return;
     setPendingAnchor(code);
+  };
+
+  const openingAmountNumber = Number(openingAmount.replace(/\s/g, '').replace(',', '.'));
+  const openingMonthLabel = (key: string) =>
+    new Date(Number(key.slice(0, 4)), Number(key.slice(5, 7)) - 1, 1).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+  const openingValid =
+    openingAmount.trim() !== '' && Number.isFinite(openingAmountNumber) && /^\d{4}-(0[1-9]|1[0-2])$/.test(openingMonth);
+  const openingDirty =
+    !savedOpening ||
+    savedOpening.amount !== openingAmountNumber ||
+    savedOpening.currency !== openingCurrency ||
+    savedOpening.month !== openingMonth;
+
+  const handleOpeningSave = () => {
+    if (!openingValid) return;
+    const next = { amount: openingAmountNumber, currency: openingCurrency, month: openingMonth };
+    startTransition(async () => {
+      await setOpeningBalance(next);
+      setSavedOpening(next);
+      notify.success('Opening balance saved');
+      router.refresh();
+    });
+  };
+
+  const handleOpeningClear = () => {
+    startTransition(async () => {
+      await clearOpeningBalance();
+      setSavedOpening(null);
+      setOpeningAmount('');
+      setOpeningMonth('');
+      notify.success('Opening balance cleared');
+      router.refresh();
+    });
   };
 
   const confirmAnchorChange = () => {
@@ -364,6 +420,78 @@ export function SettingsView({
                   <div className="text-[10.5px] text-muted-foreground mt-0.5 whitespace-nowrap">{c.name}</div>
                 </button>
               ))}
+            </div>
+          </div>
+
+          {/* Opening balance — starting point for month-to-month carry-over */}
+          <div className="calm-card p-6 mb-3">
+            <div className="flex items-baseline justify-between gap-3 mb-4">
+              <div>
+                <div className="text-[13px] font-semibold tracking-tight">Opening balance</div>
+                <div className="text-[11.5px] text-muted-foreground mt-0.5">
+                  The balance you held at the start of the effective month. Each month then carries the previous month&apos;s net forward; earlier transactions are not counted again.
+                </div>
+              </div>
+              {!savedOpening && (
+                <span className="text-[10.5px] mono uppercase tracking-wider text-muted-foreground whitespace-nowrap">Not set</span>
+              )}
+            </div>
+            {/* Same amount/currency/date composition as the transaction sheet */}
+            <div className="grid grid-cols-[1fr_88px] sm:grid-cols-[3fr_1fr_1fr] gap-x-2 gap-y-4 sm:gap-x-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="opening-amount">Amount</Label>
+                <Input
+                  id="opening-amount"
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="0"
+                  className="text-right tabular"
+                  value={openingAmount}
+                  onChange={e => setOpeningAmount(e.target.value.replace(/[^0-9.,\s]/g, ''))}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="opening-currency">Currency</Label>
+                <Select value={openingCurrency} onValueChange={v => v && setOpeningCurrency(v)}>
+                  <SelectTrigger id="opening-currency" aria-label="Opening balance currency" className="h-9! w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ANCHOR_OPTIONS.map(c => (
+                      <SelectItem key={c.code} value={c.code}>{c.code}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5 col-span-2 sm:col-span-1">
+                <Label htmlFor="opening-month">Effective from</Label>
+                <DatePicker
+                  id="opening-month"
+                  placeholder="Pick a month"
+                  value={openingMonth ? `${openingMonth}-01` : ''}
+                  onChange={v => {
+                    const [y, m, d] = v.split('-').map(Number);
+                    setOpeningMonth(monthKeyOf(new Date(y, m - 1, d)));
+                  }}
+                />
+              </div>
+            </div>
+            <div className="flex items-center justify-between gap-3 mt-4 flex-wrap">
+              <div className="text-[11.5px] text-muted-foreground tabular">
+                {savedOpening
+                  ? <>Carry-over starts from <span className="text-foreground font-medium">{fmtAnchor(savedOpening.amount, savedOpening.currency)}</span> on 1 {openingMonthLabel(savedOpening.month)}.</>
+                  : <>Without a starting point, carry-over begins at zero from your first logged month.</>}
+              </div>
+              <div className="flex items-center gap-2">
+                {savedOpening && (
+                  <Button variant="ghost" size="sm" onClick={handleOpeningClear} disabled={isPending}>
+                    Clear
+                  </Button>
+                )}
+                <Button size="sm" onClick={handleOpeningSave} disabled={isPending || !openingValid || !openingDirty}>
+                  <Check className="w-3.5 h-3.5 mr-1.5" />Save
+                </Button>
+              </div>
             </div>
           </div>
 

@@ -114,6 +114,13 @@ model AppSettings {
   ollamaModel         String  @default("llama3.1:8b")
   fxAutoSync          Boolean @default(true)
   autoInsightsMonthly Boolean @default(true)
+  // One-time starting point for the derived running balance: the balance held on
+  // the first day of `openingBalanceMonth` (`YYYY-MM`). Transactions before that
+  // month are excluded from carry-over because this figure already includes them.
+  // `openingBalanceMonth` null = not configured; carry-over then starts from zero.
+  openingBalance         Decimal @default(0) @db.Decimal(14, 2)
+  openingBalanceCurrency String  @default("HUF") @db.Char(3)
+  openingBalanceMonth    String?
 }
 
 model AiInsight {

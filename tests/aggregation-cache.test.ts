@@ -126,6 +126,7 @@ describe('cache tag matrix', () => {
     ['upcoming-renewals', [CACHE_TAGS.recurring, CACHE_TAGS.categories, CACHE_TAGS.fx]],
     ['categories-with-stats', [CACHE_TAGS.transactions, CACHE_TAGS.categories, CACHE_TAGS.fx]],
     ['recurring-budget-summary', [CACHE_TAGS.recurring, CACHE_TAGS.categories, CACHE_TAGS.fx]],
+    ['cumulative-net', [CACHE_TAGS.transactions, CACHE_TAGS.fx]],
   ])('%s is invalidated by the right tags', (key, tags) => {
     expect(registrationFor(key)?.options.tags).toEqual(tags)
   })

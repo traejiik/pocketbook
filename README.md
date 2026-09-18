@@ -43,6 +43,7 @@ Numbers lead. Surfaces recede. A single calm blue is reserved for what matters.
 - **🧠 Private AI insights** — monthly commentary streamed token-by-token from your own Ollama instance. It never calls out to a third party, and the app works fine if the model is offline.
 - **💱 Multi-currency, done right** — HUF-first with USD/EUR/GBP support, ECB rates auto-synced daily, triangulated conversion, and honest handling of amounts it can't convert.
 - **🔁 Recurring & installments** — subscriptions, rent, and installment plans tracked with idempotent auto-logging and reconciled counters.
+- **↪️ Month carry-over** — each month opens with the previous months' net, derived from the ledger rather than posted as a transaction, so editing history never leaves a stale balance. An optional opening balance in Settings anchors the running total to what you actually held when you started logging.
 - **📅 Renewal radar** — a cash-out timeline that tells you what's leaving your account in the next 30/60/90 days.
 - **⚡ Fast and honest UI** — optimistic writes, skeletons instead of spinners, tabular numerics on every figure, dark-mode-first, and a real `⌘K` search.
 - **📥 One-way CSV import** — bootstrap from your old spreadsheet in one shot.
@@ -113,7 +114,7 @@ Pick your anchor currency, manage tracked FX rates, configure Discord identity a
 
 **Architecture in one line:** server components read from Prisma directly → pass props → Server Actions mutate → `revalidatePath` + `revalidateTag` refresh. The only REST routes are for Auth.js, SSE insights streaming, and scheduler-only sync endpoints authenticated by an ephemeral per-boot token shared inside `pocketbook-web`. No client-side data fetching for initial renders.
 
-The heavier aggregation reads (KPIs, expenses-by-category, monthly trend, upcoming renewals, category stats, recurring budget) are cached between requests with `unstable_cache` and invalidated by tag on write — see `lib/cache.ts`.
+The heavier aggregation reads (KPIs, expenses-by-category, monthly trend, upcoming renewals, category stats, recurring budget, month carry-over) are cached between requests with `unstable_cache` and invalidated by tag on write — see `lib/cache.ts`.
 
 ---
 

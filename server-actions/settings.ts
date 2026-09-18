@@ -122,6 +122,39 @@ export async function setAutoInsights(enabled: boolean) {
   log.info('setting changed', { setting: 'autoInsightsMonthly', value: enabled });
 }
 
+const monthKeySchema = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, 'Expected YYYY-MM');
+const openingBalanceSchema = z.object({
+  amount: z.number().finite(),
+  currency: currencySchema,
+  month: monthKeySchema,
+});
+
+// The starting point for month-to-month carry-over: the balance held on the first
+// day of `month`. Read by `getOpeningBalance` in lib/aggregations.ts, which adds it
+// *outside* the cached ledger scan — so no `revalidateFinanceTags` is needed here,
+// only the route cache. Amounts are stored as entered; conversion to the anchor
+// happens live at read time.
+export async function setOpeningBalance(input: { amount: number; currency: string; month: string }) {
+  await requireAuthenticatedUser();
+  const { amount, currency, month } = openingBalanceSchema.parse(input);
+  await prisma.appSettings.update({
+    where: { id: 'singleton' },
+    data: { openingBalance: amount, openingBalanceCurrency: currency, openingBalanceMonth: month },
+  });
+  log.info('setting changed', { setting: 'openingBalance', amount, currency, month });
+  revalidatePath('/', 'layout');
+}
+
+export async function clearOpeningBalance() {
+  await requireAuthenticatedUser();
+  await prisma.appSettings.update({
+    where: { id: 'singleton' },
+    data: { openingBalance: 0, openingBalanceMonth: null },
+  });
+  log.info('setting changed', { setting: 'openingBalance', cleared: true });
+  revalidatePath('/', 'layout');
+}
+
 export async function setOllamaModel(model: string) {
   await requireAuthenticatedUser();
   await prisma.appSettings.update({

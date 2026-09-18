@@ -268,12 +268,18 @@ export function buildPromptFromSnapshot(
   const expenseLine = `  Expenses: ${money(kpis.expense)}${s.prev ? delta(kpis.expense, s.prev.expense) : ''}`
   const savingsLine = `  Savings put aside: ${money(kpis.savings)}${s.prev ? delta(kpis.savings, s.prev.savings) : ''}`
   const rateLine = `  Savings rate: ${kpis.savingsRate}% of income`
+  // Carry-over is a running total, not money earned this month; the wording keeps
+  // the model from reading it as income or crediting the month with it.
+  const balanceLine = s.balance
+    ? `  Running balance: opened the month at ${money(s.balance.carriedIn)} carried forward from earlier months and closed at ${money(s.balance.closing)} — money brought forward, not this month's income, so never add it to the figures above`
+    : null
   const headline = [
     incomeLine,
     expenseLine,
     savingsLine,
     ...netLines,
     rateLine,
+    ...(balanceLine ? [balanceLine] : []),
     `  Expense transactions recorded: ${s.expenseCount}`,
   ]
 
@@ -343,6 +349,7 @@ export function buildPromptFromSnapshot(
       expenseLine,
       netLines[0],
       ...(s.verdict === 'strong' ? [savingsLine, netLines[1], rateLine] : []),
+      ...(balanceLine ? [balanceLine] : []),
     ]
     const brief = `Monthly note for ${s.monthName}. All amounts are in ${s.anchor} and are already formatted — reproduce them exactly as written.
 
