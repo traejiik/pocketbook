@@ -107,7 +107,7 @@ describe('buildPromptFromSnapshot', () => {
   it('separates operating net from net after savings', () => {
     const { prompt } = buildPromptFromSnapshot(snapshot())
     expect(prompt).toContain('Income minus expenses: 300 000 Ft')
-    expect(prompt).toContain('whether the month overspent')
+    expect(prompt).toContain('so the month did not overspend')
     expect(prompt).toContain('Net after savings: 200 000 Ft')
     expect(prompt).toContain('savings are subtracted here')
   })
@@ -216,5 +216,139 @@ describe('sparse month directive', () => {
   it('keeps those restrictions out of months that have data', () => {
     const { prompt } = buildPromptFromSnapshot(snapshot({ verdict: 'steady' }))
     expect(prompt).not.toContain('the month simply has not happened yet')
+  })
+})
+
+// Three prompt shapes, each tracing a failure the models tested on the real
+// August 2026 prompt reproduced. `stateVerdict` earned its place as the default;
+// the other two stay opt-in until a probe run says they help.
+describe('prompt variants', () => {
+  it('leaves the prompt untouched when no variant is asked for', () => {
+    const plain = buildPromptFromSnapshot(snapshot())
+    expect(buildPromptFromSnapshot(snapshot(), {})).toEqual(plain)
+    expect(buildPromptFromSnapshot(snapshot(), { stateVerdict: true, priorOpenings: true })).toEqual(
+      plain,
+    )
+  })
+
+  describe('absoluteDeltas', () => {
+    // No model found Other Expense's +112 771 Ft, because ranking the month's
+    // movements meant subtracting six pairs of numbers. They reached for the
+    // largest percentage instead — Fitness at 2385%, worth only +28 380 Ft.
+    it('gives a rise its size in the anchor currency as well as a percentage', () => {
+      const { prompt } = buildPromptFromSnapshot(snapshot(), { absoluteDeltas: true })
+      expect(prompt).toContain('Groceries: 180 000 Ft (up 40 000 Ft, 29% from 140 000 Ft last month)')
+    })
+
+    it('gives a fall its size too, unsigned, because the direction word carries it', () => {
+      const { prompt } = buildPromptFromSnapshot(
+        snapshot({ categories: [{ name: 'Subscription', value: 32_920, prevValue: 35_238 }] }),
+        { absoluteDeltas: true },
+      )
+      expect(prompt).toContain('Subscription: 32 920 Ft (down 2318 Ft, 7% from 35 238 Ft last month)')
+    })
+
+    it('applies to the headline figures, not only the categories', () => {
+      const { prompt } = buildPromptFromSnapshot(snapshot({ kpis: { expense: 500_000 } }), {
+        absoluteDeltas: true,
+      })
+      expect(prompt).toContain('Expenses: 500 000 Ft (up 80 000 Ft, 19% from 420 000 Ft last month)')
+    })
+
+    it('says nothing extra where there is no percentage to qualify', () => {
+      const { prompt } = buildPromptFromSnapshot(snapshot(), { absoluteDeltas: true })
+      expect(prompt).toContain('Transport: 60 000 Ft (not present last month)')
+      expect(prompt).toContain('Savings put aside: 100 000 Ft (flat vs 100 000 Ft last month)')
+    })
+  })
+
+  describe('stateVerdict', () => {
+    // The old line put "overspent" beside the figure without stating its sign.
+    // Three of the seven runs that reached prose called the surplus an
+    // overspend, two lifting 116 658 Ft verbatim as the shortfall.
+    it('says by default that a surplus did not overspend', () => {
+      const { prompt } = buildPromptFromSnapshot(snapshot())
+      expect(prompt).toContain(
+        'Income minus expenses: 300 000 Ft — income exceeded expenses by this much, so the month did not overspend',
+      )
+      expect(prompt).not.toContain('this is the figure that says whether the month overspent')
+    })
+
+    it('names the shortfall and its size when expenses did exceed income', () => {
+      const { prompt } = buildPromptFromSnapshot(
+        snapshot({ kpis: { income: 500_000, expense: 600_000, operatingNet: -100_000 } }),
+      )
+      expect(prompt).toContain(
+        'Income minus expenses: −100 000 Ft — expenses exceeded income by 100 000 Ft, so the month overspent',
+      )
+    })
+
+    it('treats an exactly covered month as not overspending', () => {
+      const { prompt } = buildPromptFromSnapshot(snapshot({ kpis: { operatingNet: 0 } }))
+      expect(prompt).toContain('income exactly covered expenses, so the month did not overspend')
+    })
+
+    it('restores the old unsigned wording when turned off, for control runs', () => {
+      const { prompt } = buildPromptFromSnapshot(snapshot(), { stateVerdict: false })
+      expect(prompt).toContain(
+        'Income minus expenses: 300 000 Ft — this is the figure that says whether the month overspent',
+      )
+      expect(prompt).not.toContain('so the month did not overspend')
+    })
+
+    it('keeps the savings caveat alongside it', () => {
+      const { prompt } = buildPromptFromSnapshot(snapshot())
+      expect(prompt).toContain('Net after savings: 200 000 Ft — savings are subtracted here')
+    })
+  })
+
+  describe('priorOpenings', () => {
+    // The block is the only fully-formed example sentence in the prompt. One run
+    // reproduced July's "overspent by X, a shortfall driven primarily by…"
+    // skeleton verbatim, importing July's verdict along with its phrasing.
+    it('drops the do-not-repeat block when turned off', () => {
+      const { prompt } = buildPromptFromSnapshot(snapshot(), { priorOpenings: false })
+      expect(prompt).not.toContain('YOU ALREADY WROTE THESE')
+      expect(prompt).not.toContain('Spending held steady across the board.')
+    })
+
+    it('leaves the rest of the prompt intact', () => {
+      const { prompt } = buildPromptFromSnapshot(snapshot(), { priorOpenings: false })
+      expect(prompt).toContain('THE MONTH IN FIGURES')
+      expect(prompt).toContain('Write the note now.')
+    })
+  })
+})
+
+// The closing action used to allow "what changes if they act" — a figure the data
+// never contains — so it demanded exactly what the invention ban forbids. None of
+// the thirteen notes measured passed it.
+describe('closing action figure', () => {
+  it('requires a figure copied from the data', () => {
+    expect(INSIGHT_SYSTEM_PROMPT).toContain('carry a figure copied from the data above')
+  })
+
+  it('forbids computing a saving instead', () => {
+    expect(INSIGHT_SYSTEM_PROMPT).not.toContain('what changes if they act')
+    expect(INSIGHT_SYSTEM_PROMPT).toContain('do not work out a new figure for what they would save')
+  })
+
+  it('keeps the leave-it-alone fallback', () => {
+    expect(INSIGHT_SYSTEM_PROMPT).toContain('recommending they leave alone, and why')
+  })
+})
+
+// The only six-month figures are net totals. Asked for "the sharpest departure
+// from the six-month pattern", three notes invented a category history.
+describe('steady month directive', () => {
+  it('no longer asks for a six-month comparison the data cannot support', () => {
+    const { prompt } = buildPromptFromSnapshot(snapshot({ verdict: 'steady' }))
+    expect(prompt).not.toContain('six-month pattern')
+  })
+
+  it('says category history is one month deep', () => {
+    const { prompt } = buildPromptFromSnapshot(snapshot({ verdict: 'steady' }))
+    expect(prompt).toContain('Category figures go back one month only')
+    expect(prompt).toContain('the six-month history is net totals')
   })
 })
