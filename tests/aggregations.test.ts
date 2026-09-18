@@ -8,12 +8,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => ({
   findMany: vi.fn(),
   ruleFindMany: vi.fn(),
+  settingsFindUnique: vi.fn(),
+  queryRaw: vi.fn(),
 }))
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     transaction: { findMany: mocks.findMany },
     recurringRule: { findMany: mocks.ruleFindMany },
+    appSettings: { findUnique: mocks.settingsFindUnique },
+    $queryRaw: mocks.queryRaw,
   },
 }))
 
@@ -21,7 +25,9 @@ vi.mock('@/lib/prisma', () => ({
 // reducers run. Identity conversion keeps the focus on date boundaries.
 vi.mock('@/lib/fx', () => ({
   toAnchor: vi.fn(async (amount: number) => amount),
-  frozenToAnchor: vi.fn(async (amount: number) => amount),
+  // `null` for the one currency with no FX path, so unconvertible groups are
+  // observable in the carry-over tests below.
+  frozenToAnchor: vi.fn(async (amount: number, currency: string) => (currency === 'XXX' ? null : amount)),
 }))
 
 // `unstable_cache` throws without a Next.js incremental cache, and caching is not
@@ -40,7 +46,11 @@ import {
   getLastMonthExpensesByCategory,
   getUpcomingRenewals,
   getMonthlyTrend,
+  getOpeningBalance,
+  getCurrentMonthOpeningBalance,
+  getBalanceTrend,
 } from '@/lib/aggregations'
+import { toAnchor } from '@/lib/fx'
 
 const iso = (d: Date) => d.toISOString()
 
@@ -53,6 +63,8 @@ beforeEach(() => {
   vi.setSystemTime(NOW)
   mocks.findMany.mockResolvedValue([])
   mocks.ruleFindMany.mockResolvedValue([])
+  mocks.settingsFindUnique.mockResolvedValue(null)
+  mocks.queryRaw.mockResolvedValue([])
 })
 
 afterEach(() => {
@@ -214,5 +226,147 @@ describe('aggregation reads project only the columns they use', () => {
       ['amount', 'category', 'categoryId', 'currency', 'fxAnchor', 'fxRate'],
     )
     expect(select?.category).toEqual({ select: { name: true, color: true } })
+  })
+})
+
+describe('getOpeningBalance derives the month-to-month carry-over', () => {
+  // The raw query is a tagged template: `strings` are the SQL fragments, and the
+  // bound values are the interpolations. `Prisma.sql`/`Prisma.empty` fragments
+  // land as `Sql` objects with their own `strings`/`values`.
+  function lastQuery() {
+    const call = mocks.queryRaw.mock.calls.at(-1) as [TemplateStringsArray, ...unknown[]]
+    const [strings, ...values] = call
+    const text = strings.join('?')
+    return { text, values }
+  }
+
+  const group = (type: string, total: number, currency = 'HUF', n = 1) => ({
+    type,
+    currency,
+    fxRate: 1,
+    fxAnchor: 'HUF',
+    total: String(total),
+    n: String(n),
+  })
+
+  it('sums all history before the month when no starting balance is configured', async () => {
+    mocks.queryRaw.mockResolvedValue([
+      group('INCOME', 500_000),
+      group('EXPENSE', 320_000),
+      group('SAVINGS', 50_000),
+    ])
+
+    const result = await getOpeningBalance('2026-09')
+
+    // The exclusive upper bound is the month's first day; no lower bound applies.
+    const { text, values } = lastQuery()
+    expect(text).toContain('"date" < ?::date')
+    expect(values[0]).toBe('2026-09-01')
+    const lower = values[1] as { strings?: string[] }
+    expect(lower.strings?.join('')).toBe('')
+
+    expect(result.opening).toBe(130_000)
+    expect(result.carriedFromLedger).toBe(130_000)
+    expect(result.startingBalance).toBeNull()
+    expect(toAnchor).not.toHaveBeenCalled()
+  })
+
+  it('adds the starting balance and starts the scan at its effective month', async () => {
+    mocks.settingsFindUnique.mockResolvedValue({
+      openingBalance: '100000',
+      openingBalanceCurrency: 'HUF',
+      openingBalanceMonth: '2026-07',
+    })
+    mocks.queryRaw.mockResolvedValue([group('INCOME', 40_000), group('EXPENSE', 15_000)])
+
+    const result = await getOpeningBalance('2026-09')
+
+    const { values } = lastQuery()
+    expect(values[0]).toBe('2026-09-01')
+    const lower = values[1] as { strings: string[]; values: unknown[] }
+    expect(lower.strings.join('?')).toContain('"date" >= ?::date')
+    expect(lower.values[0]).toBe('2026-07-01')
+
+    expect(result.startingBalance).toBe(100_000)
+    expect(result.carriedFromLedger).toBe(25_000)
+    expect(result.opening).toBe(125_000)
+  })
+
+  it('is exactly the starting balance in the effective month itself', async () => {
+    mocks.settingsFindUnique.mockResolvedValue({
+      openingBalance: '100000',
+      openingBalanceCurrency: 'HUF',
+      openingBalanceMonth: '2026-08',
+    })
+    // `[2026-08-01, 2026-08-01)` is empty, so the ledger contributes nothing.
+    mocks.queryRaw.mockResolvedValue([])
+
+    const result = await getOpeningBalance('2026-08')
+
+    const { values } = lastQuery()
+    expect(values[0]).toBe('2026-08-01')
+    expect((values[1] as { values: unknown[] }).values[0]).toBe('2026-08-01')
+    expect(result.opening).toBe(100_000)
+  })
+
+  it('ignores the starting balance for months before its effective month', async () => {
+    mocks.settingsFindUnique.mockResolvedValue({
+      openingBalance: '100000',
+      openingBalanceCurrency: 'HUF',
+      openingBalanceMonth: '2026-08',
+    })
+    mocks.queryRaw.mockResolvedValue([group('INCOME', 10_000)])
+
+    const result = await getOpeningBalance('2026-06')
+
+    const lower = lastQuery().values[1] as { strings?: string[] }
+    expect(lower.strings?.join('')).toBe('')
+    expect(result.startingBalance).toBeNull()
+    expect(result.opening).toBe(10_000)
+  })
+
+  it('counts unconvertible groups instead of treating them as zero', async () => {
+    mocks.queryRaw.mockResolvedValue([group('INCOME', 10_000), group('EXPENSE', 999, 'XXX', 3)])
+
+    const result = await getOpeningBalance('2026-09')
+
+    expect(result.opening).toBe(10_000)
+    expect(result.unconvertibleCount).toBe(3)
+  })
+
+  it('yields a null opening when the starting balance itself has no FX path', async () => {
+    mocks.settingsFindUnique.mockResolvedValue({
+      openingBalance: '250',
+      openingBalanceCurrency: 'GBP',
+      openingBalanceMonth: '2026-01',
+    })
+    vi.mocked(toAnchor).mockResolvedValueOnce(null)
+    mocks.queryRaw.mockResolvedValue([group('INCOME', 10_000)])
+
+    const result = await getOpeningBalance('2026-09')
+
+    expect(result.opening).toBeNull()
+    expect(result.carriedFromLedger).toBe(10_000)
+  })
+
+  it('the current-month helper keys off the same UTC month as the KPIs', async () => {
+    await getCurrentMonthOpeningBalance()
+    expect(lastQuery().values[0]).toBe('2026-06-01')
+  })
+
+  it('getBalanceTrend adds each month its own opening, not one opening plus a running sum', async () => {
+    // Every month opens at 100 000 here; only June has rows (+50 000).
+    mocks.queryRaw.mockResolvedValue([group('INCOME', 100_000)])
+    mocks.findMany.mockResolvedValue([
+      { date: new Date('2026-06-10T00:00:00.000Z'), amount: 50_000, currency: 'HUF', fxRate: 1, fxAnchor: 'HUF', type: 'INCOME' },
+    ])
+
+    const trend = await getBalanceTrend(6)
+
+    expect(trend.map(t => t.month)).toEqual(['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'])
+    expect(trend.map(t => t.balance)).toEqual([100_000, 100_000, 100_000, 100_000, 100_000, 150_000])
+    // One opening read per month in the window, bounded by that month's first day.
+    const bounds = mocks.queryRaw.mock.calls.map(c => (c as unknown[])[1])
+    expect(bounds).toEqual(expect.arrayContaining(['2026-01-01', '2026-06-01']))
   })
 })
