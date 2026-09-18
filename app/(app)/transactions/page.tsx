@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic'
 import { Suspense } from 'react';
 import { startOfMonth, endOfMonth, format } from 'date-fns';
 import { prisma } from '@/lib/prisma';
-import { getAnchorCurrency } from '@/lib/aggregations';
+import { getAnchorCurrency, getOpeningBalance } from '@/lib/aggregations';
 import { TransactionsView, type SerializedTx } from '@/components/transactions/TransactionsView';
 import type { SerializedCategory, SerializedRecurringRule } from '@/components/forms/TransactionForm';
 
@@ -93,6 +93,11 @@ export default async function TransactionsPage({
   const monthLabel = format(from, 'MMMM yyyy');
   const currentMonthISO = format(from, 'yyyy-MM');
 
+  // Month-to-month carry-over: the signed net of everything before this month
+  // (plus the Settings starting balance, when one applies). Null only when that
+  // starting balance has no FX path.
+  const opening = await getOpeningBalance(currentMonthISO);
+
   return (
     <Suspense>
       <TransactionsView
@@ -103,6 +108,7 @@ export default async function TransactionsPage({
         monthLabel={monthLabel}
         currentMonthISO={currentMonthISO}
         anchorCurrency={anchorCurrency}
+        openingBalance={opening.opening}
       />
     </Suspense>
   );

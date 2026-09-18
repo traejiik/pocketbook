@@ -47,6 +47,8 @@ interface TransactionsViewProps {
   monthLabel: string;
   currentMonthISO: string;
   anchorCurrency?: string;
+  /** What this month opened with (carry-over), or null when unavailable. */
+  openingBalance?: number | null;
 }
 
 function toHUF(tx: SerializedTx, rates: { USD: number; EUR: number; GBP: number }): number {
@@ -105,6 +107,7 @@ export function TransactionsView({
   monthLabel,
   currentMonthISO,
   anchorCurrency = 'HUF',
+  openingBalance = null,
 }: TransactionsViewProps) {
   const { openEdit } = useTransactionSheet();
   const router = useRouter();
@@ -206,6 +209,17 @@ export function TransactionsView({
   const net = useMemo(
     () => filtered.reduce((sum, t) => sum + toHUF(t, fxRates), 0),
     [filtered, fxRates],
+  );
+
+  // Month-to-month carry-over: the month-end running balance. A property of the
+  // month, not of the filters, so it sums every row rather than `filtered`. Shown
+  // beside Net on the desktop strip only.
+  const balance = useMemo(
+    () =>
+      openingBalance === null
+        ? null
+        : openingBalance + optimisticTxs.reduce((sum, t) => sum + toHUF(t, fxRates), 0),
+    [openingBalance, optimisticTxs, fxRates],
   );
 
   // Mobile/tablet base ledgers ignore the search query (search is a separate overlay);
@@ -476,6 +490,7 @@ export function TransactionsView({
                 onNext={() => navigateMonth('next')}
                 isCurrentMonth={isCurrentMonth}
                 net={net}
+                balance={balance}
                 anchorCurrency={anchorCurrency}
               />
             </div>

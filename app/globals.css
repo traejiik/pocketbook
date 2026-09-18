@@ -87,6 +87,16 @@
   --warning: 38 90% 47%;
   --warning-foreground: 0 0% 100%;
 
+  /* Dashboard Balance hero: gradient stops derived from the income / expense hues. */
+  --balance-a: 150 38% 86%;
+  --balance-b: 160 30% 95%;
+  --balance-glow: 152 50% 60%;
+  --balance-neg-a: 14 70% 89%;
+  --balance-neg-b: 20 45% 96%;
+  --balance-neg-glow: 14 80% 62%;
+  --balance-ink: 160 30% 12%;
+  --balance-sub: 160 12% 32%;
+
   --radius: 0.625rem;
   --shadow-1: 0 1px 2px rgba(20, 22, 28, 0.06);
   --shadow-2: 0 8px 28px rgba(20, 22, 28, 0.14);
@@ -123,6 +133,15 @@
   --neutral: 228 6% 60%;
   --warning: 38 90% 60%;
   --warning-foreground: 24 9% 10%;
+
+  --balance-a: 158 42% 9%;
+  --balance-b: 200 14% 8%;
+  --balance-glow: 150 55% 42%;
+  --balance-neg-a: 12 45% 11%;
+  --balance-neg-b: 228 9% 8%;
+  --balance-neg-glow: 14 75% 50%;
+  --balance-ink: 60 20% 95%;
+  --balance-sub: 150 10% 72%;
 
   --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.35);
   --shadow-2: 0 10px 32px rgba(0, 0, 0, 0.5);
@@ -216,6 +235,27 @@
     background: hsl(var(--card));
     border: 1px solid hsl(var(--border) / 0.5);
     border-radius: 16px;
+  }
+
+  /* Dashboard Balance hero. Tone swaps to the expense hue when the balance is negative. */
+  .balance-hero {
+    --bh-a: var(--balance-a);
+    --bh-b: var(--balance-b);
+    --bh-glow: var(--balance-glow);
+    --bh-tone: var(--income);
+    color: hsl(var(--balance-ink));
+    border: 1px solid hsl(var(--bh-glow) / 0.22);
+    border-radius: 20px;
+    background:
+      radial-gradient(70% 130% at 100% 0%, hsl(var(--bh-glow) / 0.55) 0%, transparent 62%),
+      radial-gradient(60% 90% at 0% 100%, hsl(var(--bh-glow) / 0.14) 0%, transparent 70%),
+      linear-gradient(160deg, hsl(var(--bh-a)) 0%, hsl(var(--bh-b)) 100%);
+  }
+  .balance-hero[data-negative] {
+    --bh-a: var(--balance-neg-a);
+    --bh-b: var(--balance-neg-b);
+    --bh-glow: var(--balance-neg-glow);
+    --bh-tone: var(--expense);
   }
 
   /* Shared renewal/installment badge styling using the warning semantic token. */

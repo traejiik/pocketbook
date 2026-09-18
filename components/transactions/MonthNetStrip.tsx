@@ -12,6 +12,11 @@ interface MonthNetStripProps {
   isCurrentMonth: boolean;
   /** Net total in the anchor currency (signed). */
   net: number;
+  /**
+   * Month-end running balance (carry-over), independent of the active filters.
+   * Omitted/null hides the segment; only the desktop strip passes it, and it shows from 1440px.
+   */
+  balance?: number | null;
   anchorCurrency: string;
   /** `sm` = 36px desktop strip; `md` = 40px tablet/mobile strip. */
   size?: 'sm' | 'md';
@@ -28,6 +33,7 @@ export function MonthNetStrip({
   onNext,
   isCurrentMonth,
   net,
+  balance = null,
   anchorCurrency,
   size = 'sm',
   fullWidth = false,
@@ -69,6 +75,18 @@ export function MonthNetStrip({
           {fmtAnchor(net, anchorCurrency, { signed: true })}
         </span>
       </span>
+
+      {/* Beside the 224px sidebar and the inline search box that opens at `xl`, the
+          desktop toolbar only fits a third segment from ~1433px, so the balance
+          appears from 1440px. Below that it would push the strip off-screen. */}
+      {balance !== null && (
+        <span className="hidden min-[1440px]:inline mono text-[11.5px] text-muted-foreground pl-3 pr-1 border-l border-border/50 ml-1">
+          Balance:{' '}
+          <span className={cn('font-medium', balance < 0 ? 'text-expense' : 'text-foreground')}>
+            {fmtAnchor(balance, anchorCurrency)}
+          </span>
+        </span>
+      )}
     </div>
   );
 }

@@ -12,11 +12,14 @@ import {
   getMonthlyTrend,
   getLastAiInsight,
   getAiInsightCount,
+  getCurrentMonthOpeningBalance,
+  getBalanceTrend,
 } from '@/lib/aggregations'
 import { prisma } from '@/lib/prisma'
 import { pingOllama } from '@/lib/ollama'
 import { fmtAnchor, fmtCur, fmtDate } from '@/lib/format'
 import { KpiBig } from '@/components/finance/KpiBig'
+import { BalanceHero } from '@/components/finance/BalanceHero'
 import { GaugeMeter } from '@/components/finance/GaugeMeter'
 import { CalmCard, CalmCardHead } from '@/components/finance/CalmCard'
 import { CategoryAvatar } from '@/components/finance/CategoryAvatar'
@@ -28,9 +31,11 @@ export default async function DashboardPage() {
   const settingsPromise = prisma.appSettings.findUnique({ where: { id: 'singleton' } })
   const pingPromise = settingsPromise.then(s => pingOllama(s?.ollamaUrl ?? 'http://ollama:11434'))
 
-  const [kpis, lastKpis, byCategory, lastMonthByCategory, upcoming, recentTx, trend6mo, lastInsight, insightCount, settings, ollamaReachable] = await Promise.all([
+  const [kpis, lastKpis, opening, balanceTrend, byCategory, lastMonthByCategory, upcoming, recentTx, trend6mo, lastInsight, insightCount, settings, ollamaReachable] = await Promise.all([
     getCurrentMonthKpis(),
     getLastMonthKpis(),
+    getCurrentMonthOpeningBalance(),
+    getBalanceTrend(6),
     getExpensesByCategory(),
     getLastMonthExpensesByCategory(),
     getUpcomingRenewals(30),
@@ -60,6 +65,14 @@ export default async function DashboardPage() {
     return d.up ? 'Increased from last month' : 'Decreased from last month';
   }
 
+  // Month-to-month carry-over: the running balance is this month's opening plus its
+  // net, shown in the Balance hero above the KPI strip. Net itself stays the month's
+  // own figure. Null (hero hidden) when the Settings starting balance has no FX path.
+  const balance = opening.opening === null ? null : opening.opening + kpis.net
+  // Unconvertible rows in either read are excluded from the figures, so one notice
+  // covers both counts.
+  const excludedCount = kpis.unconvertibleCount + opening.unconvertibleCount
+
   const now = new Date()
   const monthLabel = now.toLocaleDateString('en-GB', { month: 'short' })
   const monthLong = now.toLocaleDateString('en-GB', { month: 'long' })
@@ -72,18 +85,24 @@ export default async function DashboardPage() {
   return (
     <div className="px-4 lg:px-7 pb-9 pt-1 space-y-4 max-w-[1320px] mx-auto">
       {/* Unconvertible-currency notice — totals exclude rows with no FX path */}
-      {kpis.unconvertibleCount > 0 && (
+      {excludedCount > 0 && (
         <div className="calm-card px-4 py-3 text-[12.5px] flex items-start gap-2.5">
           <TriangleAlert className="w-4 h-4 shrink-0 text-expense mt-0.5" />
           <span className="text-muted-foreground">
             <span className="text-foreground font-medium">
-              {kpis.unconvertibleCount} transaction{kpis.unconvertibleCount === 1 ? '' : 's'} this month
+              {excludedCount} transaction{excludedCount === 1 ? '' : 's'}
+              {opening.unconvertibleCount > 0 ? ' in the ledger' : ' this month'}
               {' '}couldn&apos;t be converted to {anchor}.
             </span>{' '}
-            The totals below exclude {kpis.unconvertibleCount === 1 ? 'it' : 'them'} — add a rate in{' '}
+            The totals below exclude {excludedCount === 1 ? 'it' : 'them'} — add a rate in{' '}
             <Link href="/settings#currencies" className="text-foreground underline underline-offset-2">Settings</Link>.
           </span>
         </div>
+      )}
+
+      {/* Balance hero — month-to-month carry-over (an addition to the v5 dashboard) */}
+      {balance !== null && (
+        <BalanceHero balance={balance} monthNet={kpis.net} trend={balanceTrend} currency={anchor} />
       )}
 
       {/* KPI row — 2-up on mobile, four-up from tablet (matches v5 tablet prototype) */}
