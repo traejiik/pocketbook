@@ -238,3 +238,29 @@ describe('the story prompt', () => {
     expect(sparse).toContain('There is very little data for this month')
   })
 })
+
+describe('month carry-over in the prompt', () => {
+  const withBalance: InsightSnapshot = { ...august, balance: { carriedIn: 330_000, closing: 710_000 } }
+
+  it('adds one running-balance line to both prompt shapes, framed as brought forward', () => {
+    for (const variants of [{}, { story: false }]) {
+      const { prompt } = buildPromptFromSnapshot(withBalance, variants)
+      const line = prompt.split('\n').filter((l) => l.includes('Running balance'))
+      expect(line).toHaveLength(1)
+      expect(line[0]).toContain('330 000')
+      expect(line[0]).toContain('710 000')
+      expect(line[0]).toContain("not this month's income")
+    }
+  })
+
+  it('lets a note quote the balance without tripping the figure checker', () => {
+    const { prompt } = buildPromptFromSnapshot(withBalance)
+    expect(findInventedFigures('You closed the month at 710 000 Ft.', prompt)).toEqual([])
+  })
+
+  it('leaves the prompt untouched when the balance is unavailable', () => {
+    expect(buildPromptFromSnapshot({ ...august, balance: null }).prompt).toBe(
+      buildPromptFromSnapshot(august).prompt,
+    )
+  })
+})

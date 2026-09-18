@@ -10,6 +10,7 @@ import {
   getUpcomingRenewals,
   getRecurringRules,
   getRecurringBudgetSummary,
+  getOpeningBalance,
   type RecurringBudgetSummary,
 } from './aggregations'
 
@@ -54,6 +55,13 @@ export type InsightSnapshot = {
   installments: { name: string; paid: number; total: number; endsOn: string | null; monthlyAmount: number | null }[]
   committed: RecurringBudgetSummary
   priorNotes: { monthName: string; opening: string }[]
+  /**
+   * Month-to-month carry-over: what the month opened with and where it closed
+   * (`carriedIn + kpis.net`). Absent/null when the Settings starting balance has
+   * no FX path — no line beats a wrong one. Optional so fixtures predating the
+   * carry-over keep rendering their prompts unchanged.
+   */
+  balance?: { carriedIn: number; closing: number } | null
   verdict: MonthVerdict
 }
 
@@ -109,6 +117,7 @@ export async function collectInsightSnapshot(monthKey: string): Promise<InsightS
     rules,
     committed,
     priorRows,
+    openingBalance,
   ] = await Promise.all([
     getAnchorCurrency(),
     getMonthKpis(monthKey),
@@ -128,6 +137,7 @@ export async function collectInsightSnapshot(monthKey: string): Promise<InsightS
       take: 3,
       select: { monthCovered: true, content: true },
     }),
+    getOpeningBalance(monthKey),
   ])
 
   const kpis: InsightKpis = {
@@ -200,6 +210,13 @@ export async function collectInsightSnapshot(monthKey: string): Promise<InsightS
       monthName: monthNameOf(r.monthCovered),
       opening: openingOf(r.content),
     })),
+    balance:
+      openingBalance.opening === null
+        ? null
+        : {
+            carriedIn: Math.round(openingBalance.opening),
+            closing: Math.round(openingBalance.opening + rawKpis.net),
+          },
   }
 
   return { ...snapshot, verdict: classifyMonth(snapshot) }
