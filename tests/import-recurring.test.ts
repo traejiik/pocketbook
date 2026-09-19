@@ -59,7 +59,7 @@ describe('classifyRecurringRows', () => {
       'Rent,210000,HUF,MONTHLY,2026-10-05,EXPENSE,Housing,,',
       'netflix,4990,HUF,MONTHLY,2026-10-01,EXPENSE,Housing,,',
       'Bonus,100000,HUF,ANNUAL,2026-12-01,INCOME,Gifts,,',
-    )), client, TODAY)
+    )), undefined, TODAY)
 
     expect(rows[0]).toMatchObject({ status: 'new', rule: { categoryId: 'housing' } })
     // Monthly rules log the last four occurrences on creation (lib/recurring-backfill.ts).
