@@ -1,8 +1,10 @@
 name: Create release on version change
 
+# Two channels share this workflow: `main` cuts stable releases and `beta` cuts
+# pre-releases. The channel guard below keeps each branch's versions honest.
 on:
   push:
-    branches: [main]
+    branches: [main, beta]
   workflow_dispatch:
     inputs:
       tag:
@@ -51,6 +53,20 @@ jobs:
             echo "prerelease=false" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Enforce release channel
+        if: github.event_name == 'push'
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          BRANCH="${{ github.ref_name }}"
+          if [[ "$BRANCH" == "beta" && ! "$VERSION" =~ -(beta|rc)\. ]]; then
+            echo "::error::beta only releases pre-release versions (-beta.N / -rc.N); package.json is $VERSION."
+            exit 1
+          fi
+          if [[ "$BRANCH" == "main" && "$VERSION" == *-beta* ]]; then
+            echo "::error::main cannot release a beta version ($VERSION); set the final version before merging beta into main."
+            exit 1
+          fi
+
       - name: Create release / decide whether to build
         id: guard
         env:
@@ -68,7 +84,7 @@ jobs:
             exit 0
           fi
 
-          # Push to main: create the release if the tag does not exist yet.
+          # Push to main/beta: create the release if the tag does not exist yet.
           if gh release view "$TAG" >/dev/null 2>&1; then
             echo "Release $TAG already exists — nothing to do."
             echo "build=false" >> "$GITHUB_OUTPUT"
@@ -114,6 +130,7 @@ jobs:
             type=raw,value=${{ needs.release.outputs.version }}
             type=raw,value=${{ needs.release.outputs.major_minor }},enable=${{ needs.release.outputs.prerelease == 'false' }}
             type=raw,value=latest,enable=${{ needs.release.outputs.prerelease == 'false' }}
+            type=raw,value=beta,enable=${{ contains(needs.release.outputs.version, '-beta') }}
 
       - name: Build and push
         uses: docker/build-push-action@v7

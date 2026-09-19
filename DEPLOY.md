@@ -72,6 +72,10 @@ docker compose logs -f pocketbook-web
 
 `--remove-orphans` removes the former scheduler and backup sidecar containers while preserving the host-mounted database, data, and backup directories.
 
+### Release channels
+
+`PB_IMAGE_TAG` selects the image (default `latest`, the newest stable release). Set `PB_IMAGE_TAG=beta` to follow the pre-release channel cut from the `beta` branch, or pin an exact version such as `3.0.0-beta.1`. Betas can carry new migrations: take a backup (`Settings → Backups`, or the restore drill below) before switching, because returning to a stable image after a beta migration means restoring that backup, not just changing the tag.
+
 On each boot, `pocketbook-web` waits for PostgreSQL, runs `prisma migrate deploy`, the idempotent seed, and the FX-lock backfill. It then starts the supervisor. If Next.js exits, the worker exits, or worker heartbeats stop, the supervisor terminates its sibling and exits so Docker restarts the service.
 
 After one successful boot, missing environment values can be filled from `/data/.env-cache`; live environment values always win. Discord is never read from or copied into this cache.
