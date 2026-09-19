@@ -71,7 +71,11 @@ export function AppShell({
   function handleFormSubmit(input: TxInput, _category: SerializedCategory) {
     startTransition(async () => {
       try {
-        await upsertTransaction(input);
+        const result = await upsertTransaction(input);
+        if ('error' in result) {
+          notify.error(result.error);
+          return;
+        }
         notify.success(`Added ${input.description}`);
         close();
       } catch {

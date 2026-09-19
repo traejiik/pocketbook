@@ -42,7 +42,7 @@ Numbers lead. Surfaces recede. A single calm blue is reserved for what matters.
 - **🔒 Yours alone** — one user, seeded from your env file. No multi-tenant logic, no sign-up flow, no telemetry. Self-hosted with Docker Compose.
 - **🧠 Private AI insights** — monthly commentary streamed token-by-token from your own Ollama instance. It never calls out to a third party, and the app works fine if the model is offline.
 - **💱 Multi-currency, done right** — HUF-first with USD/EUR/GBP support, ECB rates auto-synced daily, triangulated conversion, and honest handling of amounts it can't convert.
-- **🔁 Recurring & installments** — subscriptions, rent, and installment plans tracked with idempotent auto-logging and reconciled counters.
+- **🔁 Recurring & installments** — subscriptions, rent, and installment plans tracked with idempotent auto-logging and reconciled counters. Paid a bill early? Log it early and the rule skips that due date instead of logging it twice.
 - **↪️ Month carry-over** — each month opens with the previous months' net, derived from the ledger rather than posted as a transaction, so editing history never leaves a stale balance. An optional opening balance in Settings anchors the running total to what you actually held when you started logging, and any category can be left out of the balance (transfers, reimbursements) without changing its Net.
 - **📅 Renewal radar** — a cash-out timeline that tells you what's leaving your account in the next 30/60/90 days.
 - **⚡ Fast and honest UI** — optimistic writes, skeletons instead of spinners, tabular numerics on every figure, dark-mode-first, and a real `⌘K` search.
@@ -238,6 +238,8 @@ Phone,15000,HUF,MONTHLY,2026-10-10,EXPENSE,Phone,2,12
 ```
 
 `cycle` is `MONTHLY` or `ANNUAL` (`monthly`, `yearly` and similar are accepted), `amount` is one charge (sign ignored), `kind` may also be headed `type`, and a row with any `installment_*` column is an installment plan (`installment_ends_on` optional). A rule whose name matches an active rule is skipped. Creating a rule logs its recent past charges exactly like the Recurring page does (the last four for a monthly rule, the paid installments for a plan), so the review lists each rule's catch-up and the total it adds to your ledger before you confirm. Catch-up charges lock today's FX rate.
+
+A CSV `recurring_rule_name` is a plain link: it never settles an occurrence or moves a rule's next due date. To pay a bill before it is due, use **Log recurring early** in the transaction form instead.
 
 **Export (Transactions → Export CSV).** Download this month (the month you are viewing), a date range, or all time. The export uses the import columns plus `category_id`, `fx_rate` and `fx_anchor`, so it opens in a spreadsheet and re-imports entirely as duplicates.
 
