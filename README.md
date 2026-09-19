@@ -220,7 +220,7 @@ date,description,amount,currency,type,category_id,recurring_rule_name
 ```
 
 - `date` — ISO 8601 (`YYYY-MM-DD`)
-- `amount` — signed; negative = expense, positive = income/savings
+- `amount` — either sign works; the stored sign always comes from `type` (income positive, expense and savings negative)
 - `currency` — uppercase 3-letter code (`HUF`, `USD`, `EUR`, `GBP`)
 - `type` — `INCOME`, `EXPENSE`, or `SAVINGS`
 - `category_id` — must match an existing category `id` from the seed

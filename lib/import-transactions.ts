@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { prisma } from './prisma'
 import { lockRate, type FxLock } from './fx'
+import { signedAmount } from './recurring-dates'
 
 const SUPPORTED_CURRENCIES = ['HUF', 'USD', 'EUR', 'GBP'] as const
 
@@ -50,7 +51,11 @@ export function parseTransactionCsv(csv: string): ImportedRow[] {
     rows.push({
       date: parsed.date,
       description: parsed.description,
-      amount: parsed.amount,
+      // The sign comes from `type`, never from the file: income is stored positive,
+      // expense and savings negative, as every other write path does. A CSV that
+      // writes expenses as positive numbers used to land them positive, which the
+      // Transactions strip then summed as income.
+      amount: signedAmount(Math.abs(parsed.amount), parsed.type),
       currency: parsed.currency,
       type: parsed.type,
       categoryId: parsed.category_id,
