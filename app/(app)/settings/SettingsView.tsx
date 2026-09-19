@@ -425,16 +425,11 @@ export function SettingsView({
 
           {/* Opening balance — starting point for month-to-month carry-over */}
           <div className="calm-card p-6 mb-3">
-            <div className="flex items-baseline justify-between gap-3 mb-4">
-              <div>
-                <div className="text-[13px] font-semibold tracking-tight">Opening balance</div>
-                <div className="text-[11.5px] text-muted-foreground mt-0.5">
-                  The balance you held at the start of the effective month. Each month then carries the previous month&apos;s net forward; earlier transactions are not counted again.
-                </div>
+            <div className="mb-4">
+              <div className="text-[13px] font-semibold tracking-tight">Opening balance</div>
+              <div className="text-[11.5px] text-muted-foreground mt-0.5">
+                The balance you held at the start of the effective month. Each month then carries the previous month&apos;s net forward; earlier transactions are not counted again.
               </div>
-              {!savedOpening && (
-                <span className="text-[10.5px] mono uppercase tracking-wider text-muted-foreground whitespace-nowrap">Not set</span>
-              )}
             </div>
             {/* Same amount/currency/date composition as the transaction sheet */}
             <div className="grid grid-cols-[1fr_88px] sm:grid-cols-[3fr_1fr_1fr] gap-x-2 gap-y-4 sm:gap-x-3">
