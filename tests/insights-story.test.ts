@@ -225,11 +225,17 @@ describe('the story prompt', () => {
     expect(deficit).toContain('expenses exceeded income by 40 000 Ft')
   })
 
-  it('says plainly when nothing cleared the floor', () => {
+  it('says plainly when nothing cleared the floor, naming the small moves instead of the floor', () => {
     const flat = august.categories.map((c) => ({ ...c, prevValue: c.value - 1_000 }))
     const prompt = buildPromptFromSnapshot({ ...august, categories: flat }, { story: true }).prompt
-    expect(prompt).toContain('No category changed by more than 23 424 Ft (5% of this month')
+    expect(prompt).toContain('Nothing moved much: no category changed enough to single out.')
+    expect(prompt).toContain('up 1000 Ft')
+    // July 2026's model read the floor figure as "Housing increased by 14 485 Ft".
+    expect(prompt).not.toContain('23 424 Ft')
     expect(prompt).toContain('Nothing needs changing')
+    // The lean control keeps the v2.19.2 wording.
+    const lean = buildPromptFromSnapshot({ ...august, categories: flat }, { leanStory: true }).prompt
+    expect(lean).toContain('No category changed by more than 23 424 Ft (5% of this month')
   })
 
   it('falls back to the full prompt for a sparse month', () => {
@@ -294,11 +300,42 @@ describe('advice in a month that overspent or nearly did', () => {
     expect(pickStory(s)!.action).toMatchObject({ kind: 'close-gap', renewal: { name: 'Gadget plan', amount: 3_990, daysAway: 4 } })
   })
 
-  it('falls back to the largest category when nothing moved enough', () => {
-    const flat = deficit.categories.map((c) => ({ ...c, prevValue: c.value - 1_000 }))
-    const { headline, action } = pickStory({ ...deficit, categories: flat })!
-    expect(headline).toBeNull()
-    expect(action).toMatchObject({ kind: 'close-gap', category: 'Housing', purchase: null })
+  describe('when nothing moved enough to headline', () => {
+    // July 2026 on the live ledger: every change under the floor, rent flat. The
+    // first v2.20.0 brief told it to "bring Housing back toward last month's
+    // 150 000 Ft; it was 150 000 Ft this month".
+    const byName = (rises: Record<string, number>) =>
+      deficit.categories.map((c) => ({ ...c, prevValue: c.value - (rises[c.name] ?? 0) }))
+
+    it('closes the gap in the day-to-day category that rose most, never a fixed cost', () => {
+      const s = { ...deficit, categories: byName({ Housing: 9_000, 'Food & Groceries': 6_000, Fitness: -3_000 }) }
+      const { headline, action } = pickStory(s)!
+      expect(headline).toBeNull()
+      expect(action).toMatchObject({ kind: 'close-gap', category: 'Food & Groceries', rose: true })
+      const prompt = buildPromptFromSnapshot(s).prompt
+      expect(prompt).toContain("Recommend bringing Food & Groceries back toward last month's")
+      expect(prompt).not.toContain('bringing Housing')
+    })
+
+    it('trims the largest day-to-day category when none rose', () => {
+      const s = { ...deficit, categories: byName({}) }
+      const { action } = pickStory(s)!
+      expect(action).toMatchObject({ kind: 'close-gap', category: 'Other Expense', rose: false })
+      const prompt = buildPromptFromSnapshot(s).prompt
+      expect(prompt).toContain('Recommend trimming Other Expense, the largest day-to-day category at 120 734 Ft this month, by 2203 Ft next month.')
+      expect(prompt).not.toContain('back toward')
+      expect(prompt).toContain('Nothing moved: every category was the same as last month.')
+    })
+
+    it('advises on day-to-day spending as a whole when every category is a fixed cost', () => {
+      const s = {
+        ...deficit,
+        categories: byName({}),
+        categoryDetail: deficit.categoryDetail.map((d) => ({ ...d, largest: { ...d.largest, recurring: true } })),
+      }
+      expect(pickStory(s)!.action).toMatchObject({ kind: 'close-gap', category: null })
+      expect(buildPromptFromSnapshot(s).prompt).toContain('Recommend trimming 2203 Ft from day-to-day spending next month, not from fixed costs.')
+    })
   })
 
   it('advises on the margin in a tight month', () => {
