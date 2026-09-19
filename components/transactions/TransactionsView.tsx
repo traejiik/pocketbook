@@ -17,6 +17,7 @@ import { MonthNetStrip } from '@/components/transactions/MonthNetStrip';
 import { MobileTransactions, TransactionSearchFrame } from '@/components/transactions/MobileTransactions';
 import { PaginationControls } from '@/components/ui/pagination';
 import { TransactionForm, type SerializedCategory, type SerializedRecurringRule } from '@/components/forms/TransactionForm';
+import { toHUF } from '@/lib/transaction-anchor';
 
 export interface SerializedTx {
   id: string;
@@ -49,19 +50,6 @@ interface TransactionsViewProps {
   anchorCurrency?: string;
   /** What this month opened with (carry-over), or null when unavailable. */
   openingBalance?: number | null;
-}
-
-function toHUF(tx: SerializedTx, rates: { USD: number; EUR: number; GBP: number }): number {
-  // Persisted rows carry a frozen anchor value; use it so the column never drifts.
-  // Optimistic rows (no amountAnchor yet) fall back to the current live rate, which
-  // is what they'll freeze to on save anyway.
-  if (tx.amountAnchor != null) return tx.amountAnchor;
-  const rate =
-    tx.currency === 'USD' ? rates.USD
-    : tx.currency === 'EUR' ? rates.EUR
-    : tx.currency === 'GBP' ? rates.GBP
-    : 1;
-  return tx.amount * rate;
 }
 
 // Pre-sorted (newest-first) list → ordered date groups.

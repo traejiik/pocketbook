@@ -24,7 +24,7 @@ describe('parseTransactionCsv', () => {
     expect(() => parseTransactionCsv(csv)).toThrow()
   })
 
-  it('preserves the sign of the amount as declared', () => {
+  it('keeps income positive', () => {
     const csv = [
       'date,description,amount,currency,type,category_id',
       '2026-02-01,Salary,500000,HUF,INCOME,salary',
@@ -32,5 +32,19 @@ describe('parseTransactionCsv', () => {
     const [row] = parseTransactionCsv(csv)
     expect(row.amount).toBe(500000)
     expect(row.type).toBe('INCOME')
+  })
+
+  it('takes the sign from the type, whichever sign the file uses', () => {
+    // Stored like every other write path: income positive, expense and savings
+    // negative. A file that writes expenses as positive numbers used to land them
+    // positive, and the Transactions strip then summed them as income.
+    const csv = [
+      'date,description,amount,currency,type,category_id',
+      '2026-05-06,Spar,8900,HUF,EXPENSE,food',
+      '2026-05-07,Spar,-8900,HUF,EXPENSE,food',
+      '2026-05-08,Pot,20000,HUF,SAVINGS,savings',
+      '2026-05-09,Refund,-1500,HUF,INCOME,salary',
+    ].join('\n')
+    expect(parseTransactionCsv(csv).map(r => r.amount)).toEqual([-8900, -8900, -20000, 1500])
   })
 })
