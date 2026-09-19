@@ -57,7 +57,6 @@ export function parseRecurringRows(csv: string): ParsedRecurringRow[] {
   const { headers, records } = parseCsvRecords(csv)
   const missing = ['name', 'amount', 'currency', 'cycle', 'next_due'].filter((h) => !headers.includes(h))
   if (!headers.includes('kind') && !headers.includes('type')) missing.push('kind')
-  if (!headers.includes('category_id') && !headers.includes('category')) missing.push('category or category_id')
   if (records.length > 0 && missing.length > 0) {
     return [{ line: 1, value: null, errors: [`Missing column${missing.length === 1 ? '' : 's'}: ${missing.join(', ')}`] }]
   }
@@ -75,7 +74,6 @@ export function parseRecurringRows(csv: string): ParsedRecurringRow[] {
     if (!isRealDate(v.next_due)) errors.push(`Invalid next_due "${v.next_due}" (expected YYYY-MM-DD)`)
     const kind = (v.kind || v.type || '').toUpperCase()
     if (!(KINDS as readonly string[]).includes(kind)) errors.push(`Invalid kind "${v.kind || v.type}" (expected INCOME, EXPENSE or SAVINGS)`)
-    if (!v.category_id && !v.category) errors.push('Category is required')
 
     const installmentPaid = optionalInt(v.installment_paid ?? '', 'installment_paid', 0, errors)
     const installmentTotal = optionalInt(v.installment_total ?? '', 'installment_total', 1, errors)
@@ -112,6 +110,8 @@ export type RecurringPreviewRow = {
   messages: string[]
   /** The rule as it would be created (null for error rows); `categoryId` null until one is picked. */
   rule: (Omit<RecurringRuleFields, 'id' | 'categoryId'> & { categoryId: string | null }) | null
+  /** A category name the file carried that matched nothing, so the review can offer to create it. */
+  unmatchedCategory: string | null
   /** Charges creating the rule would log now, and the next due date it would be left with. */
   backfill: { count: number; from: string | null; to: string | null; nextDue: string } | null
 }
@@ -134,11 +134,12 @@ export async function classifyRecurringRows(
   const seen = new Set<string>()
 
   return parsed.map(({ line, value, errors }): RecurringPreviewRow => {
-    if (!value) return { line, status: 'error', messages: errors, rule: null, backfill: null }
+    if (!value) return { line, status: 'error', messages: errors, rule: null, unmatchedCategory: null, backfill: null }
 
     const { categoryId: fileCategoryId, categoryName, ...fields } = value
     const messages: string[] = []
     let categoryId: string | null = null
+    let unmatchedCategory: string | null = null
     if (fileCategoryId) {
       const cat = catById.get(fileCategoryId)
       if (!cat) messages.push(`Category id "${fileCategoryId}" not found — pick one`)
@@ -147,7 +148,12 @@ export async function classifyRecurringRows(
     } else if (categoryName) {
       const cat = catByName.get(`${value.kind}|${categoryName.trim().toLowerCase()}`)
       if (cat) categoryId = cat.id
-      else messages.push(`No ${value.kind.toLowerCase()} category named "${categoryName}" — pick one`)
+      else {
+        unmatchedCategory = categoryName
+        messages.push(`No ${value.kind.toLowerCase()} category named "${categoryName}" — pick one or create it`)
+      }
+    } else {
+      messages.push('No category in the file — pick one')
     }
 
     const key = value.name.trim().toLowerCase()
@@ -167,6 +173,7 @@ export async function classifyRecurringRows(
       status,
       messages,
       rule: { ...fields, categoryId },
+      unmatchedCategory,
       backfill: {
         count: plan.transactions.length,
         from: plan.transactions[0]?.date ?? null,

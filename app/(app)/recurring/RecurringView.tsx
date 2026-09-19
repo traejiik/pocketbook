@@ -585,15 +585,6 @@ export function RecurringView({ rules, archivedRules, categories, budget, anchor
         </>
       )}
 
-      <button
-        type="button"
-        onClick={openNew}
-        className="md:hidden w-full inline-flex items-center justify-center gap-2 h-11 rounded-[12px] text-[13px] font-medium text-muted-foreground bg-card border border-border/60 active:bg-accent/60 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-      >
-        <Plus className="w-4 h-4" />
-        New rule
-      </button>
-
       <PaginationControls page={listPage} totalPages={listTotalPages} onChange={setMobilePage} className="md:hidden mt-3" />
 
       {/* Archived rules — paused/removed (restorable) and completed installments (terminal) */}

@@ -67,8 +67,14 @@ describe('parseTransactionRows', () => {
 
   it('flags a file missing required columns once', () => {
     expect(parseTransactionRows('date,amount\n2026-01-01,5')).toEqual([
-      { line: 1, value: null, errors: ['Missing columns: description, currency, type, category or category_id'] },
+      { line: 1, value: null, errors: ['Missing columns: description, currency, type'] },
     ])
+  })
+
+  it('accepts a file with no category column at all — the review picks one', () => {
+    const [row] = parseTransactionRows('date,description,amount,currency,type\n2026-03-01,Shop,10,HUF,EXPENSE')
+    expect(row.errors).toEqual([])
+    expect(row.value).toMatchObject({ description: 'Shop', categoryId: undefined, categoryName: undefined })
   })
 })
 
@@ -82,6 +88,19 @@ describe('classifyImportRows', () => {
     expect(rows.map((r) => r.categoryId)).toEqual(['food', 'salary', null])
     expect(rows[2].status).toBe('new')
     expect(rows[2].messages[0]).toMatch(/No income category named "Groceries"/)
+  })
+
+  it('asks for a category when the file gives none, and offers to create an unknown one', async () => {
+    const rows = await classifyImportRows(parseTransactionRows([
+      'date,description,amount,currency,type,category',
+      '2026-03-01,No category,10,HUF,EXPENSE,',
+      '2026-03-02,Coffee,10,HUF,EXPENSE,Dining',
+    ].join('\n')))
+
+    expect(rows[0]).toMatchObject({ status: 'new', categoryId: null, unmatchedCategory: null })
+    expect(rows[0].messages).toEqual(['No category in the file — pick one'])
+    expect(rows[1]).toMatchObject({ status: 'new', categoryId: null, unmatchedCategory: 'Dining' })
+    expect(rows[1].messages[0]).toBe('No expense category named "Dining" — pick one or create it')
   })
 
   it('marks rows already in the ledger and repeats within the file as duplicates', async () => {

@@ -223,7 +223,7 @@ date,description,amount,currency,type,category,recurring_rule_name
 - `amount` — either sign works; the stored sign always comes from `type` (income positive, expense and savings negative)
 - `currency` — `HUF`, `USD`, `EUR` or `GBP` (case-insensitive)
 - `type` — `INCOME`, `EXPENSE`, or `SAVINGS`
-- `category` — a category **name** within that type (case-insensitive), or `category_id` with the exact id
+- `category` — a category **name** within that type (case-insensitive), or `category_id` with the exact id. Optional: a blank value, or no category column at all, simply leaves the picker empty in the review. A name that matches nothing is highlighted with a **Create** button beside it, which adds the category (a palette colour you can change later on the Categories page) and assigns it to every row in the file that used that name.
 - `recurring_rule_name` — optional; links the row to a rule by name (an unknown name is flagged, not silently dropped). A plain link never moves the rule's next due date.
 - Quoted fields, commas inside quotes, CRLF endings and Excel's UTF-8 BOM are all handled. Extra columns are ignored. Files are capped at 2 MB / 5 000 rows.
 
@@ -241,7 +241,7 @@ Phone,15000,HUF,MONTHLY,2026-10-10,EXPENSE,Phone,2,12
 
 A CSV `recurring_rule_name` is a plain link: it never settles an occurrence or moves a rule's next due date. To pay a bill before it is due, use **Log recurring early** in the transaction form instead.
 
-**Export (Transactions → Export CSV).** On tablet and desktop the button is in the header; on phones it sits under the transaction list. Download this month (the month you are viewing), a date range, or all time. The export uses the import columns plus `category_id`, `fx_rate` and `fx_anchor`, so it opens in a spreadsheet and re-imports entirely as duplicates.
+**Export (Transactions → Export CSV).** On tablet and desktop the button is in the header; on phones it is a full-width muted button under the transaction list. Download this month (the month you are viewing), a date range, or all time. The export uses the import columns plus `category_id`, `fx_rate` and `fx_anchor`, so it opens in a spreadsheet and re-imports entirely as duplicates.
 
 **Bootstrap.** A file at `seed/transactions.csv` is imported automatically by the seed on first boot (every new row with a resolved category; the rest are logged). For ad-hoc imports from the shell: `pnpm tsx scripts/csv-import.ts`.
 

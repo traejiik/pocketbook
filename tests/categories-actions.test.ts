@@ -5,6 +5,7 @@ const revalidatePathMock = vi.fn()
 const revalidateTagMock = vi.fn()
 const categoryCreate = vi.fn()
 const categoryUpdate = vi.fn()
+const categoryFindFirst = vi.fn()
 
 vi.mock('@/lib/auth', () => ({ auth: authMock }))
 vi.mock('next/cache', () => ({
@@ -12,7 +13,7 @@ vi.mock('next/cache', () => ({
   revalidateTag: revalidateTagMock,
 }))
 vi.mock('@/lib/prisma', () => ({
-  prisma: { category: { create: categoryCreate, update: categoryUpdate } },
+  prisma: { category: { create: categoryCreate, update: categoryUpdate, findFirst: categoryFindFirst } },
 }))
 
 const base = { name: 'Transfers', color: '#8E97A8', kind: 'EXPENSE' as const }
@@ -54,5 +55,34 @@ describe('upsertCategory and the balance flag', () => {
     for (const path of ['/dashboard', '/transactions', '/insights']) {
       expect(revalidatePathMock).toHaveBeenCalledWith(path)
     }
+  })
+})
+
+describe('createCategoryFromImport', () => {
+  it('creates the category with a palette colour and returns it for the review', async () => {
+    const { createCategoryFromImport } = await import('@/server-actions/categories')
+    const { CATEGORY_PALETTE } = await import('@/lib/colors')
+    categoryFindFirst.mockResolvedValue(null)
+    categoryCreate.mockImplementation(async ({ data }: { data: { name: string; color: string; kind: string } }) => ({ id: 'cat-new', ...data }))
+
+    const result = await createCategoryFromImport('Dining', 'EXPENSE')
+
+    expect(result).toMatchObject({ id: 'cat-new', name: 'Dining', kind: 'EXPENSE' })
+    if ('error' in result) throw new Error(result.error)
+    expect(CATEGORY_PALETTE).toContain(result.color)
+    expect(revalidateTagMock).toHaveBeenCalled()
+  })
+
+  it('returns the existing category instead of creating a duplicate', async () => {
+    const { createCategoryFromImport } = await import('@/server-actions/categories')
+    categoryFindFirst.mockResolvedValue({ id: 'cat-old', name: 'Dining', color: '#FF6B6B', kind: 'EXPENSE' })
+
+    expect(await createCategoryFromImport('dining', 'EXPENSE')).toEqual({ id: 'cat-old', name: 'Dining', color: '#FF6B6B', kind: 'EXPENSE' })
+    expect(categoryCreate).not.toHaveBeenCalled()
+  })
+
+  it('rejects an empty name', async () => {
+    const { createCategoryFromImport } = await import('@/server-actions/categories')
+    expect(await createCategoryFromImport('   ', 'EXPENSE')).toEqual({ error: 'That category name is not valid.' })
   })
 })

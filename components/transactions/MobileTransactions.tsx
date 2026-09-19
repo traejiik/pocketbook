@@ -468,9 +468,7 @@ export function MobileTransactions({
 
           {/* Export lives in the desktop/tablet header, which the mobile tier has no
               room for — so it sits quietly at the end of the ledger instead. */}
-          <div className="mt-5 flex justify-center">
-            <ExportTransactionsButton className="inline-flex items-center gap-1.5 h-9 px-4 rounded-[10px] text-[12.5px] font-medium text-muted-foreground active:text-foreground bg-card border border-border/50 transition-colors" />
-          </div>
+          <ExportTransactionsButton className="mt-5 w-full inline-flex items-center justify-center gap-1.5 h-11 rounded-[12px] text-[12.5px] font-medium text-muted-foreground bg-transparent border border-border/50 active:bg-accent/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60" />
         </>
       )}
     />
