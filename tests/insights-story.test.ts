@@ -264,3 +264,87 @@ describe('month carry-over in the prompt', () => {
     )
   })
 })
+
+describe('advice in a month that overspent or nearly did', () => {
+  // July 2026 ran 2203 Ft short, its biggest rise was one purchase, and the note
+  // told the owner to "leave spending as it is".
+  const deficit: InsightSnapshot = {
+    ...august,
+    verdict: 'deficit',
+    kpis: { ...august.kpis, income: 287_505, expense: 289_708, savings: 0, net: -2_203, operatingNet: -2_203, savingsRate: 0 },
+  }
+
+  it('closes the gap instead of leaving a one-off alone', () => {
+    const { action } = pickStory(deficit)!
+    expect(action).toMatchObject({
+      kind: 'close-gap',
+      verdict: 'deficit',
+      gap: 2_203,
+      category: 'Other Expense',
+      purchase: { description: 'AirPods Pro 3', amount: 89_897 },
+    })
+    const prompt = buildPromptFromSnapshot(deficit).prompt
+    expect(prompt).toContain('Expenses ran 2203 Ft over income')
+    expect(prompt).not.toContain('leaving the AirPods Pro 3 purchase')
+    expect(prompt).not.toContain('leaving spending as it is')
+  })
+
+  it('names a renewal due in the category that moved as the lever', () => {
+    const s = { ...deficit, upcoming: [{ name: 'Gadget plan', category: 'Other Expense', daysAway: 4, amount: 3_990 }] }
+    expect(pickStory(s)!.action).toMatchObject({ kind: 'close-gap', renewal: { name: 'Gadget plan', amount: 3_990, daysAway: 4 } })
+  })
+
+  it('falls back to the largest category when nothing moved enough', () => {
+    const flat = deficit.categories.map((c) => ({ ...c, prevValue: c.value - 1_000 }))
+    const { headline, action } = pickStory({ ...deficit, categories: flat })!
+    expect(headline).toBeNull()
+    expect(action).toMatchObject({ kind: 'close-gap', category: 'Housing', purchase: null })
+  })
+
+  it('advises on the margin in a tight month', () => {
+    const tight = { ...august, verdict: 'tight' as const, kpis: { ...august.kpis, operatingNet: 30_000 } }
+    expect(pickStory(tight)!.action).toMatchObject({ kind: 'close-gap', verdict: 'tight', gap: 30_000 })
+    expect(buildPromptFromSnapshot(tight).prompt).toContain('The month kept only 30 000 Ft of its income')
+  })
+
+  it('leaves surplus months on the earlier rules', () => {
+    expect(pickStory(august)!.action.kind).toBe('leave-alone')
+  })
+
+  it('restores the earlier advice for the lean control arm', () => {
+    expect(pickStory(deficit, { gapAction: false })!.action.kind).toBe('leave-alone')
+  })
+})
+
+describe('the context block', () => {
+  const brief = buildPromptFromSnapshot(august).prompt
+
+  it('adds up to three background lines between what moved and the recommendation', () => {
+    const block = brief.slice(brief.indexOf('FOR CONTEXT'), brief.indexOf('WHAT TO RECOMMEND'))
+    expect(brief.indexOf('WHAT MOVED')).toBeLessThan(brief.indexOf('FOR CONTEXT'))
+    expect(block).toContain('Put aside for savings: 50 000 Ft (9% of income).')
+    expect(block).toContain('Six-month average net after savings: 22 207 Ft; this month, after savings: 66 658 Ft.')
+    expect(block).toContain('Fixed monthly commitments: 200 871 Ft')
+    expect(block.trim().split('\n').length - 1).toBeLessThanOrEqual(3)
+  })
+
+  it('never offers the month\'s largest expense, which is usually rent', () => {
+    expect(brief).not.toContain('Largest single expense')
+  })
+
+  it('keeps the note short and the context out of the advice', () => {
+    expect(brief).toContain('Write three short paragraphs.')
+    expect(brief).toContain('do not present them as the cause of what moved or recommend anything from them')
+  })
+
+  it('lets a note quote the context figures without tripping the figure checker', () => {
+    const note = 'You put aside 50 000 Ft, against a six-month average of 22 207 Ft after savings.'
+    expect(findInventedFigures(note, brief)).toEqual([])
+  })
+
+  it('is absent from the lean control arm', () => {
+    const lean = buildPromptFromSnapshot(august, { leanStory: true }).prompt
+    expect(lean).not.toContain('FOR CONTEXT')
+    expect(lean).toContain('Write two or three paragraphs.')
+  })
+})

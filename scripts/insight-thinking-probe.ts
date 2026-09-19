@@ -22,6 +22,7 @@
 //                       [--timeout 1800] [--num-ctx 4096] [--out DIR]
 //                       [--ollama URL] [--model NAME] [--skip-warmup]
 //                       [--abs-deltas] [--no-state-verdict] [--no-prior-openings] [--no-story]
+//                       [--lean-story]
 //   pnpm insights:probe --dump prompt.json           build the prompt only
 //   pnpm insights:probe --prompt prompt.json ...     replay it; no database
 //
@@ -105,6 +106,7 @@ Prompt variants (combine freely, and pair each with a control run):
   --no-state-verdict   restore the old net line that leaves the sign unstated
   --no-prior-openings  drop the do-not-repeat block of recent note openings
   --no-story           restore the full data dump instead of the brief chosen in code
+  --lean-story         restore the v2.19.2 brief (no FOR CONTEXT, old advice rules)
 `;
 
 const { values: args } = parseArgs({
@@ -124,6 +126,7 @@ const { values: args } = parseArgs({
     'no-state-verdict': { type: 'boolean', default: false },
     'no-prior-openings': { type: 'boolean', default: false },
     'no-story': { type: 'boolean', default: false },
+    'lean-story': { type: 'boolean', default: false },
     help: { type: 'boolean', default: false },
   },
 });
@@ -232,12 +235,13 @@ function describeVariants(v: PromptVariants | undefined): string {
     v.stateVerdict === false ? 'no-state-verdict' : null,
     v.priorOpenings === false ? 'no-prior-openings' : null,
     v.story === false ? 'no-story' : null,
+    v.leanStory ? 'lean-story' : null,
   ].filter(Boolean);
   return on.length ? on.join(' + ') : 'default';
 }
 
 const variantFlagsPassed = (a: typeof args): boolean =>
-  Boolean(a['abs-deltas'] || a['no-state-verdict'] || a['no-prior-openings'] || a['no-story']);
+  Boolean(a['abs-deltas'] || a['no-state-verdict'] || a['no-prior-openings'] || a['no-story'] || a['lean-story']);
 
 const secs = (ms: number | undefined): string => (ms === undefined ? '–' : (ms / 1000).toFixed(1));
 const num = (n: number | undefined): string => (n === undefined ? '–' : String(n));
@@ -472,6 +476,7 @@ async function main(): Promise<void> {
     stateVerdict: !args['no-state-verdict'],
     priorOpenings: !args['no-prior-openings'],
     story: !args['no-story'],
+    leanStory: args['lean-story'],
   };
 
   let prisma: { $disconnect(): Promise<void> } | undefined;

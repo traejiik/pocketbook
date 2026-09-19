@@ -128,6 +128,13 @@ export type PromptVariants = {
    * restores the full prompt for control runs; `absoluteDeltas` only affects it.
    */
   story?: boolean
+  /**
+   * Restore the v2.19.2 brief: no FOR CONTEXT block, the old "two or three
+   * paragraphs", and advice chosen without the verdict (so a deficit month can be
+   * told to leave spending alone). Off by default; it exists as the control arm
+   * for probing the fuller brief.
+   */
+  leanStory?: boolean
 }
 
 /**
@@ -171,6 +178,14 @@ const STORY_DIRECTIVES: Record<Exclude<MonthVerdict, 'sparse'>, string> = {
 }
 
 const STORY_RULES = `What moved and the recommendation are the whole note. Use only the figures above: no other amounts, shares or percentages, and none worked out from them. The lines under WHAT MOVED say what changed and, where they say so, which expense was behind it; they do not say why, so offer no cause of your own. Close with the recommendation, in your own words, keeping its figure. The capitalised headings are labels for you: do not repeat them or refer to them. Write two or three paragraphs.`
+
+/**
+ * The fuller brief's rules. What moved and the recommendation still lead; the
+ * FOR CONTEXT lines add a little substance, placed in their own paragraph so they
+ * cannot be read as a cause of what moved, and never turned into a second piece
+ * of advice. July 2026's lean note was three thin sentences.
+ */
+const STORY_RULES_WITH_CONTEXT = `What moved and the recommendation lead the note. Use only the figures above: no other amounts, shares or percentages, and none worked out from them. The lines under WHAT MOVED say what changed and, where they say so, which expense was behind it; they do not say why, so offer no cause of your own. The lines under FOR CONTEXT are background: give them one paragraph between what moved and the recommendation, using two of them at most, and do not present them as the cause of what moved or recommend anything from them. Close with the recommendation, in your own words, keeping its figures. The capitalised headings are labels for you: do not repeat them or refer to them. Write three short paragraphs.`
 
 function storyMoveLine(m: CategoryMove, money: (n: number) => string): string {
   if (m.prevValue === null || m.prevValue === 0) {
@@ -223,7 +238,47 @@ function actionLine(story: Story, money: (n: number) => string): string {
         : `Recommend watching ${a.category} next month: ${money(a.value)} this month against ${money(a.prevValue)} last month, with no single expense to cancel.`
     case 'no-change':
       return `Nothing needs changing. Recommend leaving spending as it is; the largest category was ${a.category} at ${money(a.value)}.`
+    case 'close-gap': {
+      const gap =
+        a.verdict === 'deficit'
+          ? `Expenses ran ${money(a.gap)} over income, so spending needs to come down next month.`
+          : `The month kept only ${money(a.gap)} of its income, so there is little room next month.`
+      if (a.renewal) {
+        return `${gap} ${a.renewal.name} renews in ${a.renewal.daysAway} day(s) for ${money(a.renewal.amount)}. Recommend deciding before then whether it is still worth that, and cancelling or changing it if not.`
+      }
+      if (a.purchase) {
+        return `${gap} The ${a.purchase.description} purchase (${money(a.purchase.amount)}) was a one-off, not a recurring cost. Recommend holding off on other one-off purchases in ${a.category} next month.`
+      }
+      return a.prevValue === null || a.prevValue === 0
+        ? `${gap} Recommend bringing ${a.category} down next month: ${money(a.value)} this month, with nothing in it last month.`
+        : `${gap} Recommend bringing ${a.category} back toward last month's ${money(a.prevValue)}; it was ${money(a.value)} this month.`
+    }
   }
+}
+
+/**
+ * Up to three background lines for the fuller brief, in priority order: savings
+ * (when any, and not already in a strong month's figures), the month against the
+ * six-month average, and fixed commitments. Every figure is data the snapshot
+ * carries; none is derived here beyond the average the full prompt also states.
+ * The month's largest single expense is deliberately left out: it is usually rent,
+ * and rent in the brief is what produced "pay your rent" advice before v2.18.
+ */
+function contextLines(s: InsightSnapshot, money: (n: number) => string, sixMonthAverage: number | null): string[] {
+  const lines: string[] = []
+  const { kpis } = s
+  if (kpis.savings > 0 && s.verdict !== 'strong') {
+    lines.push(`  Put aside for savings: ${money(kpis.savings)} (${kpis.savingsRate}% of income).`)
+  }
+  if (sixMonthAverage !== null) {
+    // "After savings" on both sides: the figures block states income minus
+    // expenses, and a bare "net" beside it invites the model to conflate the two.
+    lines.push(`  Six-month average net after savings: ${money(sixMonthAverage)}; this month, after savings: ${money(kpis.net)}.`)
+  }
+  if (s.committed.monthlyExpenses > 0) {
+    lines.push(`  Fixed monthly commitments: ${money(s.committed.monthlyExpenses)} of this month's ${money(kpis.expense)} in expenses.`)
+  }
+  return lines.slice(0, 3)
 }
 
 function section(title: string, lines: string[], empty: string): string {
@@ -339,7 +394,9 @@ export function buildPromptFromSnapshot(
         .join('\n')}\n`
     : ''
 
-  const story = variants.story !== false && s.verdict !== 'sparse' ? pickStory(s) : null
+  const lean = variants.leanStory === true
+  const story =
+    variants.story !== false && s.verdict !== 'sparse' ? pickStory(s, { gapAction: !lean }) : null
   if (story && s.verdict !== 'sparse') {
     // Only what the frame needs. With all seven lines, two of three probe notes
     // recited them — savings rate, transaction count — and ran to four paragraphs.
@@ -351,6 +408,7 @@ export function buildPromptFromSnapshot(
       ...(s.verdict === 'strong' ? [savingsLine, netLines[1], rateLine] : []),
       ...(balanceLine ? [balanceLine] : []),
     ]
+    const context = lean ? [] : contextLines(s, money, trendNets.length >= 3 ? average : null)
     const brief = `Monthly note for ${s.monthName}. All amounts are in ${s.anchor} and are already formatted — reproduce them exactly as written.
 
 THE MONTH IN FIGURES
@@ -359,13 +417,13 @@ ${storyFigures.join('\n')}
 WHAT MOVED
 ${storyLines(story, s, money).join('\n')}
 
-WHAT TO RECOMMEND
+${context.length ? `FOR CONTEXT\n${context.join('\n')}\n\n` : ''}WHAT TO RECOMMEND
   ${actionLine(story, money)}
 ${caveat}
 HOW TO WRITE THIS MONTH'S NOTE
 ${STORY_DIRECTIVES[s.verdict]}
 
-${STORY_RULES}
+${lean ? STORY_RULES : STORY_RULES_WITH_CONTEXT}
 ${priorNotes}
 Write the note now. Plain paragraphs, no headings, and close with the recommendation. Copy every amount exactly as written above — same digits, same currency, never spelled out in words.`
     return { system: INSIGHT_SYSTEM_PROMPT, prompt: brief }
