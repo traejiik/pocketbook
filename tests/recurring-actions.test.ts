@@ -19,6 +19,9 @@ vi.mock('next/cache', () => ({
   revalidatePath: revalidatePathMock,
   revalidateTag: revalidateTagMock,
 }))
+vi.mock('@/lib/fx', () => ({
+  lockRate: vi.fn(async () => ({ fxRate: 1, fxAnchor: 'HUF' })),
+}))
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     recurringRule: {
@@ -106,6 +109,9 @@ describe('upsertRecurringRule', () => {
       type: 'EXPENSE',
       categoryId: 'cat_rent',
       recurringRuleId: 'rule-1',
+      // Catch-up charges are ordinary transactions, so they freeze the rate too.
+      fxRate: 1,
+      fxAnchor: 'HUF',
     })
     expect(result).toMatchObject({
       ok: true,

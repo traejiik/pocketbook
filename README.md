@@ -229,6 +229,16 @@ date,description,amount,currency,type,category,recurring_rule_name
 
 Duplicates are matched on day, description (case-insensitive), amount magnitude, currency and type.
 
+**Recurring rules (Settings → Import data).** The same review flow imports rules:
+
+```csv
+name,amount,currency,cycle,next_due,kind,category,installment_paid,installment_total
+Rent,210000,HUF,MONTHLY,2026-10-05,EXPENSE,Housing,,
+Phone,15000,HUF,MONTHLY,2026-10-10,EXPENSE,Phone,2,12
+```
+
+`cycle` is `MONTHLY` or `ANNUAL` (`monthly`, `yearly` and similar are accepted), `amount` is one charge (sign ignored), `kind` may also be headed `type`, and a row with any `installment_*` column is an installment plan (`installment_ends_on` optional). A rule whose name matches an active rule is skipped. Creating a rule logs its recent past charges exactly like the Recurring page does (the last four for a monthly rule, the paid installments for a plan), so the review lists each rule's catch-up and the total it adds to your ledger before you confirm. Catch-up charges lock today's FX rate.
+
 **Export (Transactions → Export CSV).** Download this month (the month you are viewing), a date range, or all time. The export uses the import columns plus `category_id`, `fx_rate` and `fx_anchor`, so it opens in a spreadsheet and re-imports entirely as duplicates.
 
 **Bootstrap.** A file at `seed/transactions.csv` is imported automatically by the seed on first boot (every new row with a resolved category; the rest are logged). For ad-hoc imports from the shell: `pnpm tsx scripts/csv-import.ts`.

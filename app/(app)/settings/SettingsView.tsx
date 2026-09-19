@@ -29,7 +29,8 @@ import {
   forceFxSync,
   clearAllData,
 } from '@/server-actions/settings';
-import { previewTransactionImport, type TransactionImportPreview } from '@/server-actions/import';
+import { previewTransactionImport, previewRecurringImport, type TransactionImportPreview, type RecurringImportPreview } from '@/server-actions/import';
+import { RecurringImportReview } from '@/components/import/RecurringImportReview';
 import { CsvImportRow } from '@/components/import/CsvImportRow';
 import { TransactionImportReview } from '@/components/import/TransactionImportReview';
 import type { AuthenticatedNotificationSettings } from '@/lib/notifications/types';
@@ -107,6 +108,23 @@ function ImportSection() {
           preview={previewTransactionImport}
           renderReview={(p, { open, onOpenChange, done }) => (
             <TransactionImportReview
+              open={open}
+              onOpenChange={onOpenChange}
+              filename={p.filename}
+              rows={p.rows}
+              categories={p.categories}
+              onImported={done}
+            />
+          )}
+        />
+        <div className="h-px bg-border/60" />
+        <CsvImportRow<Extract<RecurringImportPreview, { ok: true }>>
+          title="Import recurring rules from CSV"
+          noun="rule"
+          hint={<>Columns: <span className="mono">name, amount, currency, cycle, next_due, kind, category</span> (or <span className="mono">category_id</span>), optional <span className="mono">installment_paid, installment_total, installment_ends_on</span>. The review shows any past charges each rule will log.</>}
+          preview={previewRecurringImport}
+          renderReview={(p, { open, onOpenChange, done }) => (
+            <RecurringImportReview
               open={open}
               onOpenChange={onOpenChange}
               filename={p.filename}

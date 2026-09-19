@@ -11,6 +11,13 @@ import {
   type ImportResult,
   type PreviewRow,
 } from '@/lib/import-transactions'
+import {
+  classifyRecurringRows,
+  commitRecurringRows,
+  parseRecurringRows,
+  type RecurringImportResult,
+  type RecurringPreviewRow,
+} from '@/lib/import-recurring'
 import { logger } from '@/lib/logger'
 
 const log = logger('import')
@@ -67,5 +74,46 @@ export async function commitTransactionImport(rows: unknown[]): Promise<ImportRe
   revalidatePath('/renewals')
   revalidatePath('/recurring')
   revalidatePath('/categories')
+  return result
+}
+
+export type RecurringImportPreview =
+  | { ok: true; filename: string; rows: RecurringPreviewRow[]; categories: ImportCategory[] }
+  | { error: string }
+
+/** Parse and classify a recurring-rules CSV, including each rule's catch-up charges, without writing. */
+export async function previewRecurringImport(formData: FormData): Promise<RecurringImportPreview> {
+  await requireAuthenticatedUser()
+  const upload = await readCsvUpload(formData)
+  if ('error' in upload) return upload
+
+  return log.track('recurring csv preview', { filename: upload.name, bytes: upload.text.length }, async () => {
+    const parsed = parseRecurringRows(upload.text)
+    if (parsed.length === 0) return { error: 'No rows found. The first line must be a header row.' }
+    if (parsed.length > MAX_IMPORT_ROWS) return { error: `That file has ${parsed.length} rows; the limit is ${MAX_IMPORT_ROWS}.` }
+    const [rows, categories] = await Promise.all([
+      classifyRecurringRows(parsed),
+      prisma.category.findMany({ orderBy: { name: 'asc' }, select: { id: true, name: true, color: true, kind: true } }),
+    ])
+    return { ok: true as const, filename: upload.name, rows, categories }
+  })
+}
+
+/** Create the recurring rules kept in the review sheet, with their catch-up charges. */
+export async function commitRecurringImport(rules: unknown[]): Promise<RecurringImportResult | { error: string }> {
+  await requireAuthenticatedUser()
+  if (!Array.isArray(rules) || rules.length === 0) return { error: 'Nothing selected to import.' }
+  if (rules.length > MAX_IMPORT_ROWS) return { error: `At most ${MAX_IMPORT_ROWS} rules can be imported at once.` }
+
+  const timer = log.start('recurring csv import', { rows: rules.length })
+  const result = await commitRecurringRows(rules)
+  timer.ok({ imported: result.imported, skipped: result.skipped, backfilled: result.backfilled, errors: result.errors.length })
+  for (const error of result.errors) log.warn('recurring csv row rejected', { detail: error })
+
+  revalidateFinanceTags(CACHE_TAGS.recurring, ...(result.backfilled > 0 ? [CACHE_TAGS.transactions] : []))
+  revalidatePath('/recurring')
+  revalidatePath('/renewals')
+  revalidatePath('/dashboard')
+  if (result.backfilled > 0) revalidatePath('/transactions')
   return result
 }
