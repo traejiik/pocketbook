@@ -57,6 +57,23 @@ export type StoryAction =
   | { kind: 'watch'; category: string; value: number; prevValue: number | null }
   /** Nothing moved enough to act on; the note names the largest category instead. */
   | { kind: 'no-change'; category: string; value: number }
+  /**
+   * A deficit or tight month: the advice is about the gap, never "leave it alone".
+   * `gap` is the shortfall (deficit) or the margin left (tight), both from the
+   * operating net the prompt already states. `category` is the lever: the headline
+   * move, or the largest category when nothing moved. `purchase` / `renewal` name a
+   * concrete handle inside it when the data has one.
+   */
+  | {
+      kind: 'close-gap'
+      verdict: 'deficit' | 'tight'
+      gap: number
+      category: string
+      value: number
+      prevValue: number | null
+      purchase: { description: string; amount: number } | null
+      renewal: { name: string; amount: number; daysAway: number } | null
+    }
 
 export type Story = {
   /** The one thing the note is about, or null when nothing cleared the floor. */
@@ -89,7 +106,37 @@ function moveOf(s: InsightSnapshot, c: InsightSnapshot['categories'][number]): C
   }
 }
 
-function actionFor(s: InsightSnapshot, headline: CategoryMove | null): StoryAction {
+function renewalIn(s: InsightSnapshot, category: string) {
+  // Only renewals in the category that moved. This is what keeps "pay your rent"
+  // out of the note: rent can only come up when Housing itself is the story.
+  const r = s.upcoming
+    .filter((u) => u.category === category && u.amount !== null)
+    .filter((u) => u.daysAway >= 0 && u.daysAway <= RENEWAL_WINDOW_DAYS)
+    .sort((a, b) => a.daysAway - b.daysAway)[0]
+  return r ? { name: r.name, amount: r.amount as number, daysAway: r.daysAway } : null
+}
+
+function actionFor(s: InsightSnapshot, headline: CategoryMove | null, gapAction: boolean): StoryAction {
+  // A month that overspent, or nearly did, is advised about the gap. The earlier
+  // rules below could tell a deficit month to "leave spending as it is" whenever
+  // its biggest rise was a one-off — July 2026 ran 2203 Ft short and was told
+  // exactly that.
+  if (gapAction && (s.verdict === 'deficit' || s.verdict === 'tight')) {
+    const lever = headline ?? moveOf(s, s.categories[0])
+    return {
+      kind: 'close-gap',
+      verdict: s.verdict,
+      gap: Math.abs(s.kpis.operatingNet),
+      category: lever.name,
+      value: lever.value,
+      prevValue: lever.prevValue,
+      purchase:
+        headline?.explainedBy === 'one-purchase' && headline.largest
+          ? { description: headline.largest.description, amount: headline.largest.amount }
+          : null,
+      renewal: renewalIn(s, lever.name),
+    }
+  }
   if (!headline) {
     const biggest = s.categories[0]
     return { kind: 'no-change', category: biggest.name, value: biggest.value }
@@ -101,20 +148,8 @@ function actionFor(s: InsightSnapshot, headline: CategoryMove | null): StoryActi
       amount: headline.largest.amount,
     }
   }
-  // Only renewals in the category that moved. This is what keeps "pay your rent"
-  // out of the note: rent can only come up when Housing itself is the story.
-  const renewal = s.upcoming
-    .filter((u) => u.category === headline.name && u.amount !== null)
-    .filter((u) => u.daysAway >= 0 && u.daysAway <= RENEWAL_WINDOW_DAYS)
-    .sort((a, b) => a.daysAway - b.daysAway)[0]
-  if (renewal) {
-    return {
-      kind: 'renewal',
-      name: renewal.name,
-      amount: renewal.amount as number,
-      daysAway: renewal.daysAway,
-    }
-  }
+  const renewal = renewalIn(s, headline.name)
+  if (renewal) return { kind: 'renewal', ...renewal }
   return { kind: 'watch', category: headline.name, value: headline.value, prevValue: headline.prevValue }
 }
 
@@ -130,8 +165,11 @@ function actionFor(s: InsightSnapshot, headline: CategoryMove | null): StoryActi
  *
  * Only the categories the snapshot carries are ranked (the month's six largest),
  * so a category that fell to nothing is not considered.
+ *
+ * `gapAction: false` restores the pre-2.19.3 advice (no `close-gap`), for the
+ * probe's lean-story control arm.
  */
-export function pickStory(s: InsightSnapshot): Story | null {
+export function pickStory(s: InsightSnapshot, opts: { gapAction?: boolean } = {}): Story | null {
   if (s.verdict === 'sparse' || s.prev === null || s.categories.length === 0) return null
 
   const floor = s.kpis.expense * HEADLINE_FLOOR_SHARE
@@ -143,5 +181,5 @@ export function pickStory(s: InsightSnapshot): Story | null {
     .sort((a, b) => Math.abs(b.change) - Math.abs(a.change))
 
   const headline = ranked[0] ?? null
-  return { headline, also: ranked[1] ?? null, action: actionFor(s, headline) }
+  return { headline, also: ranked[1] ?? null, action: actionFor(s, headline, opts.gapAction !== false) }
 }
