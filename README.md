@@ -138,7 +138,7 @@ docker compose up -d
 #    PB_SEED_USER_EMAIL / PB_SEED_USER_PASSWORD
 ```
 
-On boot, the `pocketbook-web` container prepares `/data` and `/backups` as root, immediately re-execs as UID 1001, builds `PB_DATABASE_URL`, runs `prisma migrate deploy`, the idempotent seed, and the FX-lock backfill, then starts a PID-1 supervisor. The supervisor generates a per-boot internal job token and runs Next.js plus a separate UTC scheduler process. If either child exits or the worker stops heartbeating, the container exits so Docker can restart it.
+On boot, the `pocketbook-web` container prepares `/data` and `/backups` as root, immediately re-execs as UID 1001, builds `PB_DATABASE_URL`, runs `prisma migrate deploy`, the idempotent seed, and the FX-lock backfill (each only when a quick startup check finds work for it; `PB_FORCE_BOOTSTRAP=1` runs all three), then starts a PID-1 supervisor. The supervisor generates a per-boot internal job token and runs Next.js plus a separate UTC scheduler process. If either child exits or the worker stops heartbeating, the container exits so Docker can restart it.
 
 After every successful boot the validated environment configuration is persisted to `.env-cache` on the `/data` volume (`chmod 600`); if a later redeploy arrives without variables, the entrypoint restores only the missing values. Discord configuration is separate: enter the webhook in authenticated Settings. Production stores it in `/data/notifications.json`; a direct development run stores it in `.data/notifications.json`; and `PB_NOTIFICATION_CONFIG_PATH` can explicitly override either location. The file is written with mode `0600`, and the webhook is never imported from environment variables.
 

@@ -43,6 +43,8 @@ services:
       - PB_INSTANCE_NAME=${PB_INSTANCE_NAME:-}
       - PB_SEED_USER_EMAIL=${PB_SEED_USER_EMAIL:-}
       - PB_SEED_USER_PASSWORD=${PB_SEED_USER_PASSWORD:-}
+      # Set to 1 to run migrate/seed/FX backfill even when the startup checks say they are current.
+      - PB_FORCE_BOOTSTRAP=${PB_FORCE_BOOTSTRAP:-}
       # Logging (all optional). Level defaults to info; requests default to on.
       - PB_LOG_LEVEL=${PB_LOG_LEVEL:-}
       - PB_LOG_FORMAT=${PB_LOG_FORMAT:-}
