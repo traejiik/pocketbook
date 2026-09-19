@@ -1,13 +1,13 @@
 'use client';
 
 import { useRouter, usePathname } from 'next/navigation';
-import { Search, Download } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { useState, useEffect, useRef, type KeyboardEvent } from 'react';
-import { notify } from '@/lib/ui-notify';
 import { cn } from '@/lib/utils';
 import { NotificationsBell } from '@/components/shell/NotificationsBell';
 import { ProfileMenu } from '@/components/shell/ProfileMenu';
 import { titleForPath, navIdForPath } from '@/components/shell/nav';
+import { ExportTransactionsButton } from '@/components/shell/ExportTransactionsDialog';
 
 interface HeaderProps {
   displayName?: string;
@@ -74,14 +74,7 @@ export function Header({ displayName = 'User', className }: HeaderProps) {
 
       <div className="ml-auto flex items-center gap-2">
         {isTransactions && (
-          <button
-            type="button"
-            onClick={() => notify.success('Exported transactions.csv')}
-            className="inline-flex shrink-0 whitespace-nowrap items-center gap-1.5 h-9 px-4 rounded-[10px] text-[12.5px] font-medium text-muted-foreground hover:text-foreground bg-card border border-border/50 hover:border-border transition-colors"
-          >
-            <Download className="w-3.5 h-3.5" />
-            Export CSV
-          </button>
+          <ExportTransactionsButton className="inline-flex shrink-0 whitespace-nowrap items-center gap-1.5 h-9 px-4 rounded-[10px] text-[12.5px] font-medium text-muted-foreground hover:text-foreground bg-card border border-border/50 hover:border-border transition-colors" />
         )}
         <NotificationsBell />
         <ProfileMenu displayName={displayName} />

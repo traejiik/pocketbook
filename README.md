@@ -208,25 +208,30 @@ If Ollama is unreachable the app still works — the Insights screen shows **"Un
 
 ---
 
-## 📥 CSV import
+## 📥 CSV import and export
 
-Bootstrap transactions from a spreadsheet export by placing a file at `seed/transactions.csv` before running `docker-compose up` (or `pnpm prisma db seed`).
+**Import (Settings → Import data).** Choose a CSV and Pocketbook parses it on the server without writing anything, then opens a review sheet: each row is marked **new**, **duplicate** (already in the ledger, repeated in the file, or a rule already logged that day) or **error** (with the reason). You can untick rows or pick a category for any row whose category did not match; nothing is saved until you press *Import N transactions*. The commit runs in one database transaction, re-checks duplicates, freezes each row's FX rate and reconciles installment counters.
 
 ```csv
-date,description,amount,currency,type,category_id,recurring_rule_name
-2026-01-05,Salary,450000,HUF,INCOME,salary,
-2026-01-06,Spar,-8900,HUF,EXPENSE,food,
-2026-01-20,Apple Music,-1990,HUF,EXPENSE,subs,Apple Music
+date,description,amount,currency,type,category,recurring_rule_name
+2026-01-05,Salary,450000,HUF,INCOME,Salary,
+2026-01-06,"Spar, Andrássy út",-8900,HUF,EXPENSE,Groceries,
+2026-01-20,Apple Music,-1990,HUF,EXPENSE,Subscriptions,Apple Music
 ```
 
 - `date` — ISO 8601 (`YYYY-MM-DD`)
 - `amount` — either sign works; the stored sign always comes from `type` (income positive, expense and savings negative)
-- `currency` — uppercase 3-letter code (`HUF`, `USD`, `EUR`, `GBP`)
+- `currency` — `HUF`, `USD`, `EUR` or `GBP` (case-insensitive)
 - `type` — `INCOME`, `EXPENSE`, or `SAVINGS`
-- `category_id` — must match an existing category `id` from the seed
-- `recurring_rule_name` — optional; links the transaction to a rule by name
+- `category` — a category **name** within that type (case-insensitive), or `category_id` with the exact id
+- `recurring_rule_name` — optional; links the row to a rule by name (an unknown name is flagged, not silently dropped). A plain link never moves the rule's next due date.
+- Quoted fields, commas inside quotes, CRLF endings and Excel's UTF-8 BOM are all handled. Extra columns are ignored. Files are capped at 2 MB / 5 000 rows.
 
-The importer is **idempotent**: re-running it skips rows that already exist by `(date, description, amount)`. For ad-hoc imports after first boot: `pnpm tsx scripts/csv-import.ts`.
+Duplicates are matched on day, description (case-insensitive), amount magnitude, currency and type.
+
+**Export (Transactions → Export CSV).** Download this month (the month you are viewing), a date range, or all time. The export uses the import columns plus `category_id`, `fx_rate` and `fx_anchor`, so it opens in a spreadsheet and re-imports entirely as duplicates.
+
+**Bootstrap.** A file at `seed/transactions.csv` is imported automatically by the seed on first boot (every new row with a resolved category; the rest are logged). For ad-hoc imports from the shell: `pnpm tsx scripts/csv-import.ts`.
 
 ---
 
