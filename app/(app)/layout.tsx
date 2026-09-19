@@ -16,7 +16,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   ]);
 
   const serialisedCategories: SerializedCategory[] = categories.map(c => ({
-    id: c.id, name: c.name, color: c.color, kind: c.kind,
+    id: c.id, name: c.name, color: c.color, kind: c.kind, includeInBalance: c.includeInBalance,
   }));
 
   const serialisedRules: SerializedRecurringRule[] = recurringRules.map(r => ({

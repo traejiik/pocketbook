@@ -17,6 +17,7 @@ export default async function CategoriesPage() {
         name: c.name,
         color: c.color,
         kind: c.kind as 'INCOME' | 'EXPENSE' | 'SAVINGS',
+        includeInBalance: c.includeInBalance,
         txCount: c.txCount,
         txTotalHUF: c.txTotalHUF,
       }))}

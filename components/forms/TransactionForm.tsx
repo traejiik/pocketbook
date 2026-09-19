@@ -58,6 +58,8 @@ export interface SerializedCategory {
   name: string;
   color: string;
   kind: 'INCOME' | 'EXPENSE' | 'SAVINGS';
+  /** Counts toward the running balance (`Category.includeInBalance`). */
+  includeInBalance: boolean;
 }
 
 export interface SerializedRecurringRule {

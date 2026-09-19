@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { toHUF } from '@/lib/transaction-anchor'
+import { balanceContribution, toHUF } from '@/lib/transaction-anchor'
 
 const rates = { USD: 360, EUR: 390, GBP: 460 }
 
@@ -25,5 +25,23 @@ describe('toHUF signs the ledger value from the transaction type', () => {
       { amount: 120000, amountAnchor: 120000, currency: 'HUF', type: 'EXPENSE' as const },
     ]
     expect(month.reduce((sum, t) => sum + toHUF(t, rates), 0)).toBe(380000)
+  })
+})
+
+describe('balanceContribution leaves out categories excluded from the balance', () => {
+  const income = { amount: 500000, amountAnchor: 500000, currency: 'HUF', type: 'INCOME' as const }
+  const transfer = { amount: -200000, amountAnchor: -200000, currency: 'HUF', type: 'EXPENSE' as const }
+
+  it('counts an included category exactly like toHUF', () => {
+    expect(balanceContribution({ ...transfer, category: { includeInBalance: true } }, rates)).toBe(-200000)
+  })
+
+  it('contributes nothing for an excluded category while net still counts it', () => {
+    const month = [
+      { ...income, category: { includeInBalance: true } },
+      { ...transfer, category: { includeInBalance: false } },
+    ]
+    expect(month.reduce((sum, t) => sum + balanceContribution(t, rates), 0)).toBe(500000)
+    expect(month.reduce((sum, t) => sum + toHUF(t, rates), 0)).toBe(300000)
   })
 })

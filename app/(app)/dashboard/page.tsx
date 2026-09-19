@@ -13,6 +13,7 @@ import {
   getLastAiInsight,
   getAiInsightCount,
   getCurrentMonthOpeningBalance,
+  getCurrentMonthBalanceNet,
   getBalanceTrend,
 } from '@/lib/aggregations'
 import { prisma } from '@/lib/prisma'
@@ -31,10 +32,11 @@ export default async function DashboardPage() {
   const settingsPromise = prisma.appSettings.findUnique({ where: { id: 'singleton' } })
   const pingPromise = settingsPromise.then(s => pingOllama(s?.ollamaUrl ?? 'http://ollama:11434'))
 
-  const [kpis, lastKpis, opening, balanceTrend, byCategory, lastMonthByCategory, upcoming, recentTx, trend6mo, lastInsight, insightCount, settings, ollamaReachable] = await Promise.all([
+  const [kpis, lastKpis, opening, balanceNet, balanceTrend, byCategory, lastMonthByCategory, upcoming, recentTx, trend6mo, lastInsight, insightCount, settings, ollamaReachable] = await Promise.all([
     getCurrentMonthKpis(),
     getLastMonthKpis(),
     getCurrentMonthOpeningBalance(),
+    getCurrentMonthBalanceNet(),
     getBalanceTrend(6),
     getExpensesByCategory(),
     getLastMonthExpensesByCategory(),
@@ -66,9 +68,10 @@ export default async function DashboardPage() {
   }
 
   // Month-to-month carry-over: the running balance is this month's opening plus its
-  // net, shown in the Balance hero above the KPI strip. Net itself stays the month's
-  // own figure. Null (hero hidden) when the Settings starting balance has no FX path.
-  const balance = opening.opening === null ? null : opening.opening + kpis.net
+  // balance net — the month's net over categories that count toward the balance
+  // (equal to `kpis.net` unless a category is excluded). Net itself stays the
+  // month's own figure. Null (hero hidden) when the starting balance has no FX path.
+  const balance = opening.opening === null ? null : opening.opening + balanceNet
   // Unconvertible rows in either read are excluded from the figures, so one notice
   // covers both counts.
   const excludedCount = kpis.unconvertibleCount + opening.unconvertibleCount
@@ -102,7 +105,7 @@ export default async function DashboardPage() {
 
       {/* Balance hero — month-to-month carry-over (an addition to the v5 dashboard) */}
       {balance !== null && (
-        <BalanceHero balance={balance} monthNet={kpis.net} trend={balanceTrend} currency={anchor} />
+        <BalanceHero balance={balance} monthNet={balanceNet} trend={balanceTrend} currency={anchor} />
       )}
 
       {/* KPI row — 2-up on mobile, four-up from tablet (matches v5 tablet prototype) */}
