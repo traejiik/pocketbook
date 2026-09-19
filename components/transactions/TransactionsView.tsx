@@ -32,6 +32,9 @@ export interface SerializedTx {
   categoryId: string;
   category: SerializedCategory;
   recurringRuleId: string | null;
+  recurringRuleName?: string | null;
+  /** Occurrence settled by "Log recurring early" (`YYYY-MM-DD`). */
+  coversDueDate?: string | null;
 }
 
 type TypeFilter = 'all' | 'INCOME' | 'EXPENSE' | 'SAVINGS';
@@ -166,8 +169,12 @@ export function TransactionsView({
       startTransition(async () => {
         addOptimistic(optimisticRow);
         try {
-          await upsertTransaction(input);
-          notify.success(input.id ? 'Transaction updated.' : 'Transaction added.');
+          const result = await upsertTransaction(input);
+          if ('error' in result) {
+            toast.error(result.error);
+            return;
+          }
+          notify.success(result.notice ?? (input.id ? 'Transaction updated.' : 'Transaction added.'));
         } catch {
           toast.error('Failed to save. Changes have been rolled back.');
         }
@@ -261,6 +268,8 @@ export function TransactionsView({
         type: tx.type,
         categoryId: tx.categoryId,
         recurringRuleId: tx.recurringRuleId,
+        coversDueDate: tx.coversDueDate ?? null,
+        recurringRuleName: tx.recurringRuleName ?? null,
       };
       openEdit(editing);
     },

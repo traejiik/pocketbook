@@ -30,7 +30,7 @@ export default async function TransactionsPage({
   const [rawTxs, categories, recurringRules, exchangeRates, anchorCurrency] = await Promise.all([
     prisma.transaction.findMany({
       where: { date: { gte: from, lte: to } },
-      include: { category: true },
+      include: { category: true, recurringRule: { select: { name: true } } },
       orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
     }),
     prisma.category.findMany({ orderBy: { name: 'asc' } }),
@@ -74,6 +74,8 @@ export default async function TransactionsPage({
         includeInBalance: tx.category.includeInBalance,
       },
       recurringRuleId: tx.recurringRuleId,
+      recurringRuleName: tx.recurringRule?.name ?? null,
+      coversDueDate: tx.coversDueDate ? tx.coversDueDate.toISOString().slice(0, 10) : null,
     };
   });
 
@@ -90,6 +92,10 @@ export default async function TransactionsPage({
     name: r.name,
     cycle: r.cycle,
     kind: r.kind,
+    nextDue: r.nextDue.toISOString().slice(0, 10),
+    amount: Number(r.amount),
+    currency: r.currency as SerializedRecurringRule['currency'],
+    categoryId: r.categoryId,
   }));
 
   const monthLabel = format(from, 'MMMM yyyy');

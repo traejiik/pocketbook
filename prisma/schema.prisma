@@ -69,9 +69,14 @@ model Transaction {
   category        Category        @relation(fields: [categoryId], references: [id])
   recurringRuleId String?
   recurringRule   RecurringRule?  @relation(fields: [recurringRuleId], references: [id])
+  // Set when this transaction was logged early for its rule: the due date it
+  // settled. The sync never regenerates that occurrence, and deleting the
+  // transaction can hand the occurrence back to the rule.
+  coversDueDate   DateTime?       @db.Date
   createdAt       DateTime        @default(now())
 
   @@unique([recurringRuleId, date])
+  @@unique([recurringRuleId, coversDueDate])
   @@index([date])
   @@index([categoryId])
   @@index([type])

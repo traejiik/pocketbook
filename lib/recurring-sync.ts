@@ -5,12 +5,11 @@ import { logger } from '@/lib/logger'
 import {
   type RecurringCycle,
   type RuleKind,
-  monthlyOccurrence,
-  annualOccurrence,
   parseDateOnly,
   formatDateOnly,
   startOfUtcDay,
   signedAmount,
+  nextOccurrence,
 } from '@/lib/recurring-dates'
 
 type Currency = 'HUF' | 'USD' | 'EUR' | 'GBP'
@@ -26,7 +25,7 @@ type DueRule = {
   categoryId: string
   installmentPaid: number | null
   installmentTotal: number | null
-  transactions: readonly { date: Date }[]
+  transactions: readonly { date: Date; coversDueDate?: Date | null }[]
 }
 
 export type PlannedRecurringSyncTransaction = {
@@ -59,7 +58,12 @@ export function planDueRecurringRule(rule: DueRule, todayInput: Date = new Date(
   const kind = rule.kind as RuleKind
   const currency = rule.currency as Currency
   const anchor = startOfUtcDay(rule.nextDue)
-  const existingDates = new Set(rule.transactions.map((tx) => formatDateOnly(tx.date)))
+  // An occurrence is taken when a linked row sits on its date (generated) or
+  // settled it early (`coversDueDate`, from "Log recurring early").
+  const existingDates = new Set(rule.transactions.flatMap((tx) => [
+    formatDateOnly(tx.date),
+    ...(tx.coversDueDate ? [formatDateOnly(tx.coversDueDate)] : []),
+  ]))
   const dueDates: Date[] = []
 
   let cursor = anchor
@@ -109,8 +113,8 @@ export async function syncDueRecurringRules(today: Date = new Date()): Promise<R
     },
     include: {
       transactions: {
-        where: { date: { lte: todayDate } },
-        select: { date: true },
+        where: { OR: [{ date: { lte: todayDate } }, { coversDueDate: { lte: todayDate } }] },
+        select: { date: true, coversDueDate: true },
       },
     },
     orderBy: { nextDue: 'asc' },
@@ -217,11 +221,3 @@ function formatSignedAmount(amount: number, currency: Currency) {
   return `${sign}${Math.abs(amount).toLocaleString('en-GB')} ${currency}`
 }
 
-// Advance one cycle from `date`, anchored to the rule's original day-of-month so
-// month-length clamping stays stable. UTC maths lives in lib/recurring-dates.
-function nextOccurrence(cycle: RecurringCycle, date: Date, anchor: Date) {
-  if (cycle === 'MONTHLY') {
-    return monthlyOccurrence(date.getUTCFullYear(), date.getUTCMonth() + 1, anchor.getUTCDate())
-  }
-  return annualOccurrence(date.getUTCFullYear() + 1, anchor.getUTCMonth(), anchor.getUTCDate())
-}
