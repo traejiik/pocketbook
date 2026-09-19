@@ -7,6 +7,7 @@ import { CalmCard } from '@/components/finance/CalmCard';
 import { CategoryAvatar } from '@/components/finance/CategoryAvatar';
 import { Segmented } from '@/components/ui/segmented';
 import { PaginationControls } from '@/components/ui/pagination';
+import { ExportTransactionsButton } from '@/components/shell/ExportTransactionsDialog';
 import { MonthNetStrip } from './MonthNetStrip';
 import { fmtCur, fmtDate, fmtAnchor, dayOfWeek } from '@/lib/format';
 import { cn } from '@/lib/utils';
@@ -464,6 +465,12 @@ export function MobileTransactions({
           </div>
 
           <PaginationControls page={page} totalPages={totalPages} onChange={onPageChange} className="mt-1" />
+
+          {/* Export lives in the desktop/tablet header, which the mobile tier has no
+              room for — so it sits quietly at the end of the ledger instead. */}
+          <div className="mt-5 flex justify-center">
+            <ExportTransactionsButton className="inline-flex items-center gap-1.5 h-9 px-4 rounded-[10px] text-[12.5px] font-medium text-muted-foreground active:text-foreground bg-card border border-border/50 transition-colors" />
+          </div>
         </>
       )}
     />

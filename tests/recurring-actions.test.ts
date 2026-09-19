@@ -122,6 +122,17 @@ describe('upsertRecurringRule', () => {
     })
   })
 
+  it('logs only the months the form asked for, and none when the switch is off', async () => {
+    const { upsertRecurringRule } = await import('@/server-actions/recurring')
+
+    await upsertRecurringRule({ ...validRule(), backfillMonths: 2 })
+    expect(createBackfillTransactions.mock.calls[0][0].data).toHaveLength(2)
+
+    createBackfillTransactions.mockClear()
+    await upsertRecurringRule({ ...validRule(), backfill: false })
+    expect(createBackfillTransactions).not.toHaveBeenCalled()
+  })
+
   it('updates existing rules without running catch-up backfill', async () => {
     const { upsertRecurringRule } = await import('@/server-actions/recurring')
 
