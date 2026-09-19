@@ -19,7 +19,6 @@ import { logger } from '@/lib/logger';
 
 const log = logger('recurring');
 
-export type { RecurringRuleInput };
 
 type RecurringRuleResult =
   | {
