@@ -22,7 +22,7 @@ services:
       - core_net
 
   pocketbook-web:
-    image: ghcr.io/traejiik/pocketbook-web:latest
+    image: ghcr.io/traejiik/pocketbook-web:${PB_IMAGE_TAG:-latest}
     container_name: pocketbook-web
     restart: unless-stopped
     stop_grace_period: 30s
