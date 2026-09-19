@@ -193,17 +193,48 @@ until node -e "const s=require('net').createConnection(5432,'pocketbook-db');s.s
 done
 say "Database is up."
 
+# Each bootstrap step runs only when it has work: bootstrap-check exits 10 when
+# the step is needed, 0 when it would be a no-op, and anything else when the
+# check itself failed (which aborts startup instead of guessing).
+# PB_FORCE_BOOTSTRAP=1 runs every step regardless.
+needs() {
+  if [ "${PB_FORCE_BOOTSTRAP:-0}" = "1" ]; then
+    say "  $1: forced by PB_FORCE_BOOTSTRAP"
+    return 0
+  fi
+  if run node /app/prisma/bootstrap-check.js "$1"; then rc=0; else rc=$?; fi
+  [ "$rc" -eq 10 ] && return 0
+  [ "$rc" -eq 0 ] && return 1
+  say "ERROR: bootstrap check for $1 failed (exit $rc)."
+  exit "$rc"
+}
+
 STAGE="prisma-migrate"
-say "Running Prisma migrations..."
-run prisma migrate deploy
+say "Checking Prisma migrations..."
+if needs migrations; then
+  say "Running Prisma migrations..."
+  run prisma migrate deploy
+else
+  say "Migrations up to date — skipping."
+fi
 
 STAGE="seed"
-say "Seeding database..."
-run node /app/prisma/seed.js
+say "Checking seed state..."
+if needs seed; then
+  say "Seeding database..."
+  run node /app/prisma/seed.js
+else
+  say "Seed up to date — skipping."
+fi
 
 STAGE="fx-backfill"
-say "Backfilling transaction FX locks..."
-run node /app/prisma/backfill-fx.js
+say "Checking transaction FX locks..."
+if needs fx-backfill; then
+  say "Backfilling transaction FX locks..."
+  run node /app/prisma/backfill-fx.js
+else
+  say "FX locks up to date — skipping."
+fi
 
 STAGE="start"
 say "Starting supervised Next.js and scheduler processes..."

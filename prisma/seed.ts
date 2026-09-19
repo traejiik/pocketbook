@@ -1,9 +1,9 @@
-import { PrismaClient, FxMode } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import bcrypt from 'bcryptjs';
 import { readFileSync, existsSync } from 'fs';
 import { resolve } from 'path';
-import { importTransactions } from '../lib/import-transactions';
+import { DEFAULT_FX_RATES } from './bootstrap-state';
 
 // Load .env.local then .env so SEED_USER_* and PB_DATABASE_URL are available when
 // run via tsx directly. `.env` matters because that is where PB_DATABASE_URL
@@ -64,17 +64,8 @@ async function main() {
   console.log('  ✓ AppSettings: singleton');
 
   // ── Exchange Rates ────────────────────────────────────────────────────────
-  // Every declared currency (USD/EUR/GBP) needs a HUF pair so it is convertible
-  // to the anchor. Missing pairs make transactions in that currency drop out of
-  // every aggregation (toAnchor → null), so all three ship with defaults.
-  const fxData = [
-    { fromCurrency: 'HUF', toCurrency: 'USD', rate: 0.002791, mode: FxMode.AUTO, provider: 'frankfurter.dev' },
-    { fromCurrency: 'USD', toCurrency: 'HUF', rate: 358.40,   mode: FxMode.AUTO, provider: 'frankfurter.dev' },
-    { fromCurrency: 'HUF', toCurrency: 'EUR', rate: 0.002525, mode: FxMode.AUTO, provider: 'frankfurter.dev' },
-    { fromCurrency: 'EUR', toCurrency: 'HUF', rate: 396.10,   mode: FxMode.AUTO, provider: 'frankfurter.dev' },
-    { fromCurrency: 'HUF', toCurrency: 'GBP', rate: 0.002174, mode: FxMode.AUTO, provider: 'frankfurter.dev' },
-    { fromCurrency: 'GBP', toCurrency: 'HUF', rate: 460.00,   mode: FxMode.AUTO, provider: 'frankfurter.dev' },
-  ];
+  // Defaults live in bootstrap-state.ts so the startup check shares them.
+  const fxData = DEFAULT_FX_RATES;
 
   const existingRateCount = await prisma.exchangeRate.count();
   if (existingRateCount === 0) {
@@ -113,10 +104,22 @@ async function main() {
   const csvPath = resolve(process.cwd(), 'seed', 'transactions.csv');
   if (existsSync(csvPath)) {
     console.log('  Running CSV importer…');
-    const csv = readFileSync(csvPath, 'utf-8');
-    const { imported, skipped, errors } = await importTransactions(csv);
-    console.log(`  CSV import: ${imported} inserted, ${skipped} skipped.`);
-    if (errors.length > 0) errors.forEach(e => console.warn('  ', e));
+    // Imported lazily: the importer pulls in the app's shared `lib/prisma` client,
+    // which connects eagerly in production. Loading it only when a CSV is present
+    // and disconnecting it afterwards keeps the seed from holding a second pool
+    // open (and the process alive) on every normal boot.
+    const [{ importTransactions }, { prisma: appPrisma }] = await Promise.all([
+      import('../lib/import-transactions'),
+      import('../lib/prisma'),
+    ]);
+    try {
+      const csv = readFileSync(csvPath, 'utf-8');
+      const { imported, skipped, errors } = await importTransactions(csv);
+      console.log(`  CSV import: ${imported} inserted, ${skipped} skipped.`);
+      if (errors.length > 0) errors.forEach(e => console.warn('  ', e));
+    } finally {
+      await appPrisma.$disconnect();
+    }
   }
 
   console.log('Seed complete.');
