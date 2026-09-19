@@ -43,7 +43,7 @@ Numbers lead. Surfaces recede. A single calm blue is reserved for what matters.
 - **🧠 Private AI insights** — monthly commentary streamed token-by-token from your own Ollama instance. It never calls out to a third party, and the app works fine if the model is offline.
 - **💱 Multi-currency, done right** — HUF-first with USD/EUR/GBP support, ECB rates auto-synced daily, triangulated conversion, and honest handling of amounts it can't convert.
 - **🔁 Recurring & installments** — subscriptions, rent, and installment plans tracked with idempotent auto-logging and reconciled counters.
-- **↪️ Month carry-over** — each month opens with the previous months' net, derived from the ledger rather than posted as a transaction, so editing history never leaves a stale balance. An optional opening balance in Settings anchors the running total to what you actually held when you started logging.
+- **↪️ Month carry-over** — each month opens with the previous months' net, derived from the ledger rather than posted as a transaction, so editing history never leaves a stale balance. An optional opening balance in Settings anchors the running total to what you actually held when you started logging, and any category can be left out of the balance (transfers, reimbursements) without changing its Net.
 - **📅 Renewal radar** — a cash-out timeline that tells you what's leaving your account in the next 30/60/90 days.
 - **⚡ Fast and honest UI** — optimistic writes, skeletons instead of spinners, tabular numerics on every figure, dark-mode-first, and a real `⌘K` search.
 - **📥 One-way CSV import** — bootstrap from your old spreadsheet in one shot.

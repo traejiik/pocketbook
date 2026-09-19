@@ -47,6 +47,7 @@ import {
   getUpcomingRenewals,
   getMonthlyTrend,
   getOpeningBalance,
+  getBalanceMonthNet,
   getCurrentMonthOpeningBalance,
   getBalanceTrend,
 } from '@/lib/aggregations'
@@ -354,11 +355,42 @@ describe('getOpeningBalance derives the month-to-month carry-over', () => {
     expect(lastQuery().values[0]).toBe('2026-06-01')
   })
 
+  // Opening reads have no lower bound (`Prisma.empty`); a month's balance net is
+  // the same query bounded to `[monthStart, nextMonthStart)`.
+  function routeCarryOver(opening: number, netByMonthStart: Record<string, number>) {
+    mocks.queryRaw.mockImplementation(async (...args: unknown[]) => {
+      const lower = args[2] as { values?: unknown[] } | undefined
+      const start = lower?.values?.[0] as string | undefined
+      if (!start) return [group('INCOME', opening)]
+      const net = netByMonthStart[start] ?? 0
+      return net === 0 ? [] : [group(net > 0 ? 'INCOME' : 'EXPENSE', Math.abs(net))]
+    })
+  }
+
+  it('only sums categories that count toward the balance', async () => {
+    mocks.queryRaw.mockResolvedValue([])
+    await getOpeningBalance('2026-09')
+    const { text } = lastQuery()
+    expect(text).toContain('JOIN "Category" c ON c."id" = t."categoryId"')
+    expect(text).toContain('c."includeInBalance"')
+  })
+
+  it('getBalanceMonthNet reads the month itself, bounded to its own days', async () => {
+    routeCarryOver(100_000, { '2026-09-01': -40_000 })
+
+    expect(await getBalanceMonthNet('2026-09')).toBe(-40_000)
+    const { values } = lastQuery()
+    expect(values[0]).toBe('2026-10-01')
+    expect((values[1] as { values: unknown[] }).values).toEqual(['2026-09-01'])
+  })
+
   it('getBalanceTrend adds each month its own opening, not one opening plus a running sum', async () => {
-    // Every month opens at 100 000 here; only June has rows (+50 000).
-    mocks.queryRaw.mockResolvedValue([group('INCOME', 100_000)])
+    // Every month opens at 100 000 here; only June moves the balance (+50 000).
+    // June's reported net is +80 000: the other 30 000 sits in a category left out
+    // of the balance, so the trend must add the balance net, not the trend net.
+    routeCarryOver(100_000, { '2026-06-01': 50_000 })
     mocks.findMany.mockResolvedValue([
-      { date: new Date('2026-06-10T00:00:00.000Z'), amount: 50_000, currency: 'HUF', fxRate: 1, fxAnchor: 'HUF', type: 'INCOME' },
+      { date: new Date('2026-06-10T00:00:00.000Z'), amount: 80_000, currency: 'HUF', fxRate: 1, fxAnchor: 'HUF', type: 'INCOME' },
     ])
 
     const trend = await getBalanceTrend(6)

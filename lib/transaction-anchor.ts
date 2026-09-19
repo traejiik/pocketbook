@@ -27,3 +27,16 @@ export function toHUF(tx: AnchorInput, rates: FxRates): number {
   const magnitude = Math.abs(tx.amountAnchor != null ? tx.amountAnchor : tx.amount * rate)
   return tx.type === 'INCOME' ? magnitude : -magnitude
 }
+
+/**
+ * A transaction's contribution to the running balance: its `toHUF` value, or zero
+ * when its category is excluded from the balance (`Category.includeInBalance`).
+ * Mirrors the server's `cumulative-net` filter so the Transactions `Balance:`
+ * segment agrees with the dashboard hero. Net never goes through this.
+ */
+export function balanceContribution(
+  tx: AnchorInput & { category: { includeInBalance: boolean } },
+  rates: FxRates,
+): number {
+  return tx.category.includeInBalance ? toHUF(tx, rates) : 0
+}

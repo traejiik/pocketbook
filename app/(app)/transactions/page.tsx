@@ -71,6 +71,7 @@ export default async function TransactionsPage({
         name: tx.category.name,
         color: tx.category.color,
         kind: tx.category.kind,
+        includeInBalance: tx.category.includeInBalance,
       },
       recurringRuleId: tx.recurringRuleId,
     };
@@ -81,6 +82,7 @@ export default async function TransactionsPage({
     name: c.name,
     color: c.color,
     kind: c.kind,
+    includeInBalance: c.includeInBalance,
   }));
 
   const serialisedRules: SerializedRecurringRule[] = recurringRules.map((r: (typeof recurringRules)[number]) => ({

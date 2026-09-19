@@ -15,9 +15,10 @@ const categorySchema = z.object({
   name: z.string().min(1).max(100),
   color: z.string().regex(/^#[0-9A-Fa-f]{6}$/),
   kind: z.enum(['INCOME', 'EXPENSE', 'SAVINGS']),
+  includeInBalance: z.boolean().default(true),
 });
 
-export type CategoryInput = z.infer<typeof categorySchema>;
+export type CategoryInput = z.input<typeof categorySchema>;
 
 export async function upsertCategory(input: CategoryInput): Promise<{ ok: true } | { error: string }> {
   await requireAuthenticatedUser();
@@ -35,6 +36,7 @@ export async function upsertCategory(input: CategoryInput): Promise<{ ok: true }
       name: data.name,
       kind: data.kind,
       color: data.color,
+      includeInBalance: data.includeInBalance,
     });
   } catch (e) {
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
@@ -44,10 +46,13 @@ export async function upsertCategory(input: CategoryInput): Promise<{ ok: true }
     throw e;
   }
 
+  // `categories` also reaches the carry-over read (`cumulative-net`), which filters
+  // on `includeInBalance`, so a toggle re-derives every month's balance.
   revalidateFinanceTags(CACHE_TAGS.categories);
   revalidatePath('/categories');
   revalidatePath('/dashboard');
   revalidatePath('/transactions');
+  revalidatePath('/insights');
   return { ok: true };
 }
 
