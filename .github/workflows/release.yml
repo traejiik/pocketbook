@@ -55,9 +55,18 @@ jobs:
 
       - name: Enforce release channel
         if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           BRANCH="${{ github.ref_name }}"
+          # Only a version that would cut a new release is judged. Merges that
+          # carry no bump (e.g. feature PRs into beta while it still holds the
+          # last stable version) find their tag already released and pass.
+          if gh release view "v$VERSION" >/dev/null 2>&1; then
+            echo "v$VERSION already released — no channel check needed."
+            exit 0
+          fi
           if [[ "$BRANCH" == "beta" && ! "$VERSION" =~ -(beta|rc)\. ]]; then
             echo "::error::beta only releases pre-release versions (-beta.N / -rc.N); package.json is $VERSION."
             exit 1
