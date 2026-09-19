@@ -1,6 +1,6 @@
 import { fmtAnchor } from './format'
 import type { InsightSnapshot, MonthVerdict } from './insights-data'
-import { HEADLINE_FLOOR_SHARE, pickStory, type CategoryMove, type Story } from './insights-story'
+import { HEADLINE_FLOOR_SHARE, pickStory, smallMoves, type CategoryMove, type Story } from './insights-story'
 
 /**
  * Persona and the rules that do not change month to month. Sent as Ollama's
@@ -212,7 +212,16 @@ function storyDetail(m: CategoryMove, money: (n: number) => string): string | nu
   }
 }
 
-function storyLines(story: Story, s: InsightSnapshot, money: (n: number) => string): string[] {
+function storyLines(story: Story, s: InsightSnapshot, money: (n: number) => string, lean: boolean): string[] {
+  if (!story.headline && !lean) {
+    const moves = smallMoves(s)
+    return moves.length
+      ? [
+          `  Nothing moved much: no category changed enough to single out. The largest changes were small:`,
+          ...moves.map((m) => `  ${storyMoveLine(m, money)}`),
+        ]
+      : [`  Nothing moved: every category was the same as last month.`]
+  }
   if (!story.headline) {
     return [
       `  No category changed by more than ${money(Math.round(s.kpis.expense * HEADLINE_FLOOR_SHARE))} (${Math.round(HEADLINE_FLOOR_SHARE * 100)}% of this month's expenses), so there is no single thing to single out.`,
@@ -248,6 +257,16 @@ function actionLine(story: Story, money: (n: number) => string): string {
       }
       if (a.purchase) {
         return `${gap} The ${a.purchase.description} purchase (${money(a.purchase.amount)}) was a one-off, not a recurring cost. Recommend holding off on other one-off purchases in ${a.category} next month.`
+      }
+      if (a.category === null || a.value === null) {
+        return a.verdict === 'deficit'
+          ? `${gap} No single day-to-day category drove it. Recommend trimming ${money(a.gap)} from day-to-day spending next month, not from fixed costs.`
+          : `${gap} No single day-to-day category drove it. Recommend keeping day-to-day spending from growing next month.`
+      }
+      if (!a.rose) {
+        return a.verdict === 'deficit'
+          ? `${gap} Recommend trimming ${a.category}, the largest day-to-day category at ${money(a.value)} this month, by ${money(a.gap)} next month.`
+          : `${gap} Recommend keeping ${a.category}, the largest day-to-day category at ${money(a.value)} this month, from growing next month.`
       }
       return a.prevValue === null || a.prevValue === 0
         ? `${gap} Recommend bringing ${a.category} down next month: ${money(a.value)} this month, with nothing in it last month.`
@@ -415,7 +434,7 @@ THE MONTH IN FIGURES
 ${storyFigures.join('\n')}
 
 WHAT MOVED
-${storyLines(story, s, money).join('\n')}
+${storyLines(story, s, money, lean).join('\n')}
 
 ${context.length ? `FOR CONTEXT\n${context.join('\n')}\n\n` : ''}WHAT TO RECOMMEND
   ${actionLine(story, money)}
