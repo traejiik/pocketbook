@@ -31,7 +31,11 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { DatePicker } from '@/components/ui/date-picker'
 import { toast } from 'sonner'
 import { notify } from '@/lib/ui-notify'
-import { upsertRecurringRule, archiveRecurringRule, unarchiveRecurringRule, deleteRecurringRule, type RecurringRuleInput } from '@/server-actions/recurring'
+import { upsertRecurringRule, archiveRecurringRule, unarchiveRecurringRule, deleteRecurringRule } from '@/server-actions/recurring'
+// The type comes straight from the library: a 'use server' file must export only
+// async functions, and re-exporting a type from one becomes a runtime value
+// export in the actions loader, which throws when the module is evaluated.
+import type { RecurringRuleInput } from '@/lib/recurring-create'
 import { useFabContext } from '@/contexts/fab-context'
 import { useIsMobile } from '@/hooks/use-is-mobile'
 import type { CardRule } from '@/components/finance/RecurringRuleCard'
