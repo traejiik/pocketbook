@@ -7,6 +7,7 @@ import { CACHE_TAGS, revalidateFinanceTags } from '@/lib/cache';
 import { requireAuthenticatedUser } from '@/lib/require-auth';
 import { Prisma } from '@prisma/client';
 import { logger } from '@/lib/logger';
+import { randomCategoryColor } from '@/lib/colors';
 
 const log = logger('categories');
 
@@ -54,6 +55,41 @@ export async function upsertCategory(input: CategoryInput): Promise<{ ok: true }
   revalidatePath('/transactions');
   revalidatePath('/insights');
   return { ok: true };
+}
+
+/**
+ * Create a category from an import review, so an unknown name in a CSV can be
+ * adopted without leaving the sheet. The colour is picked from the palette and
+ * can be changed later on the Categories page. An existing category with the
+ * same name and kind is returned as-is, so a double click is harmless.
+ */
+export async function createCategoryFromImport(
+  name: string,
+  kind: 'INCOME' | 'EXPENSE' | 'SAVINGS',
+): Promise<{ id: string; name: string; color: string; kind: 'INCOME' | 'EXPENSE' | 'SAVINGS' } | { error: string }> {
+  await requireAuthenticatedUser();
+
+  const parsed = z.object({
+    name: z.string().trim().min(1).max(100),
+    kind: z.enum(['INCOME', 'EXPENSE', 'SAVINGS']),
+  }).safeParse({ name, kind });
+  if (!parsed.success) return { error: 'That category name is not valid.' };
+
+  const existing = await prisma.category.findFirst({
+    where: { name: { equals: parsed.data.name, mode: 'insensitive' }, kind: parsed.data.kind },
+    select: { id: true, name: true, color: true, kind: true },
+  });
+  if (existing) return { ...existing, kind: existing.kind as 'INCOME' | 'EXPENSE' | 'SAVINGS' };
+
+  const created = await prisma.category.create({
+    data: { name: parsed.data.name, kind: parsed.data.kind, color: randomCategoryColor() },
+    select: { id: true, name: true, color: true, kind: true },
+  });
+  log.info('category created from import', { id: created.id, name: created.name, kind: created.kind });
+
+  revalidateFinanceTags(CACHE_TAGS.categories);
+  revalidatePath('/categories');
+  return { ...created, kind: created.kind as 'INCOME' | 'EXPENSE' | 'SAVINGS' };
 }
 
 export async function deleteCategory(id: string, replacementId?: string) {

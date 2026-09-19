@@ -20,7 +20,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Switch } from '@/components/ui/switch'
 import { fmtAnchor } from '@/lib/format'
 import { useFabContext } from '@/contexts/fab-context'
-import { hexToRgba } from '@/lib/colors'
+import { CATEGORY_PALETTE, hexToRgba } from '@/lib/colors'
 import { useIsMobile } from '@/hooks/use-is-mobile'
 
 /**
@@ -67,11 +67,7 @@ function kindLabel(kind: KindType) {
   return KIND_LABELS[kind]
 }
 
-const PALETTE = [
-  '#3FBF7F', '#5AA3FF', '#C58CFF', '#FF8A65', '#F5B544',
-  '#6FB8FF', '#7BD3B3', '#E36F8E', '#A4D453', '#9C8CFF',
-  '#8E97A8', '#4FB3E0', '#FF6B6B', '#FFD700', '#00CED1',
-]
+const PALETTE = CATEGORY_PALETTE
 
 interface EditState {
   id?: string

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -157,6 +157,10 @@ export function TransactionForm({
     }
   }, [open, editingTx, reset]);
 
+  // The selected chip can sit outside the visible part of the scrolling row, so
+  // bring it into view when the sheet opens or the type changes the list.
+  const categoryRowRef = useRef<HTMLDivElement>(null);
+
   const type = watch('type');
   const currency = watch('currency');
   const amtStr = watch('amount');
@@ -167,6 +171,13 @@ export function TransactionForm({
   const logEarly = watch('logEarly');
 
   const eligibleCategories = categories.filter(c => c.kind === type);
+
+  useEffect(() => {
+    if (!open) return;
+    const row = categoryRowRef.current;
+    const chip = row?.querySelector<HTMLElement>(`[data-category-chip="${categoryId}"]`);
+    chip?.scrollIntoView({ block: 'nearest', inline: 'center' });
+  }, [open, type, categoryId]);
 
   // Reset categoryId when type changes to a kind that doesn't include current selection
   useEffect(() => {
@@ -389,20 +400,25 @@ export function TransactionForm({
                 <Label id="tx-category-label" hint={`${eligibleCategories.length} ${type.toLowerCase()} categories`}>
                   Category
                 </Label>
+                {/* One horizontally scrolling row on phones — eleven chips wrap to four
+                    rows otherwise, pushing the rest of the form off screen. From md
+                    there is room to show them all at once. */}
                 <div
+                  ref={categoryRowRef}
                   role="group"
                   aria-labelledby="tx-category-label"
                   aria-describedby={errors.categoryId ? 'tx-category-error' : undefined}
-                  className="flex flex-wrap gap-1.5"
+                  className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:flex-wrap md:overflow-x-visible md:pb-0 md:mx-0 md:px-0"
                 >
                   {eligibleCategories.map(c => (
                     <button
                       key={c.id}
                       type="button"
+                      data-category-chip={c.id}
                       aria-pressed={categoryId === c.id}
                       onClick={() => setValue('categoryId', c.id)}
                       className={cn(
-                        'inline-flex items-center gap-1.5 px-3 py-2 xl:py-1 rounded-full border text-[12px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
+                        'inline-flex shrink-0 items-center gap-1.5 px-3 py-2 xl:py-1 rounded-full border text-[12px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
                         categoryId === c.id
                           ? 'border-ring/60 bg-accent text-foreground'
                           : 'border-border bg-transparent text-muted-foreground hover:text-foreground',

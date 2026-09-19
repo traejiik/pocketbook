@@ -250,7 +250,9 @@ describe('tablet breakpoint contract', () => {
     expect(recurring).not.toContain("label: `Inc · ${incomeRules.length}`");
     expect(recurring).not.toContain("label: `Sav · ${savingsRules.length}`");
     expect(recurring).toContain('hidden md:grid grid-cols-1 md:grid-cols-2 min-[1025px]:grid-cols-3 gap-4');
-    expect(recurring).toContain('w-full inline-flex items-center justify-center gap-2 h-11 rounded-[12px]');
+    // The v5 mobile "New rule" row was dropped: the empty state's button and the
+    // bottom-bar FAB already cover it, so it was a third way to do one thing.
+    expect(recurring).not.toContain('w-full inline-flex items-center justify-center gap-2 h-11 rounded-[12px]');
     expect(recurring).toContain('renderSegmentedField');
     expect(recurring).toContain('Subscriptions, installments and recurring income');
   });

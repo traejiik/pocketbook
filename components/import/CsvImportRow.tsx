@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState, type ReactNode } from 'react'
+import { Fragment, useRef, useState, type ReactNode } from 'react'
 import { AlertTriangle, Check, Upload } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
@@ -25,6 +25,9 @@ export function CsvImportRow<P>({ title, hint, noun, preview, renderReview }: Pr
   const inputRef = useRef<HTMLInputElement>(null)
   const [status, setStatus] = useState<'idle' | 'reading' | 'review' | 'done' | 'error'>('idle')
   const [data, setData] = useState<P | null>(null)
+  // Bumped per preview so the review sheet remounts: its row choices are seeded
+  // from props with useState, which would otherwise keep the previous file's.
+  const [previewId, setPreviewId] = useState(0)
   const [message, setMessage] = useState<string | null>(null)
   const [outcome, setOutcome] = useState<ImportOutcome | null>(null)
 
@@ -42,6 +45,7 @@ export function CsvImportRow<P>({ title, hint, noun, preview, renderReview }: Pr
         return
       }
       setData(result as P)
+      setPreviewId((n) => n + 1)
       setStatus('review')
     } catch {
       setMessage('Could not read that file. Please try again.')
@@ -102,11 +106,15 @@ export function CsvImportRow<P>({ title, hint, noun, preview, renderReview }: Pr
         </div>
       )}
 
-      {data !== null && renderReview(data, {
-        open: status === 'review',
-        onOpenChange: (open) => { if (!open) { setStatus('idle'); setData(null) } },
-        done: (r) => { setOutcome(r); setStatus('done'); setData(null) },
-      })}
+      {data !== null && (
+        <Fragment key={previewId}>
+          {renderReview(data, {
+            open: status === 'review',
+            onOpenChange: (open) => { if (!open) { setStatus('idle'); setData(null) } },
+            done: (r) => { setOutcome(r); setStatus('done'); setData(null) },
+          })}
+        </Fragment>
+      )}
     </div>
   )
 }

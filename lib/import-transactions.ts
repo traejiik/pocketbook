@@ -52,7 +52,6 @@ function isRealDate(iso: string): boolean {
 export function parseTransactionRows(csv: string): ParsedImportRow[] {
   const { headers, records } = parseCsvRecords(csv)
   const missing = ['date', 'description', 'amount', 'currency', 'type'].filter((h) => !headers.includes(h))
-  if (!headers.includes('category_id') && !headers.includes('category')) missing.push('category or category_id')
   if (records.length > 0 && missing.length > 0) {
     return [{ line: 1, value: null, errors: [`Missing column${missing.length === 1 ? '' : 's'}: ${missing.join(', ')}`] }]
   }
@@ -68,9 +67,9 @@ export function parseTransactionRows(csv: string): ParsedImportRow[] {
     if (!(SUPPORTED_CURRENCIES as readonly string[]).includes(currency)) errors.push(`Unsupported currency "${v.currency}"`)
     const type = v.type.toUpperCase()
     if (!(TYPES as readonly string[]).includes(type)) errors.push(`Invalid type "${v.type}" (expected INCOME, EXPENSE or SAVINGS)`)
+    // A missing category is not an error: the review sheet offers a picker.
     const categoryId = v.category_id || undefined
     const categoryName = v.category || undefined
-    if (!categoryId && !categoryName) errors.push('Category is required')
 
     if (errors.length > 0) return { line, value: null, errors }
     return {
@@ -103,8 +102,10 @@ export type PreviewRow = {
   amount: number
   currency: string
   type: ImportType | null
-  /** Resolved category, or null when the file's category matched nothing — the review lets you pick one. */
+  /** Resolved category, or null when the file gave none or it matched nothing — the review lets you pick one. */
   categoryId: string | null
+  /** The category name the file carried but that matched nothing, so the review can offer to create it. */
+  unmatchedCategory: string | null
   recurringRuleId: string | null
   recurringRuleName: string | null
 }
@@ -166,11 +167,12 @@ export async function classifyImportRows(parsed: ParsedImportRow[], client: Clie
     if (!value) {
       return {
         line, status: 'error', messages: errors, date: '', description: '', amount: 0, currency: '',
-        type: null, categoryId: null, recurringRuleId: null, recurringRuleName: null,
+        type: null, categoryId: null, unmatchedCategory: null, recurringRuleId: null, recurringRuleName: null,
       }
     }
     const messages: string[] = []
     let categoryId: string | null = null
+    let unmatchedCategory: string | null = null
     if (value.categoryId) {
       const cat = catById.get(value.categoryId)
       if (!cat) messages.push(`Category id "${value.categoryId}" not found — pick one`)
@@ -179,7 +181,12 @@ export async function classifyImportRows(parsed: ParsedImportRow[], client: Clie
     } else if (value.categoryName) {
       const cat = catByName.get(`${value.type}|${value.categoryName.trim().toLowerCase()}`)
       if (cat) categoryId = cat.id
-      else messages.push(`No ${value.type.toLowerCase()} category named "${value.categoryName}" — pick one`)
+      else {
+        unmatchedCategory = value.categoryName
+        messages.push(`No ${value.type.toLowerCase()} category named "${value.categoryName}" — pick one or create it`)
+      }
+    } else {
+      messages.push('No category in the file — pick one')
     }
 
     let recurringRuleId: string | null = null
@@ -206,7 +213,7 @@ export async function classifyImportRows(parsed: ParsedImportRow[], client: Clie
     return {
       line, status, messages,
       date: value.date, description: value.description, amount: value.amount, currency: value.currency,
-      type: value.type, categoryId, recurringRuleId, recurringRuleName: value.recurringRuleName ?? null,
+      type: value.type, categoryId, unmatchedCategory, recurringRuleId, recurringRuleName: value.recurringRuleName ?? null,
     }
   })
 }
