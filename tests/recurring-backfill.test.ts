@@ -116,6 +116,41 @@ describe('planRecurringCatchUp', () => {
   })
 })
 
+describe('backfill controls', () => {
+  it('logs nothing when backfill is switched off, but still sets the next due date', () => {
+    const plan = planRecurringCatchUp(baseInput({ backfill: false }))
+
+    expect(plan.transactions).toEqual([])
+    expect(plan.nextDue).toBe('2026-06-05')
+  })
+
+  it('logs exactly the number of months asked for', () => {
+    const plan = planRecurringCatchUp(baseInput({ backfillMonths: 2 }))
+
+    expect(plan.transactions.map((tx) => tx.date)).toEqual(['2026-04-05', '2026-05-05'])
+  })
+
+  it('clamps the month count to two years and ignores a negative one', () => {
+    expect(planRecurringCatchUp(baseInput({ backfillMonths: 99 })).transactions).toHaveLength(24)
+    expect(planRecurringCatchUp(baseInput({ backfillMonths: -3 })).transactions).toEqual([])
+  })
+
+  it('leaves annual rules to their single catch-up charge, and honours the switch', () => {
+    expect(planRecurringCatchUp(baseInput({ cycle: 'ANNUAL', nextDue: '2026-05-01', backfillMonths: 6 })).transactions).toHaveLength(1)
+    expect(planRecurringCatchUp(baseInput({ cycle: 'ANNUAL', nextDue: '2026-05-01', backfill: false })).transactions).toEqual([])
+  })
+
+  it('ignores the controls for an installment plan, which backfills what it says is paid', () => {
+    const plan = planRecurringCatchUp(baseInput({
+      installmentPaid: 3,
+      installmentTotal: 12,
+      backfill: false,
+    }))
+
+    expect(plan.transactions).toHaveLength(3)
+  })
+})
+
 describe('resumeNextDue', () => {
   it('advances a past monthly date to the next occurrence after today', () => {
     expect(resumeNextDue('MONTHLY', '2026-02-10', today)).toBe('2026-06-10')

@@ -4,6 +4,14 @@ import { useMemo, useState, useTransition } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
+import {
+  DEFAULT_BACKFILL_MONTHS,
+  MAX_BACKFILL_MONTHS,
+  planRecurringCatchUp,
+} from '@/lib/recurring-backfill'
 import { commitRecurringImport, type ImportCategory } from '@/server-actions/import'
 import type { RecurringPreviewRow } from '@/lib/import-recurring'
 import { fmtCur, fmtDate } from '@/lib/format'
@@ -35,7 +43,30 @@ export function RecurringImportReview({ open, onOpenChange, filename, rows, cate
   const [choices, setChoices] = useState<Record<number, Choice>>(() =>
     Object.fromEntries(rows.filter((r) => r.status === 'new').map((r) => [r.line, { include: r.rule?.categoryId != null, categoryId: r.rule?.categoryId ?? null }])),
   )
+  const [backfill, setBackfill] = useState(true)
+  const [backfillMonths, setBackfillMonths] = useState(String(DEFAULT_BACKFILL_MONTHS))
   const [isPending, startTransition] = useTransition()
+
+  // The planner is pure, so the sheet re-plans every row as the controls change
+  // and shows exactly what committing would log.
+  const months = Math.min(Math.max(Number(backfillMonths) || 0, 1), MAX_BACKFILL_MONTHS)
+  const planFor = (r: RecurringPreviewRow) => {
+    if (!r.rule) return r.backfill
+    const plan = planRecurringCatchUp({
+      ...r.rule,
+      categoryId: r.rule.categoryId ?? 'preview',
+      installmentPaid: r.rule.hasInstallment ? r.rule.installmentPaid ?? 0 : null,
+      installmentTotal: r.rule.hasInstallment ? r.rule.installmentTotal ?? null : null,
+      backfill,
+      backfillMonths: months,
+    })
+    return {
+      count: plan.transactions.length,
+      from: plan.transactions[0]?.date ?? null,
+      to: plan.transactions.at(-1)?.date ?? null,
+      nextDue: plan.nextDue,
+    }
+  }
 
   const groups = useMemo(() => ({
     new: rows.filter((r) => r.status === 'new'),
@@ -44,14 +75,19 @@ export function RecurringImportReview({ open, onOpenChange, filename, rows, cate
   }), [rows])
   const counts = { new: groups.new.length, duplicate: groups.duplicate.length, error: groups.error.length }
   const selected = groups.new.filter((r) => choices[r.line]?.include && choices[r.line]?.categoryId)
-  const backfillTotal = selected.reduce((n, r) => n + (r.backfill?.count ?? 0), 0)
+  const backfillTotal = selected.reduce((n, r) => n + (planFor(r)?.count ?? 0), 0)
 
   function setChoice(line: number, patch: Partial<Choice>) {
     setChoices((c) => ({ ...c, [line]: { ...c[line], ...patch } }))
   }
 
   function commit() {
-    const payload = selected.map((r) => ({ ...r.rule!, categoryId: choices[r.line].categoryId }))
+    const payload = selected.map((r) => ({
+      ...r.rule!,
+      categoryId: choices[r.line].categoryId,
+      backfill,
+      backfillMonths: months,
+    }))
     startTransition(async () => {
       const result = await commitRecurringImport(payload)
       if ('error' in result) {
@@ -72,11 +108,33 @@ export function RecurringImportReview({ open, onOpenChange, filename, rows, cate
       summary={
         <div className="space-y-1">
           <ReviewSummary counts={counts} noun="rule" />
-          {backfillTotal > 0 && (
-            <p className="text-[11.5px] text-muted-foreground">
-              Importing the selected rules also logs <span className="tabular text-foreground">{backfillTotal}</span> past charge{backfillTotal === 1 ? '' : 's'} to your ledger.
-            </p>
+          {groups.new.length > 0 && (
+            <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 pt-1">
+              <div className="flex items-center gap-2">
+                <Switch id="import-backfill" size="sm" checked={backfill} onCheckedChange={setBackfill} />
+                <Label htmlFor="import-backfill" className="text-[12px] font-normal text-muted-foreground">Log past charges</Label>
+              </div>
+              {backfill && (
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="import-backfill-months" className="text-[12px] font-normal text-muted-foreground">Months back</Label>
+                  <Input
+                    id="import-backfill-months"
+                    type="number"
+                    min={1}
+                    max={MAX_BACKFILL_MONTHS}
+                    value={backfillMonths}
+                    onChange={(e) => setBackfillMonths(e.target.value)}
+                    className="h-8! w-16 tabular"
+                  />
+                </div>
+              )}
+            </div>
           )}
+          <p className="text-[11.5px] text-muted-foreground">
+            {backfillTotal > 0
+              ? <>Importing the selected rules also logs <span className="tabular text-foreground">{backfillTotal}</span> past charge{backfillTotal === 1 ? '' : 's'} to your ledger.</>
+              : 'No past charges will be logged.'}
+          </p>
         </div>
       }
       footer={
@@ -130,7 +188,7 @@ export function RecurringImportReview({ open, onOpenChange, filename, rows, cate
                       </Select>
                     </div>
                   </div>
-                  {r.backfill && <p className="mt-1.5 ml-8 text-[11.5px] text-muted-foreground tabular">{backfillNote(r.backfill)}</p>}
+                  {planFor(r) && <p className="mt-1.5 ml-8 text-[11.5px] text-muted-foreground tabular">{backfillNote(planFor(r)!)}</p>}
                   {shown.length > 0 && <p className="mt-1 ml-8 text-[11.5px] text-warning">{shown.join(' · ')}</p>}
                 </li>
               )

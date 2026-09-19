@@ -88,6 +88,15 @@ describe('commitRecurringRows', () => {
     expect(data[0]).toMatchObject({ amount: -210000, recurringRuleId: 'rule-1', fxRate: 390, fxAnchor: 'HUF' })
   })
 
+  it('honours the review sheet backfill controls', async () => {
+    const off = await commitRecurringRows([{ ...rent, backfill: false }], TODAY)
+    expect(off.backfilled).toBe(0)
+    expect(txCreateMany).not.toHaveBeenCalled()
+
+    const two = await commitRecurringRows([{ ...rent, backfillMonths: 2 }], TODAY)
+    expect(two.backfilled).toBe(2)
+  })
+
   it('re-checks names and categories against the database as it is now', async () => {
     const result = await commitRecurringRows([
       { ...rent, name: 'NETFLIX' },

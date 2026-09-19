@@ -1,7 +1,12 @@
 import { z } from 'zod'
 import type { Prisma } from '@prisma/client'
 import { lockRate, type FxLock } from './fx'
-import { planRecurringCatchUp, type RecurringCatchUpPlan } from './recurring-backfill'
+import {
+  DEFAULT_BACKFILL_MONTHS,
+  MAX_BACKFILL_MONTHS,
+  planRecurringCatchUp,
+  type RecurringCatchUpPlan,
+} from './recurring-backfill'
 
 // Creating a recurring rule is shared by the Recurring page action and the CSV
 // rule importer: both validate with `recurringRuleSchema`, plan the catch-up
@@ -22,6 +27,10 @@ export const recurringRuleSchema = z.object({
   installmentPaid: z.number().int().min(0).optional().nullable(),
   installmentTotal: z.number().int().min(1).optional().nullable(),
   installmentEndsOn: z.string().regex(DAY).optional().nullable(),
+  /** Log the charges this rule already made (creation only). */
+  backfill: z.boolean().default(true),
+  /** How many past monthly charges to log; ignored for annual rules and installment plans. */
+  backfillMonths: z.number().int().min(1).max(MAX_BACKFILL_MONTHS).default(DEFAULT_BACKFILL_MONTHS),
 })
 
 export type RecurringRuleInput = z.input<typeof recurringRuleSchema>
@@ -64,6 +73,8 @@ export function planNewRule(fields: RecurringRuleFields, today?: Date): Recurrin
     categoryId: fields.categoryId,
     installmentPaid: inst.installmentPaid,
     installmentTotal: inst.installmentTotal,
+    backfill: fields.backfill,
+    backfillMonths: fields.backfillMonths,
     today,
   })
 }

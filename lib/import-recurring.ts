@@ -1,5 +1,6 @@
 import { prisma } from './prisma'
 import { parseCsvRecords } from './csv'
+import { DEFAULT_BACKFILL_MONTHS } from './recurring-backfill'
 import {
   createRecurringRule,
   installmentError,
@@ -96,6 +97,9 @@ export function parseRecurringRows(csv: string): ParsedRecurringRow[] {
       installmentPaid,
       installmentTotal,
       installmentEndsOn: endsOn || null,
+      // The review sheet decides how much history to log; these are its defaults.
+      backfill: true,
+      backfillMonths: DEFAULT_BACKFILL_MONTHS,
     }
     const invalid = installmentError({ ...value, categoryId: 'x' })
     return invalid ? { line, value: null, errors: [invalid] } : { line, value, errors }

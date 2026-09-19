@@ -7,6 +7,11 @@ import { z } from 'zod'
 import { Plus, ArrowUpDown, Check, RepeatIcon, Calendar, RotateCcw, ChevronDown, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Segmented } from '@/components/ui/segmented'
+import {
+  DEFAULT_BACKFILL_MONTHS,
+  MAX_BACKFILL_MONTHS,
+  planRecurringCatchUp,
+} from '@/lib/recurring-backfill'
 import type { RecurringBudgetSummary } from '@/lib/aggregations'
 import { RecurringRuleCard } from '@/components/finance/RecurringRuleCard'
 import { AmountDisplay } from '@/components/finance/AmountDisplay'
@@ -77,6 +82,8 @@ const formSchema = z.object({
   installmentPaid: z.coerce.number().int().min(0).optional(),
   installmentTotal: z.coerce.number().int().min(1).optional(),
   installmentEndsOn: z.string().optional(),
+  backfill: z.boolean(),
+  backfillMonths: z.coerce.number().int().min(1).max(MAX_BACKFILL_MONTHS),
 })
 
 type FormInput = z.input<typeof formSchema>
@@ -311,16 +318,46 @@ export function RecurringView({ rules, archivedRules, categories, budget, anchor
       cycle: 'MONTHLY',
       kind: 'EXPENSE' as 'INCOME' | 'EXPENSE' | 'SAVINGS',
       hasInstallment: false,
+      backfill: true,
+      backfillMonths: DEFAULT_BACKFILL_MONTHS,
     },
   })
 
   const hasInstallment = watch('hasInstallment')
+  const watchInstallmentPaid = watch('installmentPaid')
+  const watchInstallmentTotal = watch('installmentTotal')
   const currency      = watch('currency')
   const cycle         = watch('cycle')
   const kind          = watch('kind')
   const categoryId    = watch('categoryId')
   const nextDue       = watch('nextDue')
   const installmentEndsOn = watch('installmentEndsOn')
+  const backfill      = watch('backfill')
+  const backfillMonths = watch('backfillMonths')
+  const amountValue   = watch('amount')
+  const ruleName      = watch('name')
+
+  // Catch-up only happens when a rule is created, and the planner is pure, so the
+  // sheet can show exactly what saving would log before anything is written.
+  const backfillPreview = useMemo(() => {
+    if (editing || !nextDue || !/^\d{4}-\d{2}-\d{2}$/.test(nextDue)) return null
+    const months = Number(backfillMonths)
+    if (backfill && cycle === 'MONTHLY' && (!Number.isFinite(months) || months < 1)) return null
+    const plan = planRecurringCatchUp({
+      name: ruleName || 'Rule',
+      amount: Number(amountValue) || 0,
+      currency: currency as 'HUF' | 'USD' | 'EUR' | 'GBP',
+      cycle: cycle as 'MONTHLY' | 'ANNUAL',
+      nextDue,
+      kind: kind as 'INCOME' | 'EXPENSE' | 'SAVINGS',
+      categoryId: categoryId || 'preview',
+      installmentPaid: hasInstallment ? Number(watchInstallmentPaid) || 0 : null,
+      installmentTotal: hasInstallment ? Number(watchInstallmentTotal) || null : null,
+      backfill,
+      backfillMonths: months,
+    })
+    return { count: plan.transactions.length, from: plan.transactions[0]?.date ?? null, to: plan.transactions.at(-1)?.date ?? null, nextDue: plan.nextDue }
+  }, [editing, nextDue, backfill, backfillMonths, cycle, kind, currency, categoryId, ruleName, amountValue, hasInstallment, watchInstallmentPaid, watchInstallmentTotal])
   const eligibleRuleCategories = useMemo(
     () => categories.filter((c) => c.kind === kind),
     [categories, kind],
@@ -337,6 +374,7 @@ export function RecurringView({ rules, archivedRules, categories, budget, anchor
     reset({
       currency: 'HUF', cycle: 'MONTHLY', kind: tab as 'INCOME' | 'EXPENSE' | 'SAVINGS',
       hasInstallment: false, nextDue: todayIso(),
+      backfill: true, backfillMonths: DEFAULT_BACKFILL_MONTHS,
     })
     setSheetOpen(true)
   }, [tab, reset])
@@ -361,6 +399,7 @@ export function RecurringView({ rules, archivedRules, categories, budget, anchor
       installmentPaid: rule.installmentPaid ?? 0,
       installmentTotal: rule.installmentTotal ?? undefined,
       installmentEndsOn: rule.installmentEndsOn ?? undefined,
+      backfill: true, backfillMonths: DEFAULT_BACKFILL_MONTHS,
     })
     setSheetOpen(true)
   }
@@ -372,6 +411,8 @@ export function RecurringView({ rules, archivedRules, categories, budget, anchor
       installmentPaid: values.hasInstallment ? values.installmentPaid : null,
       installmentTotal: values.hasInstallment ? values.installmentTotal : null,
       installmentEndsOn: values.hasInstallment && values.installmentEndsOn ? values.installmentEndsOn : null,
+      backfill: values.backfill,
+      backfillMonths: values.backfillMonths,
     }
     startTransition(async () => {
       const result = await upsertRecurringRule(input)
@@ -704,6 +745,44 @@ export function RecurringView({ rules, archivedRules, categories, budget, anchor
                 <p id="rule-category-error" className="text-[11px] text-destructive">{errors.categoryId.message}</p>
               )}
             </div>
+
+            {!editing && !hasInstallment && (
+              <div className="space-y-2 pt-1">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <Label htmlFor="rule-backfill" className="text-[13px] font-medium text-foreground">Log past charges</Label>
+                    <div className="text-[11px] text-muted-foreground mt-0.5">Add the payments this rule has already made</div>
+                  </div>
+                  <Switch
+                    id="rule-backfill"
+                    checked={backfill}
+                    onCheckedChange={(v) => setValue('backfill', v)}
+                  />
+                </div>
+                {backfill && cycle === 'MONTHLY' && (
+                  <div className="flex items-center justify-between gap-4">
+                    <Label htmlFor="rule-backfill-months" className="text-[12px] text-muted-foreground font-normal">
+                      How many months back
+                    </Label>
+                    <Input
+                      id="rule-backfill-months"
+                      type="number"
+                      min={1}
+                      max={MAX_BACKFILL_MONTHS}
+                      className="h-9! w-20 tabular"
+                      {...register('backfillMonths')}
+                    />
+                  </div>
+                )}
+                {backfillPreview && (
+                  <p className="text-[11.5px] text-muted-foreground tabular">
+                    {backfillPreview.count === 0
+                      ? `No past charges · first due ${fmtDate(backfillPreview.nextDue, { short: true })}`
+                      : `Logs ${backfillPreview.count} charge${backfillPreview.count === 1 ? '' : 's'} (${fmtDate(backfillPreview.from!, { short: true })}${backfillPreview.count > 1 ? ` – ${fmtDate(backfillPreview.to!, { short: true })}` : ''}) · next due ${fmtDate(backfillPreview.nextDue, { short: true })}`}
+                  </p>
+                )}
+              </div>
+            )}
 
             <div className="flex items-center justify-between gap-4 pt-1">
               <div>
