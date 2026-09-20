@@ -159,13 +159,16 @@ export function MobileNav({ onAdd, upcomingRenewalsCount = 0 }: MobileNavProps) 
           className={cn(
             moreExpanded ? EXPANDED_SLOT : REST_SLOT,
             // On a More page this slot never collapses, it only swaps text —
-            // Settings → Close → Categories — and each swap would resize the
-            // pill under the thumb. Pinning it to the widest label it can hold
-            // (Categories, 117.6px at 13px Geist semibold, plus headroom) makes
-            // those swaps invisible: the icon stays put and the label starts at
-            // the same x, so only empty tinted space changes. Off a More page
-            // the slot still expands from nothing, so it is left unpinned —
-            // a floor there would defeat the open animation entirely.
+            // Settings → Close → Categories — and each swap resizes the pill
+            // under the thumb. This floor stops the narrowest state shrinking
+            // to a stub. Measured at 13px Geist semibold: Close 85.8, Settings
+            // 103, Renewals 110.1, AI Insights 115.1, Categories 117.6 — so
+            // 100 catches Close alone and the rest still size to their text.
+            // Raising it to ~120 would hold every state at one width and drop
+            // the resize entirely, paid for in dead space behind Close; that
+            // trade was made deliberately in favour of the tighter pill.
+            // Off a More page the slot expands from nothing and is left
+            // unpinned, since a floor there would defeat the open animation.
             deepItem && 'min-w-[100px]',
           )}
         >
