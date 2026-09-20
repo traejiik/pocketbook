@@ -166,7 +166,7 @@ export function MobileNav({ onAdd, upcomingRenewalsCount = 0 }: MobileNavProps) 
             // the same x, so only empty tinted space changes. Off a More page
             // the slot still expands from nothing, so it is left unpinned —
             // a floor there would defeat the open animation entirely.
-            deepItem && 'min-w-[120px]',
+            deepItem && 'min-w-[100px]',
           )}
         >
           <MoreIcon className="w-[19px] h-[19px] shrink-0" />
