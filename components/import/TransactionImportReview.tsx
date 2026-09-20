@@ -10,7 +10,7 @@ import type { ImportResult, PreviewRow } from '@/lib/import-transactions'
 import { fmtCur, fmtDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { CategoryResolver, ImportNotices, type CategoryGap, type Kind } from './CategoryResolver'
-import { ImportReviewSheet, ReviewGroupHeading, ReviewSummary } from './ImportReviewSheet'
+import { ImportReviewSheet, ReviewDisclosure, ReviewGroupHeading, ReviewSummary } from './ImportReviewSheet'
 
 type Currency = 'HUF' | 'USD' | 'EUR' | 'GBP'
 
@@ -116,7 +116,7 @@ export function TransactionImportReview({ open, onOpenChange, filename, rows, ca
       onOpenChange={onOpenChange}
       title="Review transaction import"
       filename={filename}
-      summary={<ReviewSummary counts={counts} noun="transaction" />}
+      summary={<ReviewSummary counts={counts} ready={{ done: ready.length, total: groups.new.length }} />}
       footer={
         <>
           <Button variant="outline" size="sm" onClick={() => onOpenChange(false)} disabled={isPending}>Cancel</Button>
@@ -188,7 +188,7 @@ export function TransactionImportReview({ open, onOpenChange, filename, rows, ca
                     >
                       <SelectTrigger
                         aria-label={`Category for ${r.description}`}
-                        className={cn('h-8! w-full text-[12px]', !choice?.categoryId && 'border-warning/60 text-warning')}
+                        className={cn('h-9! md:h-8! w-full text-[12px]', !choice?.categoryId && 'border-warning/60 text-warning')}
                       >
                         <SelectValue>{cat ? cat.name : 'Needs a category'}</SelectValue>
                       </SelectTrigger>
@@ -207,10 +207,7 @@ export function TransactionImportReview({ open, onOpenChange, filename, rows, ca
       )}
 
       {groups.duplicate.length > 0 && (
-        <details className="group">
-          <summary className="list-none cursor-pointer [&::-webkit-details-marker]:hidden">
-            <ReviewGroupHeading label="Duplicates — skipped" count={groups.duplicate.length} />
-          </summary>
+        <ReviewDisclosure label="Duplicates — skipped" count={groups.duplicate.length}>
           <ul className="calm-card divide-y divide-border/40 overflow-hidden">
             {groups.duplicate.map((r) => (
               <li key={r.line} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 px-3 py-2 text-[12.5px] text-muted-foreground">
@@ -220,12 +217,11 @@ export function TransactionImportReview({ open, onOpenChange, filename, rows, ca
               </li>
             ))}
           </ul>
-        </details>
+        </ReviewDisclosure>
       )}
 
       {groups.error.length > 0 && (
-        <>
-          <ReviewGroupHeading label="Errors — can't import" count={groups.error.length} />
+        <ReviewDisclosure label="Errors — can't import" count={groups.error.length} tone="destructive">
           <ul className="calm-card divide-y divide-border/40 overflow-hidden">
             {groups.error.map((r) => (
               <li key={r.line} className="px-3 py-2 text-[12.5px]">
@@ -234,7 +230,7 @@ export function TransactionImportReview({ open, onOpenChange, filename, rows, ca
               </li>
             ))}
           </ul>
-        </>
+        </ReviewDisclosure>
       )}
 
       {rows.length > 0 && groups.new.length === 0 && (

@@ -19,7 +19,7 @@ import type { RecurringPreviewRow } from '@/lib/import-recurring'
 import { fmtCur, fmtDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import type { ImportOutcome } from './CsvImportRow'
-import { ImportReviewSheet, ReviewGroupHeading, ReviewSummary } from './ImportReviewSheet'
+import { ImportReviewSheet, ReviewDisclosure, ReviewGroupHeading, ReviewSummary } from './ImportReviewSheet'
 
 interface Props {
   open: boolean
@@ -79,6 +79,7 @@ export function RecurringImportReview({ open, onOpenChange, filename, rows, cate
   }), [rows])
   const counts = { new: groups.new.length, duplicate: groups.duplicate.length, error: groups.error.length }
   const selected = groups.new.filter((r) => choices[r.line]?.include && choices[r.line]?.categoryId)
+  const ready = groups.new.filter((r) => choices[r.line]?.categoryId)
   const backfillTotal = selected.reduce((n, r) => n + (planFor(r)?.count ?? 0), 0)
 
   // One entry per unresolved category, resolved for every rule that needs it.
@@ -149,7 +150,7 @@ export function RecurringImportReview({ open, onOpenChange, filename, rows, cate
       filename={filename}
       summary={
         <div className="space-y-1">
-          <ReviewSummary counts={counts} noun="rule" />
+          <ReviewSummary counts={counts} ready={{ done: ready.length, total: groups.new.length }} />
           {groups.new.length > 0 && (
             <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 pt-1">
               <div className="flex items-center gap-2">
@@ -238,7 +239,7 @@ export function RecurringImportReview({ open, onOpenChange, filename, rows, cate
                     <Select value={choice?.categoryId ?? ''} onValueChange={(v) => v && setChoice(r.line, { categoryId: v, include: true })}>
                       <SelectTrigger
                         aria-label={`Category for ${rule.name}`}
-                        className={cn('h-8! w-full text-[12px]', !choice?.categoryId && 'border-warning/60 text-warning')}
+                        className={cn('h-9! md:h-8! w-full text-[12px]', !choice?.categoryId && 'border-warning/60 text-warning')}
                       >
                         <SelectValue>{cat ? cat.name : 'Needs a category'}</SelectValue>
                       </SelectTrigger>
@@ -255,8 +256,7 @@ export function RecurringImportReview({ open, onOpenChange, filename, rows, cate
       )}
 
       {groups.duplicate.length > 0 && (
-        <>
-          <ReviewGroupHeading label="Duplicates — skipped" count={groups.duplicate.length} />
+        <ReviewDisclosure label="Duplicates — skipped" count={groups.duplicate.length}>
           <ul className="calm-card divide-y divide-border/40 overflow-hidden">
             {groups.duplicate.map((r) => (
               <li key={r.line} className="px-3 py-2 text-[12.5px] text-muted-foreground">
@@ -264,12 +264,11 @@ export function RecurringImportReview({ open, onOpenChange, filename, rows, cate
               </li>
             ))}
           </ul>
-        </>
+        </ReviewDisclosure>
       )}
 
       {groups.error.length > 0 && (
-        <>
-          <ReviewGroupHeading label="Errors — can't import" count={groups.error.length} />
+        <ReviewDisclosure label="Errors — can't import" count={groups.error.length} tone="destructive">
           <ul className="calm-card divide-y divide-border/40 overflow-hidden">
             {groups.error.map((r) => (
               <li key={r.line} className="px-3 py-2 text-[12.5px]">
@@ -278,7 +277,7 @@ export function RecurringImportReview({ open, onOpenChange, filename, rows, cate
               </li>
             ))}
           </ul>
-        </>
+        </ReviewDisclosure>
       )}
 
       {rows.length > 0 && groups.new.length === 0 && (

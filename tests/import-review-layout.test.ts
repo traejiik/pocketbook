@@ -45,7 +45,7 @@ describe('import review layout', () => {
   })
 
   it('keeps the pickers aligned whether or not a gap can be created', () => {
-    expect(resolver).toContain('grid-cols-[minmax(0,1fr)_88px] sm:grid-cols-[190px_88px]')
+    expect(resolver).toContain('grid-cols-[minmax(0,1fr)_92px] sm:grid-cols-[190px_92px]')
     expect(resolver).toContain('<span aria-hidden />')
   })
 
