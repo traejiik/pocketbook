@@ -19,8 +19,10 @@ const PRIMARY: { id: string; label: string; icon: LucideIcon }[] = [
 const MORE_IDS = new Set(['renewals', 'categories', 'insights', 'settings']);
 const MORE = NAV.filter((item) => MORE_IDS.has(item.id));
 
+// justify-center is a no-op while the pill hugs its content, and does the work
+// on the More slot, which is pinned wider than most of its labels.
 const EXPANDED_SLOT =
-  'relative flex shrink-0 items-center h-12 pl-[11px] pr-[13px] rounded-full bg-primary/15 text-primary text-[13px] font-semibold tracking-[-0.01em] whitespace-nowrap';
+  'relative flex shrink-0 items-center justify-center h-12 pl-[11px] pr-[13px] rounded-full bg-primary/15 text-primary text-[13px] font-semibold tracking-[-0.01em] whitespace-nowrap';
 const REST_SLOT =
   'relative flex flex-1 items-center justify-center h-12 min-w-11 rounded-full text-muted-foreground';
 
