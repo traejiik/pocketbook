@@ -189,7 +189,7 @@ export function RecurringImportReview({ open, onOpenChange, filename, rows, cate
               const shown = choice?.categoryId ? r.messages.filter((m) => !CATEGORY_HINT.test(m)) : r.messages
               return (
                 <li key={r.line} className={cn('px-3 py-2.5 transition-opacity', !choice?.include && 'opacity-60')}>
-                  <div className="grid grid-cols-[20px_1fr_auto] md:grid-cols-[20px_1fr_170px_130px] items-center gap-x-3 gap-y-1.5">
+                  <div className="grid grid-cols-[20px_1fr_auto] md:grid-cols-[20px_minmax(0,1fr)_200px_120px] items-center gap-x-3 gap-y-1.5">
                     <input
                       type="checkbox"
                       aria-label={`Import ${rule.name}`}

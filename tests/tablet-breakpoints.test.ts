@@ -28,19 +28,24 @@ describe('tablet breakpoint contract', () => {
     const header = source('components/shell/Header.tsx');
 
     expect(appShell).toContain('w-full flex flex-col md:h-dvh md:flex-row md:overflow-hidden');
-    expect(appShell).toContain('className="hidden md:flex min-[1025px]:!hidden"');
+    // The rail's drawer floats, so the shell reserves only its collapsed width.
+    expect(appShell).toContain('hidden md:block min-[1025px]:!hidden relative w-[76px] shrink-0');
     expect(appShell).toContain('className="hidden min-[1025px]:flex"');
     expect(appShell).toContain('<Header displayName={displayName} className="hidden md:flex" />');
     expect(appShell).toContain('<MobileTopBar displayName={displayName} />');
     expect(appShell).toContain('pb-[calc(6.75rem+env(safe-area-inset-bottom))] overflow-x-hidden md:pb-0');
 
-    expect(tabletRail).toContain("const STORAGE_KEY = 'pb-rail-collapsed';");
-    expect(tabletRail).toContain("collapsed ? 'w-[76px]' : 'w-[232px]'");
+    // Opening the rail must not reflow the page, so it overlays with a scrim and
+    // is transient: closed on navigation and on Escape, and never persisted.
+    expect(tabletRail).not.toContain('pb-rail-collapsed');
+    expect(tabletRail).toContain('aria-label="Close navigation"');
+    expect(tabletRail).toContain("useEffect(() => { setCollapsed(true); }, [pathname]);");
+    expect(tabletRail).toContain("collapsed ? 'w-[76px]' : 'w-[232px] shadow-lg'");
     expect(tabletRail).toContain("collapsed ? 'justify-center' : 'gap-2.5 px-3'");
     expect(tabletRail).toContain('aria-label={collapsed ? \'Expand sidebar\' : \'Collapse sidebar\'}');
     expect(tabletRail).toContain('absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-warning');
 
-    expect(tabletRail).toContain("'shrink-0 flex-col pt-5 pb-4 px-3 bg-card border-r border-border/55 transition-[width] duration-200'");
+    expect(tabletRail).toContain("'absolute inset-y-0 left-0 z-40 flex-col pt-5 pb-4 px-3 bg-card border-r border-border/55 transition-[width] duration-200'");
     expect(sidebar).toContain("'w-[224px] shrink-0 flex-col pt-5 pb-4 px-3 bg-card border-r border-border/55'");
     expect(sidebar).toContain("import { LogoMark } from '@/components/shell/LogoMark';");
     expect(sidebar).toContain('text-[15px] font-semibold tracking-tight');
