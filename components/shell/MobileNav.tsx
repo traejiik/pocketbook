@@ -55,9 +55,6 @@ export function MobileNav({ onAdd, upcomingRenewalsCount = 0 }: MobileNavProps) 
   const MoreIcon = moreOpen ? X : (deepItem?.icon ?? Menu);
   const moreLabel = moreOpen ? 'Close' : (deepItem?.label ?? 'More');
   const moreExpanded = moreOpen || Boolean(deepItem);
-  // Remounting the label replays the fade-in — the More slot keeps the same
-  // element across Settings → Close, so it needs the key to animate.
-  const labelKey = moreOpen ? 'close' : activeId;
 
   return (
     <>
@@ -90,7 +87,12 @@ export function MobileNav({ onAdd, upcomingRenewalsCount = 0 }: MobileNavProps) 
               <Link
                 key={item.id}
                 href={`/${item.id}`}
-                onClick={() => setMoreOpen(false)}
+                // Closing here would run a frame before the route changes, so
+                // the dock would briefly re-render the page you are leaving as
+                // active. The pathname effect closes it once navigation lands;
+                // only a tap on the page you are already on needs closing, as
+                // that navigates nowhere and would fire no effect.
+                onClick={active ? () => setMoreOpen(false) : undefined}
                 aria-current={active ? 'page' : undefined}
                 className={cn(
                   'flex h-13 items-center gap-3.5 rounded-[19px] px-3.5 text-[14px] font-medium transition-colors',
@@ -131,7 +133,7 @@ export function MobileNav({ onAdd, upcomingRenewalsCount = 0 }: MobileNavProps) 
             >
               <Icon className="w-[19px] h-[19px] shrink-0" />
               {active && (
-                <span key={labelKey} className="dock-label">
+                <span className="dock-label">
                   <span>
                     <span>{item.label}</span>
                   </span>
@@ -152,11 +154,22 @@ export function MobileNav({ onAdd, upcomingRenewalsCount = 0 }: MobileNavProps) 
           onClick={() => setMoreOpen((open) => !open)}
           aria-expanded={moreOpen}
           aria-label={moreLabel}
-          className={moreExpanded ? EXPANDED_SLOT : REST_SLOT}
+          className={cn(
+            moreExpanded ? EXPANDED_SLOT : REST_SLOT,
+            // On a More page this slot never collapses, it only swaps text —
+            // Settings → Close → Categories — and each swap would resize the
+            // pill under the thumb. Pinning it to the widest label it can hold
+            // (Categories, 117.6px at 13px Geist semibold, plus headroom) makes
+            // those swaps invisible: the icon stays put and the label starts at
+            // the same x, so only empty tinted space changes. Off a More page
+            // the slot still expands from nothing, so it is left unpinned —
+            // a floor there would defeat the open animation entirely.
+            deepItem && 'min-w-[120px]',
+          )}
         >
           <MoreIcon className="w-[19px] h-[19px] shrink-0" />
           {moreExpanded && (
-            <span key={labelKey} className="dock-label">
+            <span className="dock-label">
               <span>
                 <span>{moreLabel}</span>
               </span>

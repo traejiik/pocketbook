@@ -61,12 +61,22 @@ describe('tablet breakpoint contract', () => {
     expect(mobileNav).toContain('Recurring');
     expect(mobileNav).toContain('More');
     // Add sits at the right, behind a hairline, not in the middle as a notch.
-    expect(mobileNav).toContain("className={moreExpanded ? EXPANDED_SLOT : REST_SLOT}");
+    expect(mobileNav).toContain("moreExpanded ? EXPANDED_SLOT : REST_SLOT");
     expect(mobileNav).toContain('shrink-0 w-px h-[22px] mx-[2px] bg-border');
     expect(mobileNav).toContain('aria-label="Add transaction"');
     // Only the active slot carries a label, and the label is what animates.
     expect(mobileNav).toContain('className="dock-label"');
-    expect(mobileNav).toContain("const labelKey = moreOpen ? 'close' : activeId;");
+    // No key on the label: remounting it replays the open animation, which is
+    // wanted when the slot expands from nothing and wrong when an already-open
+    // slot merely swaps text (Settings -> Close -> Categories).
+    expect(mobileNav).not.toContain('key={labelKey}');
+    // Closing the panel on click would land a frame before the route changes,
+    // so the dock would flash the page being left as active. Only a tap on the
+    // page you are already on closes explicitly — it fires no pathname effect.
+    expect(mobileNav).toContain('onClick={active ? () => setMoreOpen(false) : undefined}');
+    // On a More page the slot only ever swaps text, so it is pinned to the
+    // widest label it can hold rather than resizing under the thumb.
+    expect(mobileNav).toContain("deepItem && 'min-w-[120px]'");
     // The More panel floats above the dock; it is no longer a bottom Sheet.
     expect(mobileNav).not.toContain('side="bottom"');
     expect(mobileNav).toContain('bottom-[calc(env(safe-area-inset-bottom)+5.5rem)]');
