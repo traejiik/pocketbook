@@ -76,7 +76,7 @@ describe('tablet breakpoint contract', () => {
     expect(mobileNav).toContain('onClick={active ? () => setMoreOpen(false) : undefined}');
     // On a More page the slot only ever swaps text, so it is pinned to the
     // widest label it can hold rather than resizing under the thumb.
-    expect(mobileNav).toContain("deepItem && 'min-w-[120px]'");
+    expect(mobileNav).toContain("deepItem && 'min-w-[100px]'");
     // The More panel floats above the dock; it is no longer a bottom Sheet.
     expect(mobileNav).not.toContain('side="bottom"');
     expect(mobileNav).toContain('bottom-[calc(env(safe-area-inset-bottom)+5.5rem)]');
