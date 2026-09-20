@@ -223,7 +223,7 @@ date,description,amount,currency,type,category,recurring_rule_name
 - `amount` — either sign works; the stored sign always comes from `type` (income positive, expense and savings negative)
 - `currency` — `HUF`, `USD`, `EUR` or `GBP` (case-insensitive)
 - `type` — `INCOME`, `EXPENSE`, or `SAVINGS`
-- `category` — a category **name** within that type (case-insensitive), or `category_id` with the exact id. Optional: a blank value, or no category column at all, simply leaves the picker empty in the review. A name that matches nothing is highlighted with a **Create** button beside it, which adds the category (a palette colour you can change later on the Categories page) and assigns it to every row in the file that used that name.
+- `category` — a category **name** within that type (case-insensitive), or `category_id` with the exact id. Optional: a blank value, or no category column at all, simply leaves the picker empty in the review. Anything the file leaves unresolved is gathered into a **Needs a category** block at the top of the review: one entry per name, with how many rows use it, a picker and a **Create** button (a palette colour you can change later on the Categories page). Resolving an entry applies to every row in the file that used that name, so a file that mentions "Fitness" ten times is one decision, not ten.
 - `recurring_rule_name` — optional; links the row to a rule by name (an unknown name is flagged, not silently dropped). A plain link never moves the rule's next due date.
 - Quoted fields, commas inside quotes, CRLF endings and Excel's UTF-8 BOM are all handled. Extra columns are ignored. Files are capped at 2 MB / 5 000 rows.
 
