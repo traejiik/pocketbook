@@ -263,6 +263,51 @@
     background: hsl(var(--warning) / 0.13);
     color: hsl(var(--warning));
   }
+
+  /* Mobile dock: the arriving tab label expands the pill open. The animated
+     property is a grid track, not width — `width: auto` is not interpolatable,
+     so 0fr → 1fr is what lets a label of unknown width tween at all. The gap
+     lives on the inner span so the pill starts at icon width with no jump.
+     Remounting the element (keyed on the active id) is what replays this; the
+     outgoing label still goes on the tap, so a press never waits. */
+  @keyframes dock-label-in {
+    from {
+      grid-template-columns: 0fr;
+      opacity: 0;
+    }
+    to {
+      grid-template-columns: 1fr;
+      opacity: 1;
+    }
+  }
+
+  .dock-label {
+    display: grid;
+    grid-template-columns: 1fr;
+    animation: dock-label-in 200ms cubic-bezier(0.165, 0.84, 0.44, 1);
+  }
+
+  /* Two spans, not one: the clipper has to reach zero width, and padding on it
+     would floor the track at 8px and pop the pill open before it animates. The
+     gap therefore sits on the text inside the clipper, where it gets clipped. */
+  .dock-label > span {
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .dock-label > span > span {
+    display: block;
+    padding-left: 8px;
+    white-space: nowrap;
+  }
+
+  /* Under 375px the expanded pill cannot hold the longest label beside three
+     icon slots and Add, so the tinted pill alone marks the page. */
+  @media (max-width: 374px) {
+    .dock-label {
+      display: none;
+    }
+  }
 }
 
 /* ── Reduced-motion: disable all animation for users who ask for it ── */
