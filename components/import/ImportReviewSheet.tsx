@@ -1,28 +1,64 @@
 'use client'
 
 import type { ReactNode } from 'react'
+import { ChevronRight } from 'lucide-react'
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { useIsMobile } from '@/hooks/use-is-mobile'
 import { cn } from '@/lib/utils'
 
 export type ReviewCounts = { new: number; duplicate: number; error: number }
 
-/** "38 new · 4 duplicates · 2 errors" — zero counts are left out. */
-export function ReviewSummary({ counts, noun }: { counts: ReviewCounts; noun: string }) {
+/**
+ * "27 new · 3 duplicates · 1 error", with how much of the file is ready to import
+ * on the right — the one figure that moves as decisions are made, so the eye has
+ * somewhere to return to.
+ */
+export function ReviewSummary({ counts, ready }: { counts: ReviewCounts; ready?: { done: number; total: number } }) {
   const parts = [
-    counts.new > 0 && { n: counts.new, label: `new ${noun}${counts.new === 1 ? '' : 's'}`, tone: 'text-foreground' },
+    counts.new > 0 && { n: counts.new, label: 'new', tone: 'text-foreground' },
     counts.duplicate > 0 && { n: counts.duplicate, label: `duplicate${counts.duplicate === 1 ? '' : 's'}`, tone: 'text-muted-foreground' },
     counts.error > 0 && { n: counts.error, label: `error${counts.error === 1 ? '' : 's'}`, tone: 'text-destructive' },
   ].filter(Boolean) as { n: number; label: string; tone: string }[]
+  const complete = ready && ready.total > 0 && ready.done === ready.total
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[12.5px]">
+    <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[12.5px]">
       {parts.map((p, i) => (
         <span key={p.label} className={cn('inline-flex items-center gap-1', p.tone)}>
-          {i > 0 && <span className="text-muted-foreground/60 mr-2">·</span>}
+          {i > 0 && <span className="text-muted-foreground/60 mr-1.5">·</span>}
           <span className="tabular font-medium">{p.n}</span> {p.label}
         </span>
       ))}
+      {ready && ready.total > 0 && (
+        <span className={cn('ml-auto mono text-[11.5px] tabular', complete ? 'text-income' : 'text-primary')}>
+          {ready.done} of {ready.total} ready
+        </span>
+      )}
     </div>
+  )
+}
+
+/**
+ * A collapsed group of rows that need no decision (duplicates, errors): the
+ * heading is the control, so nothing here competes with the list above it.
+ */
+export function ReviewDisclosure({ label, count, tone = 'muted', children }: {
+  label: string
+  count: number
+  tone?: 'muted' | 'destructive'
+  children: ReactNode
+}) {
+  return (
+    <details className="group pt-4">
+      <summary className="list-none cursor-pointer [&::-webkit-details-marker]:hidden">
+        <div className={cn('flex items-center gap-2 pb-2', tone === 'destructive' ? 'text-destructive' : 'text-muted-foreground')}>
+          <ChevronRight className="w-3 h-3 shrink-0 transition-transform group-open:rotate-90" />
+          <h3 className="text-[11px] mono uppercase tracking-[0.12em] font-medium">{label}</h3>
+          <span className="mono text-[11px]">{count}</span>
+          <div className="flex-1 h-px bg-border ml-2" />
+        </div>
+      </summary>
+      {children}
+    </details>
   )
 }
 

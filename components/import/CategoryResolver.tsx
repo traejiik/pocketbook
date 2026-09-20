@@ -76,11 +76,11 @@ export function CategoryResolver({
               </div>
               {/* A fixed grid, not a flex row: every picker lines up whether or not
                   its gap can be created (a name from the file can, a missing one can't). */}
-              <div className="grid grid-cols-[minmax(0,1fr)_88px] sm:grid-cols-[190px_88px] items-center gap-2">
+              <div className="grid grid-cols-[minmax(0,1fr)_92px] sm:grid-cols-[190px_92px] items-center gap-2">
                 <Select value="" onValueChange={(v) => v && onPick(gap, v)}>
                   <SelectTrigger
                     aria-label={gap.name ? `Category for ${gap.name}` : `Category for ${KIND_LABEL[gap.kind]} rows with none`}
-                    className="h-9! w-full text-[12.5px] border-warning/60"
+                    className="h-11! md:h-10! min-[1025px]:h-9! w-full text-[12.5px] border-warning/60 text-warning"
                   >
                     <SelectValue>Pick a category</SelectValue>
                   </SelectTrigger>
@@ -94,7 +94,7 @@ export function CategoryResolver({
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-9 w-full px-2 text-[12.5px]"
+                    className="h-11 md:h-10 min-[1025px]:h-9 w-full px-2 text-[12.5px]"
                     disabled={disabled}
                     onClick={() => onCreate(gap)}
                   >
