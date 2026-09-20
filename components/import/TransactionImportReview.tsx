@@ -6,10 +6,10 @@ import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { commitTransactionImport, type ImportCategory } from '@/server-actions/import'
 import { createCategoryFromImport } from '@/server-actions/categories'
-import { Plus } from 'lucide-react'
 import type { ImportResult, PreviewRow } from '@/lib/import-transactions'
 import { fmtCur, fmtDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
+import { CategoryResolver, ImportNotices, type CategoryGap, type Kind } from './CategoryResolver'
 import { ImportReviewSheet, ReviewGroupHeading, ReviewSummary } from './ImportReviewSheet'
 
 type Currency = 'HUF' | 'USD' | 'EUR' | 'GBP'
@@ -24,9 +24,6 @@ interface Props {
 }
 
 type Choice = { include: boolean; categoryId: string | null }
-
-/** Hints the category picker itself resolves, so they disappear once one is chosen. */
-const CATEGORY_HINT = /pick one( or create it)?$/
 
 const TONE = { INCOME: 'text-income', EXPENSE: 'text-expense', SAVINGS: 'text-savings' } as const
 
@@ -46,32 +43,50 @@ export function TransactionImportReview({ open, onOpenChange, filename, rows, ca
   }), [rows])
   const counts = { new: groups.new.length, duplicate: groups.duplicate.length, error: groups.error.length }
   const selected = groups.new.filter((r) => choices[r.line]?.include && choices[r.line]?.categoryId)
-  const allOn = selected.length === groups.new.filter((r) => choices[r.line]?.categoryId).length && selected.length > 0
+  const ready = groups.new.filter((r) => choices[r.line]?.categoryId)
+  const allOn = selected.length === ready.length && selected.length > 0
 
-  function setChoice(line: number, patch: Partial<Choice>) {
-    setChoices((c) => ({ ...c, [line]: { ...c[line], ...patch } }))
+  // One entry per unresolved category, in the order the file first needs it: a
+  // file repeats the same unknown name on every row that uses it.
+  const gaps = useMemo<CategoryGap[]>(() => {
+    const byKey = new Map<string, CategoryGap>()
+    for (const row of groups.new) {
+      if (choices[row.line]?.categoryId || !row.type) continue
+      const key = `${row.type}|${row.unmatchedCategory?.trim().toLowerCase() ?? ''}`
+      const existing = byKey.get(key)
+      if (existing) existing.lines.push(row.line)
+      else byKey.set(key, { key, name: row.unmatchedCategory, kind: row.type as Kind, lines: [row.line] })
+    }
+    return [...byKey.values()]
+  }, [groups.new, choices])
+
+  // Warnings that are not decisions: the import proceeds, just without the link.
+  const notices = useMemo(() => {
+    const names = new Set(groups.new.filter((r) => r.recurringRuleName && !r.recurringRuleId).map((r) => r.recurringRuleName!))
+    if (names.size === 0) return []
+    return [`No recurring rule named ${[...names].map((n) => `"${n}"`).join(', ')}. Those transactions import without a link.`]
+  }, [groups.new])
+
+  function assign(lines: number[], categoryId: string) {
+    setChoices((current) => {
+      const next = { ...current }
+      for (const line of lines) next[line] = { include: true, categoryId }
+      return next
+    })
   }
 
-  /** Adopt the file's category name, then assign it to every row that used it. */
-  function createCategory(name: string, kind: 'INCOME' | 'EXPENSE' | 'SAVINGS') {
-    setCreating(`${kind}|${name.toLowerCase()}`)
+  function createForGap(gap: CategoryGap) {
+    if (!gap.name) return
+    setCreating(gap.key)
     startTransition(async () => {
-      const result = await createCategoryFromImport(name, kind)
+      const result = await createCategoryFromImport(gap.name!, gap.kind)
       setCreating(null)
       if ('error' in result) {
         toast.error(result.error)
         return
       }
       setCategories((list) => (list.some((c) => c.id === result.id) ? list : [...list, result].sort((a, b) => a.name.localeCompare(b.name))))
-      setChoices((current) => {
-        const next = { ...current }
-        for (const row of rows) {
-          if (row.type === kind && row.unmatchedCategory?.trim().toLowerCase() === name.trim().toLowerCase() && next[row.line]) {
-            next[row.line] = { include: true, categoryId: result.id }
-          }
-        }
-        return next
-      })
+      assign(gap.lines, result.id)
       toast.success(`Created ${result.name}.`)
     })
   }
@@ -111,80 +126,79 @@ export function TransactionImportReview({ open, onOpenChange, filename, rows, ca
         </>
       }
     >
+      <CategoryResolver
+        gaps={gaps}
+        categories={categories}
+        creating={creating}
+        disabled={isPending}
+        onPick={(gap, categoryId) => assign(gap.lines, categoryId)}
+        onCreate={createForGap}
+        noun="transaction"
+      />
+      <ImportNotices notices={notices} />
+
       {groups.new.length > 0 && (
         <>
-          <div className="flex items-center justify-between">
+          <div className="flex items-baseline justify-between gap-3">
             <ReviewGroupHeading label="New" count={groups.new.length} />
-            <button type="button" onClick={toggleAll} className="text-[12px] text-muted-foreground hover:text-foreground pt-2 pl-3 focus-visible:outline-none focus-visible:underline">
+            <button
+              type="button"
+              onClick={toggleAll}
+              disabled={ready.length === 0}
+              className="shrink-0 pt-4 text-[12px] text-muted-foreground hover:text-foreground disabled:opacity-40 focus-visible:outline-none focus-visible:underline"
+            >
               {allOn ? 'Select none' : 'Select all'}
             </button>
           </div>
+          {/* Every row is the same shape at every width: one line from md, two on
+              phones. Nothing per-row can grow it, which keeps the list scannable. */}
           <ul className="calm-card divide-y divide-border/40 overflow-hidden">
             {groups.new.map((r) => {
               const choice = choices[r.line]
               const kindCategories = categories.filter((c) => c.kind === r.type)
               const cat = kindCategories.find((c) => c.id === choice?.categoryId)
               return (
-                <li key={r.line} className={cn('px-3 py-2.5 transition-opacity', !choice?.include && 'opacity-60')}>
-                  <div className="grid grid-cols-[20px_1fr_auto] md:grid-cols-[20px_84px_minmax(0,1fr)_200px_120px] items-center gap-x-3 gap-y-1.5">
-                    <input
-                      type="checkbox"
-                      aria-label={`Import ${r.description}`}
-                      checked={!!choice?.include}
-                      disabled={!choice?.categoryId}
-                      onChange={(e) => setChoice(r.line, { include: e.target.checked })}
-                      className="size-4 accent-primary"
-                    />
-                    <span className="hidden md:block text-[12px] text-muted-foreground tabular">{fmtDate(r.date, { short: true })}</span>
-                    <div className="min-w-0">
-                      <div className="text-[13px] font-medium truncate">{r.description}</div>
-                      <div className="md:hidden text-[11px] text-muted-foreground tabular">{fmtDate(r.date)}</div>
-                    </div>
-                    <span className={cn('md:order-last text-right text-[13px] tabular', r.type ? TONE[r.type] : '')}>
-                      {fmtCur(r.amount, r.currency as Currency)}
-                    </span>
-                    <div className="col-span-2 col-start-2 md:col-span-1 md:col-start-auto min-w-0">
-                      <Select
-                        value={choice?.categoryId ?? ''}
-                        onValueChange={(v) => v && setChoice(r.line, { categoryId: v, include: true })}
-                      >
-                        <SelectTrigger aria-label={`Category for ${r.description}`} className={cn('h-8! w-full text-[12px]', !choice?.categoryId && 'border-warning/60')}>
-                          <SelectValue>{cat ? cat.name : 'Pick a category'}</SelectValue>
-                        </SelectTrigger>
-                        <SelectContent>
-                          {kindCategories.map((c) => (
-                            <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                <li
+                  key={r.line}
+                  className={cn(
+                    'grid grid-cols-[20px_minmax(0,1fr)_auto] md:grid-cols-[20px_72px_minmax(0,1fr)_190px_112px] items-center gap-x-3 gap-y-2 px-3 py-2.5 transition-opacity',
+                    !choice?.include && 'opacity-55',
+                  )}
+                >
+                  <input
+                    type="checkbox"
+                    aria-label={`Import ${r.description}`}
+                    checked={!!choice?.include}
+                    disabled={!choice?.categoryId}
+                    onChange={(e) => setChoices((c) => ({ ...c, [r.line]: { ...c[r.line], include: e.target.checked } }))}
+                    className="size-4 accent-primary"
+                  />
+                  <span className="hidden md:block text-[12px] text-muted-foreground tabular">{fmtDate(r.date, { short: true })}</span>
+                  <div className="min-w-0">
+                    <div className="text-[13px] font-medium truncate">{r.description}</div>
+                    <div className="md:hidden text-[11px] text-muted-foreground tabular">{fmtDate(r.date)}</div>
                   </div>
-                  {(() => {
-                    // Category hints end in "pick one" / "pick one or create it";
-                    // once a category is chosen they are resolved.
-                    const shown = choice?.categoryId ? r.messages.filter((m) => !CATEGORY_HINT.test(m)) : r.messages
-                    const offerCreate = !choice?.categoryId && r.unmatchedCategory && r.type
-                    if (shown.length === 0 && !offerCreate) return null
-                    return (
-                      <div className="mt-1.5 ml-8 flex flex-wrap items-center gap-x-2 gap-y-1">
-                        {shown.length > 0 && <p className="text-[11.5px] text-warning">{shown.join(' · ')}</p>}
-                        {offerCreate && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-7 shrink-0 px-2 text-[11.5px]"
-                            disabled={isPending}
-                            onClick={() => createCategory(r.unmatchedCategory!, r.type!)}
-                          >
-                            <Plus className="w-3.5 h-3.5 mr-1" />
-                            {creating === `${r.type}|${r.unmatchedCategory!.toLowerCase()}`
-                              ? 'Creating'
-                              : `Create "${r.unmatchedCategory}"`}
-                          </Button>
-                        )}
-                      </div>
-                    )
-                  })()}
+                  <span className={cn('md:order-last text-right text-[13px] tabular', r.type ? TONE[r.type] : '')}>
+                    {fmtCur(r.amount, r.currency as Currency)}
+                  </span>
+                  <div className="col-span-2 col-start-2 md:col-span-1 md:col-start-auto min-w-0">
+                    <Select
+                      value={choice?.categoryId ?? ''}
+                      onValueChange={(v) => v && setChoices((c) => ({ ...c, [r.line]: { include: true, categoryId: v } }))}
+                    >
+                      <SelectTrigger
+                        aria-label={`Category for ${r.description}`}
+                        className={cn('h-8! w-full text-[12px]', !choice?.categoryId && 'border-warning/60 text-warning')}
+                      >
+                        <SelectValue>{cat ? cat.name : 'Needs a category'}</SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {kindCategories.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </li>
               )
             })}
@@ -199,10 +213,10 @@ export function TransactionImportReview({ open, onOpenChange, filename, rows, ca
           </summary>
           <ul className="calm-card divide-y divide-border/40 overflow-hidden">
             {groups.duplicate.map((r) => (
-              <li key={r.line} className="px-3 py-2 grid grid-cols-[1fr_auto] gap-x-3 text-[12.5px] text-muted-foreground">
+              <li key={r.line} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 px-3 py-2 text-[12.5px] text-muted-foreground">
                 <span className="truncate">{fmtDate(r.date, { short: true })} · {r.description}</span>
                 <span className="tabular">{fmtCur(r.amount, r.currency as Currency)}</span>
-                <span className="col-span-2 text-[11px]">{r.messages[0]}</span>
+                <span className="col-span-2 text-[11px] truncate">{r.messages[0]}</span>
               </li>
             ))}
           </ul>
