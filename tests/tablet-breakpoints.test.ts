@@ -33,7 +33,7 @@ describe('tablet breakpoint contract', () => {
     expect(appShell).toContain('className="hidden min-[1025px]:flex"');
     expect(appShell).toContain('<Header displayName={displayName} className="hidden md:flex" />');
     expect(appShell).toContain('<MobileTopBar displayName={displayName} />');
-    expect(appShell).toContain('pb-[calc(6.75rem+env(safe-area-inset-bottom))] overflow-x-hidden md:pb-0');
+    expect(appShell).toContain('pb-[calc(6.5rem+env(safe-area-inset-bottom))] overflow-x-hidden md:pb-0');
 
     // Opening the rail must not reflow the page, so it overlays with a scrim and
     // is transient: closed on navigation and on Escape, and never persisted.
@@ -52,15 +52,49 @@ describe('tablet breakpoint contract', () => {
     expect(sidebar).toContain('renewal-badge mono text-[10.5px] tabular');
     expect(sidebar).toContain('aria-label="Add transaction (N)"');
 
-    expect(mobileNav).toContain('md:hidden fixed bottom-0 inset-x-0');
+    // The dock floats clear of the screen edge rather than banding the bottom.
+    expect(mobileNav).toContain(
+      'md:hidden fixed z-40 left-[max(env(safe-area-inset-left),0.875rem)] right-[max(env(safe-area-inset-right),0.875rem)] bottom-[calc(env(safe-area-inset-bottom)+1.125rem)] flex h-[60px] items-center gap-[2px] rounded-full',
+    );
     expect(mobileNav).toContain('Home');
     expect(mobileNav).toContain('Transactions');
     expect(mobileNav).toContain('Recurring');
     expect(mobileNav).toContain('More');
-    expect(mobileNav).toContain('side="bottom"');
-    expect(mobileNav).toContain('max-w-[402px]');
-    expect(mobileNav).toContain('!rounded-t-[24px]');
-    expect(mobileNav).toContain('h-1.5 w-10 rounded-full bg-border');
+    // Add sits at the right, behind a hairline, not in the middle as a notch.
+    expect(mobileNav).toContain("className={moreExpanded ? EXPANDED_SLOT : REST_SLOT}");
+    expect(mobileNav).toContain('shrink-0 w-px h-[22px] mx-[2px] bg-border');
+    expect(mobileNav).toContain('aria-label="Add transaction"');
+    // Only the active slot carries a label, and the label is what animates.
+    expect(mobileNav).toContain('className="dock-label"');
+    expect(mobileNav).toContain("const labelKey = moreOpen ? 'close' : activeId;");
+    // The More panel floats above the dock; it is no longer a bottom Sheet.
+    expect(mobileNav).not.toContain('side="bottom"');
+    expect(mobileNav).toContain('bottom-[calc(env(safe-area-inset-bottom)+5.5rem)]');
+    expect(mobileNav).toContain('aria-label="Close menu"');
+    expect(mobileNav).toContain('setMoreOpen(false);\n  }, [pathname]);');
+
+    // The renewals count rides Recurring on mobile only. The sidebar and rail
+    // show Renewals as its own item, so there the badge stays put.
+    expect(mobileNav).toContain("item.id === 'recurring' && upcomingRenewalsCount > 0");
+    expect(mobileNav).not.toContain("item.id === 'renewals' && upcomingRenewalsCount > 0 &&");
+    expect(sidebar).toContain("item.id === 'renewals' && upcomingRenewalsCount > 0");
+    expect(tabletRail).toContain("item.id === 'renewals' && upcomingRenewalsCount > 0");
+
+    // The pill opens by tweening a grid track: `width: auto` cannot be
+    // interpolated, so a plain width transition would animate nothing. The
+    // clipper must carry no padding of its own or the track floors above zero
+    // and the pill pops open before it animates.
+    const globals = source('app/globals.css');
+    expect(globals).toContain('@keyframes dock-label-in');
+    expect(globals).toContain('grid-template-columns: 0fr;');
+    expect(globals).toContain('grid-template-columns: 1fr;');
+    expect(globals).toContain('animation: dock-label-in 200ms cubic-bezier(0.165, 0.84, 0.44, 1);');
+    expect(globals).toMatch(/\.dock-label > span \{\s*min-width: 0;\s*overflow: hidden;\s*\}/);
+    expect(globals).toContain('.dock-label > span > span {');
+    // Below 375px the label is dropped in CSS, never by measuring the viewport
+    // in JS, which rule 18 forbids.
+    expect(globals).toContain('@media (max-width: 374px)');
+    expect(mobileNav).not.toContain('innerWidth');
 
     expect(mobileTopBar).toContain('md:hidden sticky top-0');
     expect(mobileTopBar).toContain('titleForPath(pathname)');

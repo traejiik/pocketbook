@@ -1,38 +1,28 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import {
-  LayoutGrid,
-  List,
-  Repeat,
-  Plus,
-  Menu,
-  CalendarDays,
-  Tag,
-  Sparkles,
-  Settings,
-  type LucideIcon,
-} from 'lucide-react';
+import { LayoutGrid, List, Repeat, Plus, Menu, X, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useFabContext } from '@/contexts/fab-context';
-import { navIdForPath } from '@/components/shell/nav';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { NAV, navIdForPath } from '@/components/shell/nav';
 
-const TABS: { id: string; label: string; icon: LucideIcon }[] = [
+// Three destinations sit in the dock; the rest live behind More. Dashboard
+// reads "Home" here because the expanded label has to fit a 390px pill.
+const PRIMARY: { id: string; label: string; icon: LucideIcon }[] = [
   { id: 'dashboard', label: 'Home', icon: LayoutGrid },
   { id: 'transactions', label: 'Transactions', icon: List },
-];
-const TABS_RIGHT: { id: string; label: string; icon: LucideIcon }[] = [
   { id: 'recurring', label: 'Recurring', icon: Repeat },
 ];
-const MORE: { id: string; label: string; icon: LucideIcon }[] = [
-  { id: 'renewals', label: 'Renewals', icon: CalendarDays },
-  { id: 'categories', label: 'Categories', icon: Tag },
-  { id: 'insights', label: 'AI Insights', icon: Sparkles },
-  { id: 'settings', label: 'Settings', icon: Settings },
-];
+
+const MORE_IDS = new Set(['renewals', 'categories', 'insights', 'settings']);
+const MORE = NAV.filter((item) => MORE_IDS.has(item.id));
+
+const EXPANDED_SLOT =
+  'relative flex shrink-0 items-center h-12 pl-[11px] pr-[13px] rounded-full bg-primary/15 text-primary text-[13px] font-semibold tracking-[-0.01em] whitespace-nowrap';
+const REST_SLOT =
+  'relative flex flex-1 items-center justify-center h-12 min-w-11 rounded-full text-muted-foreground';
 
 interface MobileNavProps {
   onAdd: () => void;
@@ -45,116 +35,148 @@ export function MobileNav({ onAdd, upcomingRenewalsCount = 0 }: MobileNavProps) 
   const { fabAction } = useFabContext();
   const [moreOpen, setMoreOpen] = useState(false);
 
-  const moreActive = MORE.some((m) => m.id === activeId);
+  // Close on navigation: the panel covers the page it just navigated to.
+  useEffect(() => {
+    setMoreOpen(false);
+  }, [pathname]);
 
-  function Tab({ id, label, icon: Icon }: { id: string; label: string; icon: LucideIcon }) {
-    const active = activeId === id;
-    return (
-      <Link
-        href={`/${id}`}
-        aria-current={active ? 'page' : undefined}
-        className={cn(
-          'flex-1 flex flex-col items-center justify-center gap-1 h-full text-[10px] font-medium transition-colors focus-visible:outline-none',
-          active ? 'text-primary' : 'text-muted-foreground',
-        )}
-      >
-        <Icon className="w-5 h-5" />
-        {label}
-      </Link>
-    );
-  }
+  useEffect(() => {
+    if (!moreOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMoreOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [moreOpen]);
+
+  // The More slot carries whichever deep page you are on, so a page behind the
+  // hamburger is never nameless; while the panel is open it becomes Close.
+  const deepItem = MORE.find((item) => item.id === activeId);
+  const MoreIcon = moreOpen ? X : (deepItem?.icon ?? Menu);
+  const moreLabel = moreOpen ? 'Close' : (deepItem?.label ?? 'More');
+  const moreExpanded = moreOpen || Boolean(deepItem);
+  // Remounting the label replays the fade-in — the More slot keeps the same
+  // element across Settings → Close, so it needs the key to animate.
+  const labelKey = moreOpen ? 'close' : activeId;
 
   return (
     <>
+      {/* Content dissolves into the dock instead of ending in a hard cut. */}
+      <div
+        aria-hidden
+        className="md:hidden pointer-events-none fixed inset-x-0 bottom-0 z-30 h-[140px] bg-[linear-gradient(to_top,hsl(var(--background))_22%,transparent)]"
+      />
+
+      {moreOpen && (
+        <button
+          type="button"
+          aria-label="Close menu"
+          onClick={() => setMoreOpen(false)}
+          className="md:hidden fixed inset-0 z-30 bg-background/60 backdrop-blur-[2px]"
+        />
+      )}
+
+      {/* The More panel floats directly above the dock in the same material, so
+          it reads as the slot opening rather than a separate surface. */}
+      {moreOpen && (
+        <div
+          className="md:hidden fixed z-40 left-[max(env(safe-area-inset-left),0.875rem)] right-[max(env(safe-area-inset-right),0.875rem)] bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] flex flex-col gap-0.5 rounded-[26px] border border-border bg-card/95 p-2 backdrop-blur-xl shadow-pb-3"
+        >
+          {MORE.map((item) => {
+            const Icon = item.icon;
+            const active = activeId === item.id;
+            const showBadge = item.id === 'renewals' && upcomingRenewalsCount > 0;
+            return (
+              <Link
+                key={item.id}
+                href={`/${item.id}`}
+                onClick={() => setMoreOpen(false)}
+                aria-current={active ? 'page' : undefined}
+                className={cn(
+                  'flex h-13 items-center gap-3.5 rounded-[19px] px-3.5 text-[14px] font-medium transition-colors',
+                  active ? 'bg-primary/15 text-primary' : 'text-muted-foreground',
+                )}
+              >
+                <Icon className="w-[19px] h-[19px] shrink-0" />
+                <span className="flex-1">{item.label}</span>
+                {showBadge && (
+                  <span className="renewal-badge mono text-[10.5px] tabular rounded-full px-[7px] py-[2.5px] leading-none">
+                    {upcomingRenewalsCount}
+                  </span>
+                )}
+              </Link>
+            );
+          })}
+        </div>
+      )}
+
       <nav
         aria-label="Main navigation"
-        className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-card/95 backdrop-blur border-t border-border/55 pb-[calc(env(safe-area-inset-bottom)+1.25rem)] pl-[max(env(safe-area-inset-left),0.5rem)] pr-[max(env(safe-area-inset-right),0.5rem)]"
+        className="md:hidden fixed z-40 left-[max(env(safe-area-inset-left),0.875rem)] right-[max(env(safe-area-inset-right),0.875rem)] bottom-[calc(env(safe-area-inset-bottom)+1.125rem)] flex h-[60px] items-center gap-[2px] rounded-full border border-border bg-card/85 p-[6px] backdrop-blur-xl shadow-pb-3"
       >
-        <div className="flex items-stretch h-16">
-          {TABS.map((t) => (
-            <Tab key={t.id} {...t} />
-          ))}
-
-          {/* Centre FAB */}
-          <div className="relative flex-1">
-            <button
-              type="button"
-              onClick={fabAction ?? onAdd}
-              aria-label="Add transaction"
-              className="absolute left-1/2 -translate-x-1/2 -top-7 w-14 h-14 rounded-full bg-primary text-primary-foreground flex items-center justify-center transition active:scale-95"
-              style={{ boxShadow: '0 8px 22px hsl(var(--primary) / 0.45)' }}
+        {PRIMARY.map((item) => {
+          const Icon = item.icon;
+          const active = !moreOpen && activeId === item.id;
+          // You are already on the page, so the dot has nothing left to say.
+          const showDot = item.id === 'recurring' && upcomingRenewalsCount > 0 && !active;
+          return (
+            <Link
+              key={item.id}
+              href={`/${item.id}`}
+              aria-current={active ? 'page' : undefined}
+              aria-label={
+                showDot ? `${item.label}, ${upcomingRenewalsCount} due soon` : item.label
+              }
+              className={active ? EXPANDED_SLOT : REST_SLOT}
             >
-              <Plus className="w-6 h-6" />
-            </button>
-          </div>
-
-          {TABS_RIGHT.map((t) => (
-            <Tab key={t.id} {...t} />
-          ))}
-
-          {/* More */}
-          <button
-            type="button"
-            onClick={() => setMoreOpen(true)}
-            aria-label="More"
-            className={cn(
-              'relative flex-1 flex flex-col items-center justify-center gap-1 h-full text-[10px] font-medium transition-colors',
-              moreActive ? 'text-primary' : 'text-muted-foreground',
-            )}
-          >
-            <Menu className="w-5 h-5" />
-            More
-            {upcomingRenewalsCount > 0 && (
-              <span className="absolute top-2.5 right-[calc(50%-16px)] w-1.5 h-1.5 rounded-full bg-warning" />
-            )}
-          </button>
-        </div>
-      </nav>
-
-      <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
-        <SheetContent
-          side="bottom"
-          className="mx-auto max-w-[402px] gap-0 p-0 !rounded-t-[24px] pb-[max(env(safe-area-inset-bottom),1rem)]"
-        >
-          <div className="flex justify-center pt-2.5 pb-1">
-            <div className="h-1.5 w-10 rounded-full bg-border" />
-          </div>
-          <SheetHeader className="px-5 pt-2 pb-3.5 border-b border-border/60">
-            <SheetTitle>More</SheetTitle>
-            <p className="text-[12px] text-muted-foreground">Other Pocketbook screens.</p>
-          </SheetHeader>
-          <div className="flex flex-col gap-2 px-5 py-4">
-            {MORE.map((item) => {
-              const Icon = item.icon;
-              const active = activeId === item.id;
-              const showBadge = item.id === 'renewals' && upcomingRenewalsCount > 0;
-              return (
-                <Link
-                  key={item.id}
-                  href={`/${item.id}`}
-                  onClick={() => setMoreOpen(false)}
-                  className={cn(
-                    'flex items-center gap-3 p-3 rounded-[12px] border bg-card text-[13px] transition-colors',
-                    active
-                      ? 'border-primary/40 text-foreground'
-                      : 'border-border/55 text-muted-foreground hover:text-foreground',
-                  )}
-                >
-                  <span className={cn('shrink-0', active && 'text-primary')}>
-                    <Icon className="w-4 h-4" />
+              <Icon className="w-[19px] h-[19px] shrink-0" />
+              {active && (
+                <span key={labelKey} className="dock-label">
+                  <span>
+                    <span>{item.label}</span>
                   </span>
-                  <span className="flex-1">{item.label}</span>
-                  {showBadge && (
-                    <span className="renewal-badge mono text-[10.5px] tabular rounded-full px-[7px] py-[2.5px] leading-none">
-                      {upcomingRenewalsCount}
-                    </span>
-                  )}
-                </Link>
-              );
-            })}
-          </div>
-        </SheetContent>
-      </Sheet>
+                </span>
+              )}
+              {showDot && (
+                <span
+                  aria-hidden
+                  className="absolute top-[9px] right-[9px] h-1.5 w-1.5 rounded-full bg-warning ring-2 ring-card"
+                />
+              )}
+            </Link>
+          );
+        })}
+
+        <button
+          type="button"
+          onClick={() => setMoreOpen((open) => !open)}
+          aria-expanded={moreOpen}
+          aria-label={moreLabel}
+          className={moreExpanded ? EXPANDED_SLOT : REST_SLOT}
+        >
+          <MoreIcon className="w-[19px] h-[19px] shrink-0" />
+          {moreExpanded && (
+            <span key={labelKey} className="dock-label">
+              <span>
+                <span>{moreLabel}</span>
+              </span>
+            </span>
+          )}
+        </button>
+
+        {/* Add does something rather than going somewhere — the hairline says so. */}
+        <span aria-hidden className="shrink-0 w-px h-[22px] mx-[2px] bg-border" />
+
+        <button
+          type="button"
+          onClick={fabAction ?? onAdd}
+          aria-label="Add transaction"
+          className="shrink-0 flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground transition active:scale-95"
+          style={{ boxShadow: '0 7px 18px hsl(var(--primary) / 0.45)' }}
+        >
+          <Plus className="w-[21px] h-[21px]" />
+        </button>
+      </nav>
     </>
   );
 }
