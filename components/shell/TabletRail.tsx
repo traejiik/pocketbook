@@ -8,46 +8,56 @@ import { cn } from '@/lib/utils';
 import { LogoMark } from '@/components/shell/LogoMark';
 import { NAV, navIdForPath } from '@/components/shell/nav';
 
-const STORAGE_KEY = 'pb-rail-collapsed';
-
 interface TabletRailProps {
   upcomingRenewalsCount?: number;
   onQuickAdd?: () => void;
   className?: string;
 }
 
-// Tablet icon rail (md–lg): collapsible 76px ⇄ 232px, default collapsed.
+/**
+ * Tablet icon rail (md–lg): 76px of labelled icons that opens to a 232px drawer.
+ *
+ * The drawer floats *over* the page rather than widening in flow. Pushing the
+ * content used to leave 536–792px for layouts built for more, which crushed the
+ * KPI strips and toolbars. Floating keeps the page at its full width, so opening
+ * the rail can never reflow what you are reading. It is a transient drawer:
+ * it closes on navigation, on Escape, and when the scrim is clicked, and its
+ * state is deliberately not remembered — a remembered open drawer would scrim
+ * the app on every load.
+ */
 export function TabletRail({ upcomingRenewalsCount = 0, onQuickAdd, className }: TabletRailProps) {
   const pathname = usePathname();
   const activeId = navIdForPath(pathname);
   const [collapsed, setCollapsed] = useState(true);
 
+  // Close on navigation: the drawer covers the page it just navigated to.
+  useEffect(() => { setCollapsed(true); }, [pathname]);
+
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored !== null) setCollapsed(stored === '1');
-    } catch {
-      // localStorage unavailable — keep default collapsed.
-    }
-  }, []);
+    if (collapsed) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setCollapsed(true); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [collapsed]);
 
   function toggle() {
-    setCollapsed((c) => {
-      const next = !c;
-      try {
-        localStorage.setItem(STORAGE_KEY, next ? '1' : '0');
-      } catch {
-        // ignore
-      }
-      return next;
-    });
+    setCollapsed((c) => !c);
   }
 
   return (
-    <aside
+    <>
+      {!collapsed && (
+        <button
+          type="button"
+          aria-label="Close navigation"
+          onClick={() => setCollapsed(true)}
+          className="fixed inset-0 z-30 bg-background/60 backdrop-blur-[2px] min-[1025px]:hidden"
+        />
+      )}
+      <aside
       className={cn(
-        'shrink-0 flex-col pt-5 pb-4 px-3 bg-card border-r border-border/55 transition-[width] duration-200',
-        collapsed ? 'w-[76px]' : 'w-[232px]',
+        'absolute inset-y-0 left-0 z-40 flex-col pt-5 pb-4 px-3 bg-card border-r border-border/55 transition-[width] duration-200',
+        collapsed ? 'w-[76px]' : 'w-[232px] shadow-lg',
         className,
       )}
     >
@@ -128,5 +138,6 @@ export function TabletRail({ upcomingRenewalsCount = 0, onQuickAdd, className }:
         {!collapsed && <span>Add transaction</span>}
       </button>
     </aside>
+    </>
   );
 }

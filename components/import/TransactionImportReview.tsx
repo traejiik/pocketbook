@@ -126,7 +126,7 @@ export function TransactionImportReview({ open, onOpenChange, filename, rows, ca
               const cat = kindCategories.find((c) => c.id === choice?.categoryId)
               return (
                 <li key={r.line} className={cn('px-3 py-2.5 transition-opacity', !choice?.include && 'opacity-60')}>
-                  <div className="grid grid-cols-[20px_1fr_auto] md:grid-cols-[20px_84px_1fr_170px_130px] items-center gap-x-3 gap-y-1.5">
+                  <div className="grid grid-cols-[20px_1fr_auto] md:grid-cols-[20px_84px_minmax(0,1fr)_200px_120px] items-center gap-x-3 gap-y-1.5">
                     <input
                       type="checkbox"
                       aria-label={`Import ${r.description}`}
@@ -143,12 +143,12 @@ export function TransactionImportReview({ open, onOpenChange, filename, rows, ca
                     <span className={cn('md:order-last text-right text-[13px] tabular', r.type ? TONE[r.type] : '')}>
                       {fmtCur(r.amount, r.currency as Currency)}
                     </span>
-                    <div className="col-span-2 col-start-2 md:col-span-1 md:col-start-auto flex items-center gap-1.5">
+                    <div className="col-span-2 col-start-2 md:col-span-1 md:col-start-auto min-w-0">
                       <Select
                         value={choice?.categoryId ?? ''}
                         onValueChange={(v) => v && setChoice(r.line, { categoryId: v, include: true })}
                       >
-                        <SelectTrigger aria-label={`Category for ${r.description}`} className={cn('h-8! flex-1 min-w-0 text-[12px]', !choice?.categoryId && 'border-warning/60')}>
+                        <SelectTrigger aria-label={`Category for ${r.description}`} className={cn('h-8! w-full text-[12px]', !choice?.categoryId && 'border-warning/60')}>
                           <SelectValue>{cat ? cat.name : 'Pick a category'}</SelectValue>
                         </SelectTrigger>
                         <SelectContent>
@@ -157,27 +157,32 @@ export function TransactionImportReview({ open, onOpenChange, filename, rows, ca
                           ))}
                         </SelectContent>
                       </Select>
-                      {!choice?.categoryId && r.unmatchedCategory && r.type && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-8 shrink-0 px-2 text-[12px]"
-                          disabled={isPending}
-                          title={`Create the ${r.type.toLowerCase()} category "${r.unmatchedCategory}"`}
-                          onClick={() => createCategory(r.unmatchedCategory!, r.type!)}
-                        >
-                          <Plus className="w-3.5 h-3.5 mr-1" />
-                          {creating === `${r.type}|${r.unmatchedCategory.toLowerCase()}` ? 'Creating' : 'Create'}
-                        </Button>
-                      )}
                     </div>
                   </div>
                   {(() => {
                     // Category hints end in "pick one" / "pick one or create it";
                     // once a category is chosen they are resolved.
                     const shown = choice?.categoryId ? r.messages.filter((m) => !CATEGORY_HINT.test(m)) : r.messages
-                    return shown.length > 0 && (
-                      <p className="mt-1.5 ml-8 text-[11.5px] text-warning">{shown.join(' · ')}</p>
+                    const offerCreate = !choice?.categoryId && r.unmatchedCategory && r.type
+                    if (shown.length === 0 && !offerCreate) return null
+                    return (
+                      <div className="mt-1.5 ml-8 flex flex-wrap items-center gap-x-2 gap-y-1">
+                        {shown.length > 0 && <p className="text-[11.5px] text-warning">{shown.join(' · ')}</p>}
+                        {offerCreate && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 shrink-0 px-2 text-[11.5px]"
+                            disabled={isPending}
+                            onClick={() => createCategory(r.unmatchedCategory!, r.type!)}
+                          >
+                            <Plus className="w-3.5 h-3.5 mr-1" />
+                            {creating === `${r.type}|${r.unmatchedCategory!.toLowerCase()}`
+                              ? 'Creating'
+                              : `Create "${r.unmatchedCategory}"`}
+                          </Button>
+                        )}
+                      </div>
                     )
                   })()}
                 </li>

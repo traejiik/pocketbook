@@ -91,11 +91,15 @@ export function AppShell({
   return (
     <FabProvider>
       <div className="w-full flex flex-col md:h-dvh md:flex-row md:overflow-hidden bg-background text-foreground">
-        <TabletRail
-          upcomingRenewalsCount={upcomingRenewalsCount}
-          onQuickAdd={openNew}
-          className="hidden md:flex min-[1025px]:!hidden"
-        />
+        {/* The rail's drawer floats over the page, so the shell only ever reserves
+            its collapsed width — opening it never reflows the content. */}
+        <div className="hidden md:block min-[1025px]:!hidden relative w-[76px] shrink-0">
+          <TabletRail
+            upcomingRenewalsCount={upcomingRenewalsCount}
+            onQuickAdd={openNew}
+            className="flex"
+          />
+        </div>
         <Sidebar
           upcomingRenewalsCount={upcomingRenewalsCount}
           onQuickAdd={openNew}
