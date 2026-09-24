@@ -42,8 +42,8 @@ Numbers lead. Surfaces recede. A single calm blue is reserved for what matters.
 - **🔒 Yours alone** — one user, seeded from your env file. No multi-tenant logic, no sign-up flow, no telemetry. Self-hosted with Docker Compose.
 - **🧠 Private AI insights** — monthly commentary streamed token-by-token from your own Ollama instance. It never calls out to a third party, and the app works fine if the model is offline.
 - **💱 Multi-currency, done right** — HUF-first with USD/EUR/GBP support, ECB rates auto-synced daily, triangulated conversion, and honest handling of amounts it can't convert.
-- **🔁 Recurring & installments** — subscriptions, rent, and installment plans tracked with idempotent auto-logging and reconciled counters.
-- **↪️ Month carry-over** — each month opens with the previous months' net, derived from the ledger rather than posted as a transaction, so editing history never leaves a stale balance. An optional opening balance in Settings anchors the running total to what you actually held when you started logging.
+- **🔁 Recurring & installments** — subscriptions, rent, and installment plans tracked with idempotent auto-logging and reconciled counters. Paid a bill early? Log it early and the rule skips that due date instead of logging it twice.
+- **↪️ Month carry-over** — each month opens with the previous months' net, derived from the ledger rather than posted as a transaction, so editing history never leaves a stale balance. An optional opening balance in Settings anchors the running total to what you actually held when you started logging, and any category can be left out of the balance (transfers, reimbursements) without changing its Net.
 - **📅 Renewal radar** — a cash-out timeline that tells you what's leaving your account in the next 30/60/90 days.
 - **⚡ Fast and honest UI** — optimistic writes, skeletons instead of spinners, tabular numerics on every figure, dark-mode-first, and a real `⌘K` search.
 - **📥 One-way CSV import** — bootstrap from your old spreadsheet in one shot.
@@ -138,7 +138,7 @@ docker compose up -d
 #    PB_SEED_USER_EMAIL / PB_SEED_USER_PASSWORD
 ```
 
-On boot, the `pocketbook-web` container prepares `/data` and `/backups` as root, immediately re-execs as UID 1001, builds `PB_DATABASE_URL`, runs `prisma migrate deploy`, the idempotent seed, and the FX-lock backfill, then starts a PID-1 supervisor. The supervisor generates a per-boot internal job token and runs Next.js plus a separate UTC scheduler process. If either child exits or the worker stops heartbeating, the container exits so Docker can restart it.
+On boot, the `pocketbook-web` container prepares `/data` and `/backups` as root, immediately re-execs as UID 1001, builds `PB_DATABASE_URL`, runs `prisma migrate deploy`, the idempotent seed, and the FX-lock backfill (each only when a quick startup check finds work for it; `PB_FORCE_BOOTSTRAP=1` runs all three), then starts a PID-1 supervisor. The supervisor generates a per-boot internal job token and runs Next.js plus a separate UTC scheduler process. If either child exits or the worker stops heartbeating, the container exits so Docker can restart it.
 
 After every successful boot the validated environment configuration is persisted to `.env-cache` on the `/data` volume (`chmod 600`); if a later redeploy arrives without variables, the entrypoint restores only the missing values. Discord configuration is separate: enter the webhook in authenticated Settings. Production stores it in `/data/notifications.json`; a direct development run stores it in `.data/notifications.json`; and `PB_NOTIFICATION_CONFIG_PATH` can explicitly override either location. The file is written with mode `0600`, and the webhook is never imported from environment variables.
 
@@ -208,25 +208,42 @@ If Ollama is unreachable the app still works — the Insights screen shows **"Un
 
 ---
 
-## 📥 CSV import
+## 📥 CSV import and export
 
-Bootstrap transactions from a spreadsheet export by placing a file at `seed/transactions.csv` before running `docker-compose up` (or `pnpm prisma db seed`).
+**Import (Settings → Import data).** Choose a CSV and Pocketbook parses it on the server without writing anything, then opens a review sheet: each row is marked **new**, **duplicate** (already in the ledger, repeated in the file, or a rule already logged that day) or **error** (with the reason). You can untick rows or pick a category for any row whose category did not match; nothing is saved until you press *Import N transactions*. The commit runs in one database transaction, re-checks duplicates, freezes each row's FX rate and reconciles installment counters.
 
 ```csv
-date,description,amount,currency,type,category_id,recurring_rule_name
-2026-01-05,Salary,450000,HUF,INCOME,salary,
-2026-01-06,Spar,-8900,HUF,EXPENSE,food,
-2026-01-20,Apple Music,-1990,HUF,EXPENSE,subs,Apple Music
+date,description,amount,currency,type,category,recurring_rule_name
+2026-01-05,Salary,450000,HUF,INCOME,Salary,
+2026-01-06,"Spar, Andrássy út",-8900,HUF,EXPENSE,Groceries,
+2026-01-20,Apple Music,-1990,HUF,EXPENSE,Subscriptions,Apple Music
 ```
 
 - `date` — ISO 8601 (`YYYY-MM-DD`)
 - `amount` — either sign works; the stored sign always comes from `type` (income positive, expense and savings negative)
-- `currency` — uppercase 3-letter code (`HUF`, `USD`, `EUR`, `GBP`)
+- `currency` — `HUF`, `USD`, `EUR` or `GBP` (case-insensitive)
 - `type` — `INCOME`, `EXPENSE`, or `SAVINGS`
-- `category_id` — must match an existing category `id` from the seed
-- `recurring_rule_name` — optional; links the transaction to a rule by name
+- `category` — a category **name** within that type (case-insensitive), or `category_id` with the exact id. Optional: a blank value, or no category column at all, simply leaves the picker empty in the review. Anything the file leaves unresolved is gathered into a **Needs a category** block at the top of the review: one entry per name, with how many rows use it, a picker and a **Create** button (a palette colour you can change later on the Categories page). Resolving an entry applies to every row in the file that used that name, so a file that mentions "Fitness" ten times is one decision, not ten.
+- `recurring_rule_name` — optional; links the row to a rule by name (an unknown name is flagged, not silently dropped). A plain link never moves the rule's next due date.
+- Quoted fields, commas inside quotes, CRLF endings and Excel's UTF-8 BOM are all handled. Extra columns are ignored. Files are capped at 2 MB / 5 000 rows.
 
-The importer is **idempotent**: re-running it skips rows that already exist by `(date, description, amount)`. For ad-hoc imports after first boot: `pnpm tsx scripts/csv-import.ts`.
+Duplicates are matched on day, description (case-insensitive), amount magnitude, currency and type.
+
+**Recurring rules (Settings → Import data).** The same review flow imports rules:
+
+```csv
+name,amount,currency,cycle,next_due,kind,category,installment_paid,installment_total
+Rent,210000,HUF,MONTHLY,2026-10-05,EXPENSE,Housing,,
+Phone,15000,HUF,MONTHLY,2026-10-10,EXPENSE,Phone,2,12
+```
+
+`cycle` is `MONTHLY` or `ANNUAL` (`monthly`, `yearly` and similar are accepted), `amount` is one charge (sign ignored), `kind` may also be headed `type`, and a row with any `installment_*` column is an installment plan (`installment_ends_on` optional). A rule whose name matches an active rule is skipped. Creating a rule can log its recent past charges. The review sheet has a **Log past charges** switch and a months input covering the whole file (default: on, 4 months), lists what each rule would add, and totals it before you confirm. Installment plans ignore the controls — they log exactly the payments they record as paid. Catch-up charges lock today's FX rate.
+
+A CSV `recurring_rule_name` is a plain link: it never settles an occurrence or moves a rule's next due date. To pay a bill before it is due, use **Log recurring early** in the transaction form instead.
+
+**Export (Transactions → Export CSV).** On tablet and desktop the button is in the header; on phones it is a full-width muted button under the transaction list. Download this month (the month you are viewing), a date range, or all time. The export uses the import columns plus `category_id`, `fx_rate` and `fx_anchor`, so it opens in a spreadsheet and re-imports entirely as duplicates.
+
+**Bootstrap.** A file at `seed/transactions.csv` is imported automatically by the seed on first boot (every new row with a resolved category; the rest are logged). For ad-hoc imports from the shell: `pnpm tsx scripts/csv-import.ts`.
 
 ---
 

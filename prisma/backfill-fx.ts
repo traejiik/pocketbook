@@ -1,6 +1,7 @@
 // One-off backfill for the per-transaction FX lock (fxRate / fxAnchor).
 //
-// Run ONCE after applying the `add_transaction_fx_lock` migration. It stamps the
+// Runs at container start whenever `bootstrap-check.ts fx-backfill` finds a
+// transaction with no lock (originally a one-off after `add_transaction_fx_lock`). It stamps the
 // CURRENT rate (for the current anchor) onto every transaction that has no lock
 // yet, so existing history freezes at today's values instead of continuing to
 // drift. There is no stored rate history, so today's rate is the best snapshot we

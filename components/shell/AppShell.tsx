@@ -71,7 +71,11 @@ export function AppShell({
   function handleFormSubmit(input: TxInput, _category: SerializedCategory) {
     startTransition(async () => {
       try {
-        await upsertTransaction(input);
+        const result = await upsertTransaction(input);
+        if ('error' in result) {
+          notify.error(result.error);
+          return;
+        }
         notify.success(`Added ${input.description}`);
         close();
       } catch {
@@ -87,11 +91,15 @@ export function AppShell({
   return (
     <FabProvider>
       <div className="w-full flex flex-col md:h-dvh md:flex-row md:overflow-hidden bg-background text-foreground">
-        <TabletRail
-          upcomingRenewalsCount={upcomingRenewalsCount}
-          onQuickAdd={openNew}
-          className="hidden md:flex min-[1025px]:!hidden"
-        />
+        {/* The rail's drawer floats over the page, so the shell only ever reserves
+            its collapsed width — opening it never reflows the content. */}
+        <div className="hidden md:block min-[1025px]:!hidden relative w-[76px] shrink-0">
+          <TabletRail
+            upcomingRenewalsCount={upcomingRenewalsCount}
+            onQuickAdd={openNew}
+            className="flex"
+          />
+        </div>
         <Sidebar
           upcomingRenewalsCount={upcomingRenewalsCount}
           onQuickAdd={openNew}
@@ -102,7 +110,7 @@ export function AppShell({
           <MobileTopBar displayName={displayName} />
           <main
             id="main-content"
-            className="pt-2 pb-[calc(6.75rem+env(safe-area-inset-bottom))] overflow-x-hidden md:pb-0 md:flex-1 md:min-h-0 md:overflow-y-auto md:overscroll-contain"
+            className="pt-2 pb-[calc(6.5rem+env(safe-area-inset-bottom))] overflow-x-hidden md:pb-0 md:flex-1 md:min-h-0 md:overflow-y-auto md:overscroll-contain"
           >
             {children}
           </main>

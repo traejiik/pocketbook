@@ -11,6 +11,9 @@ export interface EditingTx {
   type: 'INCOME' | 'EXPENSE' | 'SAVINGS';
   categoryId: string;
   recurringRuleId: string | null;
+  /** The rule occurrence this transaction settled early (`YYYY-MM-DD`), if any. */
+  coversDueDate: string | null;
+  recurringRuleName: string | null;
 }
 
 interface SheetContextValue {

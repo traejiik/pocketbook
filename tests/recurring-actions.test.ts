@@ -19,6 +19,9 @@ vi.mock('next/cache', () => ({
   revalidatePath: revalidatePathMock,
   revalidateTag: revalidateTagMock,
 }))
+vi.mock('@/lib/fx', () => ({
+  lockRate: vi.fn(async () => ({ fxRate: 1, fxAnchor: 'HUF' })),
+}))
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     recurringRule: {
@@ -106,6 +109,9 @@ describe('upsertRecurringRule', () => {
       type: 'EXPENSE',
       categoryId: 'cat_rent',
       recurringRuleId: 'rule-1',
+      // Catch-up charges are ordinary transactions, so they freeze the rate too.
+      fxRate: 1,
+      fxAnchor: 'HUF',
     })
     expect(result).toMatchObject({
       ok: true,
@@ -114,6 +120,17 @@ describe('upsertRecurringRule', () => {
       backfilledTo: '2026-05-05',
       nextDue: '2026-06-05',
     })
+  })
+
+  it('logs only the months the form asked for, and none when the switch is off', async () => {
+    const { upsertRecurringRule } = await import('@/server-actions/recurring')
+
+    await upsertRecurringRule({ ...validRule(), backfillMonths: 2 })
+    expect(createBackfillTransactions.mock.calls[0][0].data).toHaveLength(2)
+
+    createBackfillTransactions.mockClear()
+    await upsertRecurringRule({ ...validRule(), backfill: false })
+    expect(createBackfillTransactions).not.toHaveBeenCalled()
   })
 
   it('updates existing rules without running catch-up backfill', async () => {

@@ -1,31 +1,24 @@
 'use server';
 
-import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
 import { CACHE_TAGS, revalidateFinanceTags } from '@/lib/cache';
 import { requireAuthenticatedUser } from '@/lib/require-auth';
-import { planRecurringCatchUp, resumeNextDue } from '@/lib/recurring-backfill';
+import { resumeNextDue } from '@/lib/recurring-backfill';
+import {
+  createRecurringRule,
+  dateOnlyStringToDate,
+  installmentError,
+  installmentFields,
+  lockRates,
+  planNewRule,
+  recurringRuleSchema,
+  type RecurringRuleInput,
+} from '@/lib/recurring-create';
 import { logger } from '@/lib/logger';
 
 const log = logger('recurring');
 
-const ruleSchema = z.object({
-  id: z.string().optional(),
-  name: z.string().min(1).max(200),
-  amount: z.number().positive(),
-  currency: z.enum(['HUF', 'USD', 'EUR', 'GBP']),
-  cycle: z.enum(['MONTHLY', 'ANNUAL']),
-  nextDue: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  kind: z.enum(['INCOME', 'EXPENSE', 'SAVINGS']),
-  categoryId: z.string().min(1),
-  hasInstallment: z.boolean().default(false),
-  installmentPaid: z.number().int().min(0).optional().nullable(),
-  installmentTotal: z.number().int().min(1).optional().nullable(),
-  installmentEndsOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
-});
-
-export type RecurringRuleInput = z.infer<typeof ruleSchema>;
 
 type RecurringRuleResult =
   | {
@@ -40,17 +33,13 @@ type RecurringRuleResult =
 export async function upsertRecurringRule(input: RecurringRuleInput): Promise<RecurringRuleResult> {
   await requireAuthenticatedUser();
 
-  const parsed = ruleSchema.parse(input);
-  const { id, hasInstallment, ...fields } = parsed;
+  const fields = recurringRuleSchema.parse(input);
+  const { id } = fields;
 
-  if (
-    hasInstallment
-    && fields.installmentPaid != null
-    && fields.installmentTotal != null
-    && fields.installmentPaid > fields.installmentTotal
-  ) {
+  const invalid = installmentError(fields);
+  if (invalid) {
     log.warn('rule rejected', { name: fields.name, reason: 'paid count exceeds total' });
-    return { error: 'Installment paid count cannot exceed total installments.' };
+    return { error: invalid };
   }
 
   if (!id) {
@@ -63,23 +52,20 @@ export async function upsertRecurringRule(input: RecurringRuleInput): Promise<Re
     }
   }
 
-  const data = {
-    name: fields.name,
-    amount: fields.amount,
-    currency: fields.currency,
-    cycle: fields.cycle,
-    nextDue: new Date(fields.nextDue),
-    kind: fields.kind,
-    categoryId: fields.categoryId,
-    installmentPaid:   hasInstallment ? (fields.installmentPaid  ?? 0)    : null,
-    installmentTotal:  hasInstallment ? (fields.installmentTotal ?? null)  : null,
-    installmentEndsOn: hasInstallment && fields.installmentEndsOn
-      ? new Date(fields.installmentEndsOn)
-      : null,
-  };
-
   if (id) {
-    await prisma.recurringRule.update({ where: { id }, data });
+    await prisma.recurringRule.update({
+      where: { id },
+      data: {
+        name: fields.name,
+        amount: fields.amount,
+        currency: fields.currency,
+        cycle: fields.cycle,
+        nextDue: dateOnlyStringToDate(fields.nextDue),
+        kind: fields.kind,
+        categoryId: fields.categoryId,
+        ...installmentFields(fields),
+      },
+    });
     log.info('rule updated', {
       id,
       name: fields.name,
@@ -96,43 +82,9 @@ export async function upsertRecurringRule(input: RecurringRuleInput): Promise<Re
     return { ok: true };
   }
 
-  const catchUp = planRecurringCatchUp({
-    name: fields.name,
-    amount: fields.amount,
-    currency: fields.currency,
-    cycle: fields.cycle,
-    nextDue: fields.nextDue,
-    kind: fields.kind,
-    categoryId: fields.categoryId,
-    installmentPaid: data.installmentPaid,
-    installmentTotal: data.installmentTotal,
-  });
-
-  await prisma.$transaction(async (tx) => {
-    const created = await tx.recurringRule.create({
-      data: {
-        ...data,
-        nextDue: dateOnlyStringToDate(catchUp.nextDue),
-        archived: catchUp.archived,
-      },
-    });
-
-    if (catchUp.transactions.length > 0) {
-      await tx.transaction.createMany({
-        data: catchUp.transactions.map((transaction) => ({
-          description: transaction.description,
-          amount: transaction.amount,
-          currency: transaction.currency,
-          type: transaction.type,
-          date: dateOnlyStringToDate(transaction.date),
-          categoryId: transaction.categoryId,
-          recurringRuleId: created.id,
-        })),
-      });
-    }
-
-    return created;
-  });
+  const catchUp = planNewRule(fields);
+  const locks = await lockRates([fields.currency]);
+  await prisma.$transaction((tx) => createRecurringRule(tx, fields, catchUp, locks.get(fields.currency)!));
 
   log.info('rule created', {
     name: fields.name,
@@ -235,13 +187,6 @@ export async function unarchiveRecurringRule(id: string): Promise<{ ok: true } |
   revalidatePath('/renewals');
   revalidatePath('/dashboard');
   return { ok: true };
-}
-
-function dateOnlyStringToDate(value: string) {
-  // UTC midnight so the `@db.Date` column stores the intended calendar day
-  // regardless of server timezone (matches lib/recurring-* and new Date('YYYY-MM-DD')).
-  const [year, month, day] = value.split('-').map(Number);
-  return new Date(Date.UTC(year, month - 1, day));
 }
 
 function dateToDateOnly(value: Date) {

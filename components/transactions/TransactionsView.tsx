@@ -17,7 +17,7 @@ import { MonthNetStrip } from '@/components/transactions/MonthNetStrip';
 import { MobileTransactions, TransactionSearchFrame } from '@/components/transactions/MobileTransactions';
 import { PaginationControls } from '@/components/ui/pagination';
 import { TransactionForm, type SerializedCategory, type SerializedRecurringRule } from '@/components/forms/TransactionForm';
-import { toHUF } from '@/lib/transaction-anchor';
+import { balanceContribution, toHUF } from '@/lib/transaction-anchor';
 
 export interface SerializedTx {
   id: string;
@@ -32,6 +32,9 @@ export interface SerializedTx {
   categoryId: string;
   category: SerializedCategory;
   recurringRuleId: string | null;
+  recurringRuleName?: string | null;
+  /** Occurrence settled by "Log recurring early" (`YYYY-MM-DD`). */
+  coversDueDate?: string | null;
 }
 
 type TypeFilter = 'all' | 'INCOME' | 'EXPENSE' | 'SAVINGS';
@@ -166,8 +169,12 @@ export function TransactionsView({
       startTransition(async () => {
         addOptimistic(optimisticRow);
         try {
-          await upsertTransaction(input);
-          notify.success(input.id ? 'Transaction updated.' : 'Transaction added.');
+          const result = await upsertTransaction(input);
+          if ('error' in result) {
+            toast.error(result.error);
+            return;
+          }
+          notify.success(result.notice ?? (input.id ? 'Transaction updated.' : 'Transaction added.'));
         } catch {
           toast.error('Failed to save. Changes have been rolled back.');
         }
@@ -200,13 +207,14 @@ export function TransactionsView({
   );
 
   // Month-to-month carry-over: the month-end running balance. A property of the
-  // month, not of the filters, so it sums every row rather than `filtered`. Shown
-  // beside Net on the desktop strip only.
+  // month, not of the filters, so it sums every row rather than `filtered`, and
+  // skips categories excluded from the balance. Shown beside Net on the desktop
+  // strip only.
   const balance = useMemo(
     () =>
       openingBalance === null
         ? null
-        : openingBalance + optimisticTxs.reduce((sum, t) => sum + toHUF(t, fxRates), 0),
+        : openingBalance + optimisticTxs.reduce((sum, t) => sum + balanceContribution(t, fxRates), 0),
     [openingBalance, optimisticTxs, fxRates],
   );
 
@@ -260,6 +268,8 @@ export function TransactionsView({
         type: tx.type,
         categoryId: tx.categoryId,
         recurringRuleId: tx.recurringRuleId,
+        coversDueDate: tx.coversDueDate ?? null,
+        recurringRuleName: tx.recurringRuleName ?? null,
       };
       openEdit(editing);
     },

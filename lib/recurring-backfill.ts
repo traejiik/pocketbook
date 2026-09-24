@@ -22,6 +22,10 @@ export type RecurringCatchUpInput = {
   categoryId: string
   installmentPaid?: number | null
   installmentTotal?: number | null
+  /** Log the charges this rule already made? Default true. Installment plans ignore it. */
+  backfill?: boolean
+  /** How many past monthly charges to log when backfilling. Default `DEFAULT_BACKFILL_MONTHS`. */
+  backfillMonths?: number | null
   today?: Date
 }
 
@@ -41,7 +45,10 @@ export type RecurringCatchUpPlan = {
   transactions: PlannedBackfillTransaction[]
 }
 
-const MONTHLY_BACKFILL_LIMIT = 4
+/** Months of history a new monthly rule logs unless the form says otherwise. */
+export const DEFAULT_BACKFILL_MONTHS = 4
+/** Upper bound for the form's month input — two years of catch-up is plenty. */
+export const MAX_BACKFILL_MONTHS = 24
 
 export function planRecurringCatchUp(input: RecurringCatchUpInput): RecurringCatchUpPlan {
   const today = startOfUtcDay(input.today ?? new Date())
@@ -54,9 +61,11 @@ export function planRecurringCatchUp(input: RecurringCatchUpInput): RecurringCat
   }
 
   const isInstallment = installmentTotal != null
+  // An installment plan backfills exactly the payments it says are already paid,
+  // so the backfill controls do not apply to it.
   const count = isInstallment
     ? Math.min(installmentPaid ?? 0, installmentTotal)
-    : backfillCount(input.cycle, enteredNextDue, today)
+    : backfillCount(input.cycle, enteredNextDue, today, input)
 
   const latestDue = occurrenceOnOrBefore(input.cycle, enteredNextDue, today)
   const dueDates = latestDue == null || count === 0
@@ -91,8 +100,18 @@ export function resumeNextDue(cycle: RecurringCycle, nextDue: string, today: Dat
     : formatDateOnly(firstOccurrenceAfter(cycle, anchor, start))
 }
 
-function backfillCount(cycle: RecurringCycle, enteredNextDue: Date, today: Date) {
-  if (cycle === 'MONTHLY') return MONTHLY_BACKFILL_LIMIT
+function backfillCount(
+  cycle: RecurringCycle,
+  enteredNextDue: Date,
+  today: Date,
+  opts: { backfill?: boolean; backfillMonths?: number | null },
+) {
+  if (opts.backfill === false) return 0
+  if (cycle === 'MONTHLY') {
+    const months = opts.backfillMonths ?? DEFAULT_BACKFILL_MONTHS
+    return Math.max(0, Math.min(Math.trunc(months), MAX_BACKFILL_MONTHS))
+  }
+  // Annual rules only ever have one charge to catch up on.
   return isAfter(enteredNextDue, today) ? 0 : 1
 }
 

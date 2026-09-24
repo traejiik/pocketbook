@@ -22,6 +22,14 @@ describe('release channels', () => {
     expect(release).toMatch(/"\$BRANCH" == "main" && "\$VERSION" == \*-beta\*/)
   })
 
+  it('only judges versions that would cut a new release', () => {
+    const guard = release.indexOf('Enforce release channel')
+    const alreadyReleased = release.indexOf('gh release view "v$VERSION"', guard)
+    const betaRule = release.indexOf('"$BRANCH" == "beta"', guard)
+    expect(alreadyReleased).toBeGreaterThan(guard)
+    expect(alreadyReleased).toBeLessThan(betaRule)
+  })
+
   it('keeps latest stable-only and floats a beta tag for beta versions', () => {
     expect(release).toMatch(/value=latest,enable=\$\{\{ needs\.release\.outputs\.prerelease == 'false' \}\}/)
     expect(release).toMatch(/value=beta,enable=\$\{\{ contains\(needs\.release\.outputs\.version, '-beta'\) \}\}/)

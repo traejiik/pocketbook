@@ -11,6 +11,7 @@ import {
   getRecurringRules,
   getRecurringBudgetSummary,
   getOpeningBalance,
+  getBalanceMonthNet,
   type RecurringBudgetSummary,
 } from './aggregations'
 
@@ -118,6 +119,7 @@ export async function collectInsightSnapshot(monthKey: string): Promise<InsightS
     committed,
     priorRows,
     openingBalance,
+    balanceNet,
   ] = await Promise.all([
     getAnchorCurrency(),
     getMonthKpis(monthKey),
@@ -138,6 +140,7 @@ export async function collectInsightSnapshot(monthKey: string): Promise<InsightS
       select: { monthCovered: true, content: true },
     }),
     getOpeningBalance(monthKey),
+    getBalanceMonthNet(monthKey),
   ])
 
   const kpis: InsightKpis = {
@@ -215,7 +218,7 @@ export async function collectInsightSnapshot(monthKey: string): Promise<InsightS
         ? null
         : {
             carriedIn: Math.round(openingBalance.opening),
-            closing: Math.round(openingBalance.opening + rawKpis.net),
+            closing: Math.round(openingBalance.opening + balanceNet),
           },
   }
 

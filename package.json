@@ -1,6 +1,6 @@
 {
   "name": "pocketbook",
-  "version": "2.20.1",
+  "version": "3.0.0",
   "private": true,
   "license": "MIT",
   "packageManager": "pnpm@10.33.0",
@@ -17,13 +17,8 @@
     "db:migrate": "prisma migrate dev",
     "db:seed": "tsx prisma/seed.ts",
     "db:backfill-fx": "tsx prisma/backfill-fx.ts",
-    "dev:ollama": "node scripts/mock-ollama.mjs",
-    "dev:ai": "node scripts/mock-ollama.mjs & MOCK_PID=$!; trap 'kill $MOCK_PID' EXIT INT TERM; next dev",
-    "ollama:local": "tsx scripts/use-local-ollama.ts",
     "insights:probe:build": "esbuild scripts/insight-thinking-probe.ts --bundle --platform=node --target=node24 --format=cjs --alias:next/cache=./scripts/stubs/next-cache.ts --external:@prisma/client --log-level=warning --outfile=.data/insight-probe/probe.cjs",
-    "insights:probe": "pnpm insights:probe:build && node .data/insight-probe/probe.cjs",
-    "graph:update": "sh scripts/graphify-update.sh",
-    "graph:labels": "sh scripts/graphify-update.sh --labels-only"
+    "insights:probe": "pnpm insights:probe:build && node .data/insight-probe/probe.cjs"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.7.2",

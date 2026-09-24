@@ -33,6 +33,12 @@ describe('Docker runtime image', () => {
     expect(dockerfile).toContain('runtime/scheduler.js')
   })
 
+  it('bundles the bootstrap check next to the seed so the entrypoint can gate startup', () => {
+    expect(dockerfile).toContain('esbuild prisma/bootstrap-check.ts --bundle')
+    expect(dockerfile).toContain('--outfile=prisma/bootstrap-check.js')
+    expect(runnerStage()).toContain('/app/prisma ./prisma')
+  })
+
   it('boots as root only so the entrypoint can prepare bind mounts', () => {
     const runner = runnerStage()
     expect(runner).toContain('USER root')

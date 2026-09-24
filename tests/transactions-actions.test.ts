@@ -13,7 +13,7 @@ const ruleUpdate = vi.fn()
 const transactionMock = vi.fn()
 
 const transactionClient = {
-  transaction: { create: txCreate, update: txUpdate, delete: txDelete, count: txCount },
+  transaction: { create: txCreate, update: txUpdate, delete: txDelete, count: txCount, findUnique: txFindUnique },
   recurringRule: { findUnique: ruleFindUnique, update: ruleUpdate },
 }
 

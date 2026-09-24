@@ -29,7 +29,10 @@ import {
   forceFxSync,
   clearAllData,
 } from '@/server-actions/settings';
-import { uploadTransactionCsv } from '@/server-actions/import';
+import { previewTransactionImport, previewRecurringImport, type TransactionImportPreview, type RecurringImportPreview } from '@/server-actions/import';
+import { RecurringImportReview } from '@/components/import/RecurringImportReview';
+import { CsvImportRow } from '@/components/import/CsvImportRow';
+import { TransactionImportReview } from '@/components/import/TransactionImportReview';
 import type { AuthenticatedNotificationSettings } from '@/lib/notifications/types';
 import type { BackupStatus } from '@/lib/operations/backup';
 import { NotificationSettings } from './NotificationSettings';
@@ -91,96 +94,46 @@ function passwordStrength(pw: string): { bars: number; label: string } {
 }
 
 function ImportSection() {
-  const [file, setFile] = useState<File | null>(null);
-  const [status, setStatus] = useState<'idle' | 'uploading' | 'done' | 'error'>('idle');
-  const [result, setResult] = useState<{ imported: number; skipped: number; errors: string[] } | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  async function handleImport() {
-    if (!file) return;
-    setStatus('uploading');
-    const form = new FormData();
-    form.append('file', file);
-    try {
-      const data = await uploadTransactionCsv(form);
-      setResult(data);
-      setStatus('done');
-    } catch {
-      setStatus('error');
-      setResult(null);
-    }
-  }
-
   return (
     <section id="import">
       <div className="flex items-center gap-2 mb-3">
         <Upload className="w-4 h-4 text-muted-foreground" />
         <h2 className="text-[14px] font-semibold tracking-tight">Import data</h2>
       </div>
-      <div className="calm-card p-6 space-y-4">
-        <div>
-          <div className="text-[13px] font-medium">Import transactions from CSV</div>
-          <div className="text-[11.5px] text-muted-foreground mt-0.5">
-            Duplicates are skipped automatically based on date + description + amount.
-          </div>
-        </div>
-        <div className="flex items-center gap-3 flex-wrap">
-          <input
-            ref={inputRef}
-            type="file"
-            accept=".csv"
-            className="sr-only"
-            onChange={e => {
-              setFile(e.target.files?.[0] ?? null);
-              setStatus('idle');
-              setResult(null);
-            }}
-          />
-          <Button variant="outline" size="sm" onClick={() => inputRef.current?.click()}>
-            <Upload className="w-3.5 h-3.5 mr-1.5" />Choose file
-          </Button>
-          {file && (
-            <span className="text-[12px] text-muted-foreground mono truncate max-w-[200px]">{file.name}</span>
+      <div className="calm-card p-6 space-y-5">
+        <CsvImportRow<Extract<TransactionImportPreview, { ok: true }>>
+          title="Import transactions from CSV"
+          noun="transaction"
+          hint={<>Columns: <span className="mono">date, description, amount, currency, type, category</span> (name) or <span className="mono">category_id</span>, optional <span className="mono">recurring_rule_name</span>. You review every row before anything is saved; an export from the Transactions page re-imports as duplicates.</>}
+          preview={previewTransactionImport}
+          renderReview={(p, { open, onOpenChange, done }) => (
+            <TransactionImportReview
+              open={open}
+              onOpenChange={onOpenChange}
+              filename={p.filename}
+              rows={p.rows}
+              categories={p.categories}
+              onImported={done}
+            />
           )}
-          <Button
-            size="sm"
-            disabled={!file || status === 'uploading'}
-            onClick={handleImport}
-          >
-            {status === 'uploading' ? (
-              <><Upload className="w-3.5 h-3.5 mr-1.5" />Importing</>
-            ) : (
-              <><Check className="w-3.5 h-3.5 mr-1.5" />Import</>
-            )}
-          </Button>
-        </div>
-        {status === 'uploading' && (
-          <div className="h-1.5 rounded-full bg-secondary overflow-hidden" aria-hidden="true">
-            <div className="h-full w-1/2 rounded-full bg-primary/45" />
-          </div>
-        )}
-        {status === 'done' && result && (
-          <div className="space-y-2">
-            <div className="text-[12.5px] text-income">
-              <Check className="w-3.5 h-3.5 inline mr-1" />
-              {result.imported} imported · {result.skipped} skipped
-            </div>
-            {result.errors.length > 0 && (
-              <details className="text-[12px] text-muted-foreground">
-                <summary className="cursor-pointer text-warning">{result.errors.length} row error{result.errors.length !== 1 ? 's' : ''}</summary>
-                <ul className="mt-2 space-y-1 ml-4 list-disc">
-                  {result.errors.map((e, i) => <li key={i}>{e}</li>)}
-                </ul>
-              </details>
-            )}
-          </div>
-        )}
-        {status === 'error' && (
-          <div className="text-[12.5px] text-destructive">
-            <AlertTriangle className="w-3.5 h-3.5 inline mr-1" />
-            Import failed. Please try again.
-          </div>
-        )}
+        />
+        <div className="h-px bg-border/60" />
+        <CsvImportRow<Extract<RecurringImportPreview, { ok: true }>>
+          title="Import recurring rules from CSV"
+          noun="rule"
+          hint={<>Columns: <span className="mono">name, amount, currency, cycle, next_due, kind, category</span> (or <span className="mono">category_id</span>), optional <span className="mono">installment_paid, installment_total, installment_ends_on</span>. The review shows any past charges each rule will log.</>}
+          preview={previewRecurringImport}
+          renderReview={(p, { open, onOpenChange, done }) => (
+            <RecurringImportReview
+              open={open}
+              onOpenChange={onOpenChange}
+              filename={p.filename}
+              rows={p.rows}
+              categories={p.categories}
+              onImported={done}
+            />
+          )}
+        />
       </div>
     </section>
   );

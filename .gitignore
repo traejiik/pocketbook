@@ -59,7 +59,6 @@ CLAUDE.md
 # local tooling
 /.data/
 /.superpowers/
-/docs/superpowers/
 /graphify-out
 .graphifyignore
 .obsidian

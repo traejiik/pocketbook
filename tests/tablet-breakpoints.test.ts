@@ -28,34 +28,83 @@ describe('tablet breakpoint contract', () => {
     const header = source('components/shell/Header.tsx');
 
     expect(appShell).toContain('w-full flex flex-col md:h-dvh md:flex-row md:overflow-hidden');
-    expect(appShell).toContain('className="hidden md:flex min-[1025px]:!hidden"');
+    // The rail's drawer floats, so the shell reserves only its collapsed width.
+    expect(appShell).toContain('hidden md:block min-[1025px]:!hidden relative w-[76px] shrink-0');
     expect(appShell).toContain('className="hidden min-[1025px]:flex"');
     expect(appShell).toContain('<Header displayName={displayName} className="hidden md:flex" />');
     expect(appShell).toContain('<MobileTopBar displayName={displayName} />');
-    expect(appShell).toContain('pb-[calc(6.75rem+env(safe-area-inset-bottom))] overflow-x-hidden md:pb-0');
+    expect(appShell).toContain('pb-[calc(6.5rem+env(safe-area-inset-bottom))] overflow-x-hidden md:pb-0');
 
-    expect(tabletRail).toContain("const STORAGE_KEY = 'pb-rail-collapsed';");
-    expect(tabletRail).toContain("collapsed ? 'w-[76px]' : 'w-[232px]'");
+    // Opening the rail must not reflow the page, so it overlays with a scrim and
+    // is transient: closed on navigation and on Escape, and never persisted.
+    expect(tabletRail).not.toContain('pb-rail-collapsed');
+    expect(tabletRail).toContain('aria-label="Close navigation"');
+    expect(tabletRail).toContain("useEffect(() => { setCollapsed(true); }, [pathname]);");
+    expect(tabletRail).toContain("collapsed ? 'w-[76px]' : 'w-[232px] shadow-lg'");
     expect(tabletRail).toContain("collapsed ? 'justify-center' : 'gap-2.5 px-3'");
     expect(tabletRail).toContain('aria-label={collapsed ? \'Expand sidebar\' : \'Collapse sidebar\'}');
     expect(tabletRail).toContain('absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-warning');
 
-    expect(tabletRail).toContain("'shrink-0 flex-col pt-5 pb-4 px-3 bg-card border-r border-border/55 transition-[width] duration-200'");
+    expect(tabletRail).toContain("'absolute inset-y-0 left-0 z-40 flex-col pt-5 pb-4 px-3 bg-card border-r border-border/55 transition-[width] duration-200'");
     expect(sidebar).toContain("'w-[224px] shrink-0 flex-col pt-5 pb-4 px-3 bg-card border-r border-border/55'");
     expect(sidebar).toContain("import { LogoMark } from '@/components/shell/LogoMark';");
     expect(sidebar).toContain('text-[15px] font-semibold tracking-tight');
     expect(sidebar).toContain('renewal-badge mono text-[10.5px] tabular');
     expect(sidebar).toContain('aria-label="Add transaction (N)"');
 
-    expect(mobileNav).toContain('md:hidden fixed bottom-0 inset-x-0');
+    // The dock floats clear of the screen edge rather than banding the bottom.
+    expect(mobileNav).toContain(
+      'md:hidden fixed z-40 left-[max(env(safe-area-inset-left),0.875rem)] right-[max(env(safe-area-inset-right),0.875rem)] bottom-[calc(env(safe-area-inset-bottom)+1.125rem)] flex h-[60px] items-center gap-[2px] rounded-full',
+    );
     expect(mobileNav).toContain('Home');
     expect(mobileNav).toContain('Transactions');
     expect(mobileNav).toContain('Recurring');
     expect(mobileNav).toContain('More');
-    expect(mobileNav).toContain('side="bottom"');
-    expect(mobileNav).toContain('max-w-[402px]');
-    expect(mobileNav).toContain('!rounded-t-[24px]');
-    expect(mobileNav).toContain('h-1.5 w-10 rounded-full bg-border');
+    // Add sits at the right, behind a hairline, not in the middle as a notch.
+    expect(mobileNav).toContain("moreExpanded ? EXPANDED_SLOT : REST_SLOT");
+    expect(mobileNav).toContain('shrink-0 w-px h-[22px] mx-[2px] bg-border');
+    expect(mobileNav).toContain('aria-label="Add transaction"');
+    // Only the active slot carries a label, and the label is what animates.
+    expect(mobileNav).toContain('className="dock-label"');
+    // No key on the label: remounting it replays the open animation, which is
+    // wanted when the slot expands from nothing and wrong when an already-open
+    // slot merely swaps text (Settings -> Close -> Categories).
+    expect(mobileNav).not.toContain('key={labelKey}');
+    // Closing the panel on click would land a frame before the route changes,
+    // so the dock would flash the page being left as active. Only a tap on the
+    // page you are already on closes explicitly — it fires no pathname effect.
+    expect(mobileNav).toContain('onClick={active ? () => setMoreOpen(false) : undefined}');
+    // On a More page the slot only ever swaps text, so it is pinned to the
+    // widest label it can hold rather than resizing under the thumb.
+    expect(mobileNav).toContain("deepItem && 'min-w-[100px]'");
+    // The More panel floats above the dock; it is no longer a bottom Sheet.
+    expect(mobileNav).not.toContain('side="bottom"');
+    expect(mobileNav).toContain('bottom-[calc(env(safe-area-inset-bottom)+5.5rem)]');
+    expect(mobileNav).toContain('aria-label="Close menu"');
+    expect(mobileNav).toContain('setMoreOpen(false);\n  }, [pathname]);');
+
+    // The renewals count rides Recurring on mobile only. The sidebar and rail
+    // show Renewals as its own item, so there the badge stays put.
+    expect(mobileNav).toContain("item.id === 'recurring' && upcomingRenewalsCount > 0");
+    expect(mobileNav).not.toContain("item.id === 'renewals' && upcomingRenewalsCount > 0 &&");
+    expect(sidebar).toContain("item.id === 'renewals' && upcomingRenewalsCount > 0");
+    expect(tabletRail).toContain("item.id === 'renewals' && upcomingRenewalsCount > 0");
+
+    // The pill opens by tweening a grid track: `width: auto` cannot be
+    // interpolated, so a plain width transition would animate nothing. The
+    // clipper must carry no padding of its own or the track floors above zero
+    // and the pill pops open before it animates.
+    const globals = source('app/globals.css');
+    expect(globals).toContain('@keyframes dock-label-in');
+    expect(globals).toContain('grid-template-columns: 0fr;');
+    expect(globals).toContain('grid-template-columns: 1fr;');
+    expect(globals).toContain('animation: dock-label-in 200ms cubic-bezier(0.165, 0.84, 0.44, 1);');
+    expect(globals).toMatch(/\.dock-label > span \{\s*min-width: 0;\s*overflow: hidden;\s*\}/);
+    expect(globals).toContain('.dock-label > span > span {');
+    // Below 375px the label is dropped in CSS, never by measuring the viewport
+    // in JS, which rule 18 forbids.
+    expect(globals).toContain('@media (max-width: 374px)');
+    expect(mobileNav).not.toContain('innerWidth');
 
     expect(mobileTopBar).toContain('md:hidden sticky top-0');
     expect(mobileTopBar).toContain('titleForPath(pathname)');
@@ -250,7 +299,9 @@ describe('tablet breakpoint contract', () => {
     expect(recurring).not.toContain("label: `Inc · ${incomeRules.length}`");
     expect(recurring).not.toContain("label: `Sav · ${savingsRules.length}`");
     expect(recurring).toContain('hidden md:grid grid-cols-1 md:grid-cols-2 min-[1025px]:grid-cols-3 gap-4');
-    expect(recurring).toContain('w-full inline-flex items-center justify-center gap-2 h-11 rounded-[12px]');
+    // The v5 mobile "New rule" row was dropped: the empty state's button and the
+    // bottom-bar FAB already cover it, so it was a third way to do one thing.
+    expect(recurring).not.toContain('w-full inline-flex items-center justify-center gap-2 h-11 rounded-[12px]');
     expect(recurring).toContain('renderSegmentedField');
     expect(recurring).toContain('Subscriptions, installments and recurring income');
   });

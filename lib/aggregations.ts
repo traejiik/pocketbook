@@ -503,7 +503,7 @@ async function categoriesWithStats() {
 // `Category` has no date columns and both aggregates are coerced to numbers above
 // (a raw `bigint` would not survive `JSON.stringify`), so the result is JSON-safe.
 const cachedCategoriesWithStats = cachedAggregation(
-  ['categories-with-stats'],
+  ['categories-with-stats-v2'],
   [CACHE_TAGS.transactions, CACHE_TAGS.categories, CACHE_TAGS.fx],
   categoriesWithStats,
 );
@@ -529,6 +529,8 @@ type SignedNetGroup = {
 
 // Signed net (income − expense − savings) of every transaction in
 // `[startDay, endDay)`, or of all history before `endDay` when `startDay` is null.
+// Only categories with `includeInBalance` count: this is the balance's own net,
+// not the month's reported Net (KPIs and trend keep every category).
 // Grouped by (type, currency, locked rate) with `ABS()` inside the `SUM`, for the
 // reasons documented above `categoriesWithStats`: the row count stays bounded as
 // history grows, and the stored sign is not reliable. Day bounds are `YYYY-MM-DD`
@@ -538,14 +540,15 @@ async function cumulativeNetBetween(
   startDay: string | null,
   endDay: string,
 ): Promise<{ net: number; unconvertibleCount: number }> {
-  const lowerBound = startDay ? Prisma.sql`AND "date" >= ${startDay}::date` : Prisma.empty;
+  const lowerBound = startDay ? Prisma.sql`AND t."date" >= ${startDay}::date` : Prisma.empty;
   const groups = await prisma.$queryRaw<SignedNetGroup[]>`
-    SELECT "type", "currency", "fxRate", "fxAnchor",
-           SUM(ABS("amount")) AS total,
-           COUNT(*)           AS n
-    FROM "Transaction"
-    WHERE "date" < ${endDay}::date ${lowerBound}
-    GROUP BY "type", "currency", "fxRate", "fxAnchor"
+    SELECT t."type", t."currency", t."fxRate", t."fxAnchor",
+           SUM(ABS(t."amount")) AS total,
+           COUNT(*)             AS n
+    FROM "Transaction" t
+    JOIN "Category" c ON c."id" = t."categoryId"
+    WHERE c."includeInBalance" AND t."date" < ${endDay}::date ${lowerBound}
+    GROUP BY t."type", t."currency", t."fxRate", t."fxAnchor"
   `;
 
   let net = 0, unconvertibleCount = 0;
@@ -562,9 +565,11 @@ async function cumulativeNetBetween(
 
 // Both bounds are arguments so they land in the cache key; the Settings starting
 // balance is added *outside* the cache, so a Settings edit needs no tag of its own.
+// Tagged with `categories` because toggling a category's `includeInBalance`
+// changes the sum without touching a single transaction.
 const cachedCumulativeNet = cachedAggregation(
-  ['cumulative-net'],
-  [CACHE_TAGS.transactions, CACHE_TAGS.fx],
+  ['cumulative-net-v2'],
+  [CACHE_TAGS.transactions, CACHE_TAGS.categories, CACHE_TAGS.fx],
   cumulativeNetBetween,
 );
 
@@ -639,12 +644,29 @@ export const getCurrentMonthOpeningBalance = cache(async (): Promise<OpeningBala
 );
 
 /**
+ * How much `monthKey`'s own transactions move the running balance: its signed net
+ * over categories that count toward the balance. Equals the month's KPI net when
+ * no category is excluded. Month-end balance is `opening + balanceMonthNet`.
+ */
+export const getBalanceMonthNet = cache(async (monthKey: string): Promise<number> => {
+  const { start, end } = monthKeyRange(monthKey);
+  const { net } = await cachedCumulativeNet(dayKeyUtc(start), dayKeyUtc(end));
+  return Math.round(net);
+});
+
+export const getCurrentMonthBalanceNet = cache(async (): Promise<number> =>
+  getBalanceMonthNet(utcMonthKeyAt(new Date(), 0)),
+);
+
+/**
  * Month-end running balance for each of the last `months` months (oldest first),
  * for the dashboard Balance hero. Each point is that month's own opening plus its
  * net, rather than one opening plus a cumulative sum: when the Settings starting
  * month falls inside the window, the months before it open from all history and
  * the months from it open at the starting balance, and only per-month openings
- * reproduce that jump faithfully. Every read is already cached (`monthly-trend`,
+ * reproduce that jump faithfully. The net added is the balance's own
+ * (`getBalanceMonthNet`, which leaves out categories excluded from the balance),
+ * not the trend's reported net. Every read is already cached (`monthly-trend`,
  * `cumulative-net`), and the current month's opening is shared with the page via
  * React `cache`. `balance` is null for a month whose starting balance has no FX path.
  */
@@ -652,15 +674,15 @@ export type BalancePoint = { month: string; balance: number | null };
 
 export const getBalanceTrend = cache(async (months: number): Promise<BalancePoint[]> => {
   const now = new Date();
-  const [trend, openings] = await Promise.all([
+  const keys = Array.from({ length: months }, (_, i) => utcMonthKeyAt(now, i - (months - 1)));
+  const [trend, openings, nets] = await Promise.all([
     getMonthlyTrend(months),
-    Promise.all(
-      Array.from({ length: months }, (_, i) => getOpeningBalance(utcMonthKeyAt(now, i - (months - 1)))),
-    ),
+    Promise.all(keys.map((k) => getOpeningBalance(k))),
+    Promise.all(keys.map((k) => getBalanceMonthNet(k))),
   ]);
   return trend.map((t, i) => {
     const opening = openings[i].opening;
-    return { month: t.month, balance: opening === null ? null : Math.round(opening + t.net) };
+    return { month: t.month, balance: opening === null ? null : Math.round(opening + nets[i]) };
   });
 });
 

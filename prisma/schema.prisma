@@ -38,12 +38,16 @@ model User {
 }
 
 model Category {
-  id             String          @id @default(cuid())
-  name           String
-  color          String
-  kind           CategoryKind
-  transactions   Transaction[]
-  recurringRules RecurringRule[]
+  id               String          @id @default(cuid())
+  name             String
+  color            String
+  kind             CategoryKind
+  // Whether this category's transactions count toward the running balance and
+  // month carry-over. The balance is derived on read, so flipping it re-computes
+  // every past month; net, KPIs and charts ignore it.
+  includeInBalance Boolean         @default(true)
+  transactions     Transaction[]
+  recurringRules   RecurringRule[]
 
   @@unique([name, kind])
 }
@@ -65,12 +69,17 @@ model Transaction {
   category        Category        @relation(fields: [categoryId], references: [id])
   recurringRuleId String?
   recurringRule   RecurringRule?  @relation(fields: [recurringRuleId], references: [id])
+  // Set when this transaction was logged early for its rule: the due date it
+  // settled. The sync never regenerates that occurrence, and deleting the
+  // transaction can hand the occurrence back to the rule.
+  coversDueDate   DateTime?       @db.Date
   createdAt       DateTime        @default(now())
 
+  @@unique([recurringRuleId, date])
+  @@unique([recurringRuleId, coversDueDate])
   @@index([date])
   @@index([categoryId])
   @@index([type])
-  @@unique([recurringRuleId, date])
 }
 
 model RecurringRule {
@@ -108,12 +117,12 @@ model ExchangeRate {
 }
 
 model AppSettings {
-  id                  String  @id @default("singleton")
-  anchorCurrency      String  @default("HUF") @db.Char(3)
-  ollamaUrl           String  @default("http://ollama:11434")
-  ollamaModel         String  @default("llama3.1:8b")
-  fxAutoSync          Boolean @default(true)
-  autoInsightsMonthly Boolean @default(true)
+  id                     String  @id @default("singleton")
+  anchorCurrency         String  @default("HUF") @db.Char(3)
+  ollamaUrl              String  @default("http://ollama:11434")
+  ollamaModel            String  @default("llama3.1:8b")
+  fxAutoSync             Boolean @default(true)
+  autoInsightsMonthly    Boolean @default(true)
   // One-time starting point for the derived running balance: the balance held on
   // the first day of `openingBalanceMonth` (`YYYY-MM`). Transactions before that
   // month are excluded from carry-over because this figure already includes them.

@@ -84,6 +84,16 @@ describe('planDueRecurringRule', () => {
     expect(plan.transactions.map((tx) => tx.date)).toEqual(['2026-03-05', '2026-05-05'])
   })
 
+  it('never regenerates an occurrence that was logged early', async () => {
+    const { planDueRecurringRule } = await import('@/lib/recurring-sync')
+    // Paid on 2 Apr for the 5 Apr due date; the row sits on a different day.
+    const plan = planDueRecurringRule(rule({
+      transactions: [{ date: new Date(Date.UTC(2026, 3, 2)), coversDueDate: new Date(Date.UTC(2026, 3, 5)) }],
+    }), today)
+
+    expect(plan.transactions.map((tx) => tx.date)).toEqual(['2026-03-05', '2026-05-05'])
+  })
+
   it('increments installments and archives rules when the final payment is logged', async () => {
     const { planDueRecurringRule } = await import('@/lib/recurring-sync')
     const plan = planDueRecurringRule(rule({

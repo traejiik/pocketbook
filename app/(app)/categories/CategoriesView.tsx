@@ -17,9 +17,10 @@ import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Switch } from '@/components/ui/switch'
 import { fmtAnchor } from '@/lib/format'
 import { useFabContext } from '@/contexts/fab-context'
-import { hexToRgba } from '@/lib/colors'
+import { CATEGORY_PALETTE, hexToRgba } from '@/lib/colors'
 import { useIsMobile } from '@/hooks/use-is-mobile'
 
 /**
@@ -38,6 +39,7 @@ interface CategoryRow {
   name: string
   color: string
   kind: KindType
+  includeInBalance: boolean
   txCount: number
   txTotalHUF: number
 }
@@ -51,6 +53,10 @@ const KIND_LABELS: Record<KindType, string> = {
   INCOME: 'Income', EXPENSE: 'Expense', SAVINGS: 'Savings',
 }
 
+const KIND_FLOW: Record<KindType, string> = {
+  INCOME: 'income', EXPENSE: 'spending', SAVINGS: 'savings',
+}
+
 const KIND_TONE_VAR: Record<KindType, string> = {
   INCOME: 'hsl(var(--income))',
   EXPENSE: 'hsl(var(--expense))',
@@ -61,18 +67,18 @@ function kindLabel(kind: KindType) {
   return KIND_LABELS[kind]
 }
 
-const PALETTE = [
-  '#3FBF7F', '#5AA3FF', '#C58CFF', '#FF8A65', '#F5B544',
-  '#6FB8FF', '#7BD3B3', '#E36F8E', '#A4D453', '#9C8CFF',
-  '#8E97A8', '#4FB3E0', '#FF6B6B', '#FFD700', '#00CED1',
-]
+const PALETTE = CATEGORY_PALETTE
 
 interface EditState {
   id?: string
   name: string
   color: string
   kind: KindType
+  includeInBalance: boolean
+  /** The saved value, so the impact notice only shows for a real change. */
+  savedIncludeInBalance?: boolean
   txCount?: number
+  txTotalHUF?: number
 }
 
 interface DeleteState {
@@ -92,11 +98,12 @@ export function CategoriesView({ categories, anchorCurrency = 'HUF' }: Props) {
   const colourLabelId = useId()
   const hexId = useId()
   const kindLabelId = useId()
+  const balanceId = useId()
   const moveLabelId = useId()
 
   const { registerFabAction, clearFabAction } = useFabContext()
   const openNewExpense = useCallback(() => {
-    setEditDialog({ name: '', color: PALETTE[0], kind: 'EXPENSE' })
+    setEditDialog({ name: '', color: PALETTE[0], kind: 'EXPENSE', includeInBalance: true })
   }, [])
   useEffect(() => {
     registerFabAction(openNewExpense)
@@ -106,11 +113,15 @@ export function CategoriesView({ categories, anchorCurrency = 'HUF' }: Props) {
   const groups: KindType[] = ['INCOME', 'EXPENSE', 'SAVINGS']
 
   function openNew(kind: KindType) {
-    setEditDialog({ name: '', color: PALETTE[0], kind })
+    setEditDialog({ name: '', color: PALETTE[0], kind, includeInBalance: true })
   }
 
   function openEdit(c: CategoryRow) {
-    setEditDialog({ id: c.id, name: c.name, color: c.color, kind: c.kind, txCount: c.txCount })
+    setEditDialog({
+      id: c.id, name: c.name, color: c.color, kind: c.kind,
+      includeInBalance: c.includeInBalance, savedIncludeInBalance: c.includeInBalance,
+      txCount: c.txCount, txTotalHUF: c.txTotalHUF,
+    })
   }
 
   function deleteFromEdit() {
@@ -138,6 +149,7 @@ export function CategoriesView({ categories, anchorCurrency = 'HUF' }: Props) {
         name: editDialog.name,
         color: editDialog.color,
         kind: editDialog.kind,
+        includeInBalance: editDialog.includeInBalance,
       })
       if ('error' in result) {
         toast.error(result.error)
@@ -157,6 +169,20 @@ export function CategoriesView({ categories, anchorCurrency = 'HUF' }: Props) {
       setDeleteDialog(null)
     })
   }
+
+  // Toggling the balance flag re-derives every month's carry-over, so say what an
+  // existing category's history will do before it is saved.
+  const balanceImpact = (() => {
+    if (!editDialog?.id || !editDialog.txCount) return null
+    if (editDialog.includeInBalance === editDialog.savedIncludeInBalance) return null
+    const count = `${editDialog.txCount} transaction${editDialog.txCount === 1 ? '' : 's'}`
+    const total = editDialog.txTotalHUF
+      ? ` (${fmtAnchor(editDialog.txTotalHUF, anchorCurrency)} of ${KIND_FLOW[editDialog.kind]})`
+      : ''
+    return editDialog.includeInBalance
+      ? `Adds ${count}${total} back into every month's balance, past and future.`
+      : `Removes ${count}${total} from every month's balance, past and future. Net and charts still count them.`
+  })()
 
   // Shared edit form body — rendered in a Dialog (desktop) or bottom Sheet (mobile/tablet)
   const editFields: ReactNode = (
@@ -241,6 +267,27 @@ export function CategoriesView({ categories, anchorCurrency = 'HUF' }: Props) {
           </SelectContent>
         </Select>
       </div>
+
+      <div className="space-y-2 pt-1">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <Label htmlFor={balanceId} className="text-[13px] font-medium text-foreground">Count in balance</Label>
+            <div className="text-[11px] text-muted-foreground mt-0.5">
+              Include this category&apos;s transactions in the running balance and carry-over
+            </div>
+          </div>
+          <Switch
+            id={balanceId}
+            checked={editDialog?.includeInBalance ?? true}
+            onCheckedChange={(v) => setEditDialog((d) => d ? { ...d, includeInBalance: v } : d)}
+          />
+        </div>
+        {balanceImpact && (
+          <div role="status" className="rounded-[10px] border border-border/60 bg-muted/40 px-3 py-2 text-[12px] text-muted-foreground tabular">
+            {balanceImpact}
+          </div>
+        )}
+      </div>
     </>
   )
 
@@ -287,7 +334,10 @@ export function CategoriesView({ categories, anchorCurrency = 'HUF' }: Props) {
                     </div>
                     <div>
                       <div className="text-[13.5px] font-medium">{category.name}</div>
-                      <div className="text-[11px] text-muted-foreground">{kindLabel(category.kind)}</div>
+                      <div className="text-[11px] text-muted-foreground">
+                        {kindLabel(category.kind)}
+                        {!category.includeInBalance && <> · <span className="text-foreground/70">Not in balance</span></>}
+                      </div>
                     </div>
                     <div className="text-[12px] text-muted-foreground tabular">{category.txCount} txns</div>
                     <div className="text-right tabular text-[12.5px] text-foreground/85">
@@ -333,6 +383,7 @@ export function CategoriesView({ categories, anchorCurrency = 'HUF' }: Props) {
                       <div className="text-[13.5px] font-medium truncate">{category.name}</div>
                       <div className="text-[11px] text-muted-foreground">
                         {kindLabel(category.kind)} · <span className="tabular">{category.txCount}</span> txns
+                        {!category.includeInBalance && <> · <span className="text-foreground/70">Not in balance</span></>}
                       </div>
                     </div>
                     <ChevronRight className="w-4 h-4 shrink-0 text-muted-foreground/60" />

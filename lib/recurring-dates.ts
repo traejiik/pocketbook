@@ -44,3 +44,12 @@ export function isAfter(left: Date, right: Date) {
 export function signedAmount(amount: number, kind: RuleKind) {
   return kind === 'INCOME' ? amount : -amount
 }
+
+// Advance one cycle from `date`, anchored to the rule's original day-of-month so
+// month-length clamping stays stable.
+export function nextOccurrence(cycle: RecurringCycle, date: Date, anchor: Date) {
+  if (cycle === 'MONTHLY') {
+    return monthlyOccurrence(date.getUTCFullYear(), date.getUTCMonth() + 1, anchor.getUTCDate())
+  }
+  return annualOccurrence(date.getUTCFullYear() + 1, anchor.getUTCMonth(), anchor.getUTCDate())
+}

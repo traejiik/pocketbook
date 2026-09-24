@@ -16,11 +16,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   ]);
 
   const serialisedCategories: SerializedCategory[] = categories.map(c => ({
-    id: c.id, name: c.name, color: c.color, kind: c.kind,
+    id: c.id, name: c.name, color: c.color, kind: c.kind, includeInBalance: c.includeInBalance,
   }));
 
   const serialisedRules: SerializedRecurringRule[] = recurringRules.map(r => ({
     id: r.id, name: r.name, cycle: r.cycle, kind: r.kind,
+    nextDue: r.nextDue.toISOString().slice(0, 10),
+    amount: Number(r.amount),
+    currency: r.currency as SerializedRecurringRule['currency'],
+    categoryId: r.categoryId,
   }));
 
   const fxRates = { USD: 358.4, EUR: 396.1, GBP: 452.0 };
