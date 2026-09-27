@@ -32,7 +32,7 @@ export default async function AiInsightsPage() {
   }));
 
   return (
-    <div className="px-4 lg:px-7 pb-9 pt-1 max-w-[860px] mx-auto">
+    <div className="motion-rise px-4 lg:px-7 pb-9 pt-1 max-w-[860px] mx-auto">
       <InsightCardClient
         ollamaUrl={ollamaUrl}
         ollamaModel={ollamaModel}

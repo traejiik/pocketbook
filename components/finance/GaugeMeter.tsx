@@ -1,4 +1,4 @@
-import { useId } from 'react'
+import { useId, type CSSProperties } from 'react'
 
 interface GaugeMeterProps {
   percent: number
@@ -41,6 +41,8 @@ export function GaugeMeter({ percent }: GaugeMeterProps) {
         strokeLinecap="round"
         strokeDasharray={arcLen}
         strokeDashoffset={arcLen - usedLen}
+        className="motion-gauge"
+        style={{ '--gauge-from': arcLen } as CSSProperties}
       />
       <text x={cx} y={cy - 5} textAnchor="middle" fill="hsl(var(--foreground))" fontFamily="Geist, system-ui" fontSize="44" fontWeight="600" letterSpacing="-1">
         {p}%

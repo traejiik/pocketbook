@@ -470,7 +470,7 @@ export function RecurringView({ rules, archivedRules, categories, budget, anchor
   }
 
   return (
-    <div className="px-4 lg:px-7 pb-9 pt-1 space-y-5 max-w-[920px] min-[1025px]:max-w-[1320px] mx-auto">
+    <div className="motion-stagger px-4 lg:px-7 pb-9 pt-1 space-y-5 max-w-[920px] min-[1025px]:max-w-[1320px] mx-auto">
       <div className="hidden md:flex items-center justify-between gap-3">
         <div className="text-[12.5px] text-muted-foreground">
           Subscriptions, installments, and recurring income.

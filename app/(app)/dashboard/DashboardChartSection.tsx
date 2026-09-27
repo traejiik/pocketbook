@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, type CSSProperties } from 'react'
 import Link from 'next/link'
 import { ChevronRight, Plus } from 'lucide-react'
 import { Segmented } from '@/components/ui/segmented'
@@ -68,7 +68,7 @@ function AddExpenseButton({ onClick, className }: { onClick: () => void; classNa
     <button
       type="button"
       onClick={onClick}
-      className={`inline-flex items-center justify-center gap-1.5 bg-secondary/90 hover:bg-secondary text-foreground font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ${className}`}
+      className={`inline-flex items-center justify-center gap-1.5 bg-secondary/90 hover:bg-secondary text-foreground font-medium motion-press focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ${className}`}
     >
       <Plus className="w-3.5 h-3.5" /> Add expense
     </button>
@@ -83,6 +83,10 @@ export function DashboardChartSection({
   anchorCurrency = 'HUF',
 }: Props) {
   const [view, setView] = useState<'cat' | 'trend'>('cat')
+  // Bars grow in once the card has settled on page load; after a toggle there is
+  // no card entrance to wait for, so the swapped chart grows immediately.
+  const [switched, setSwitched] = useState(false)
+  const barBase = { '--bar-base': switched ? '0ms' : '420ms' } as CSSProperties
   const { openNew } = useTransactionSheet()
 
   const topCats = byCategory.slice(0, 4)
@@ -116,7 +120,7 @@ export function DashboardChartSection({
   return (
     <>
       {/* Mobile + tablet — horizontal category bars, no Net-trend toggle (matches v5 mobile/tablet prototype) */}
-      <CalmCard className="col-span-12 md:col-span-6 lg:hidden p-6">
+      <CalmCard className="col-span-12 md:col-span-6 lg:hidden p-6" style={barBase}>
         <CalmCardHead
           title="Expenses by category"
           sub={sub}
@@ -158,7 +162,7 @@ export function DashboardChartSection({
               <div className="mt-4 text-[11px] mono uppercase tracking-[0.12em] text-muted-foreground">{topLabel}</div>
             )}
             <div className={`${topLabel ? 'mt-3' : 'mt-5'} space-y-3`}>
-              {topCats.map((b) => {
+              {topCats.map((b, i) => {
                 const pct = Math.round((b.value / totalExpense) * 100)
                 return (
                   <div key={b.categoryId}>
@@ -173,8 +177,8 @@ export function DashboardChartSection({
                     </div>
                     <div className="h-2.5 rounded-full overflow-hidden bg-secondary">
                       <div
-                        className="h-full rounded-full"
-                        style={{ width: `${(b.value / maxCat) * 100}%`, background: b.color }}
+                        className="motion-bar-x h-full rounded-full"
+                        style={{ width: `${(b.value / maxCat) * 100}%`, background: b.color, '--i': i } as CSSProperties}
                       />
                     </div>
                   </div>
@@ -186,7 +190,7 @@ export function DashboardChartSection({
       </CalmCard>
 
       {/* Desktop — vertical pill bars with Categories / Net-trend toggle */}
-      <CalmCard className="hidden lg:block col-span-12 lg:col-span-7 p-6">
+      <CalmCard className="hidden lg:block col-span-12 lg:col-span-7 p-6" style={barBase}>
         <CalmCardHead
           title="Expenses by category"
           sub={sub}
@@ -197,7 +201,10 @@ export function DashboardChartSection({
                 { label: 'Net trend', value: 'trend' as const },
               ]}
               value={view}
-              onChange={setView}
+              onChange={(v) => {
+                setSwitched(true)
+                setView(v)
+              }}
             />
           }
         />
@@ -220,8 +227,10 @@ export function DashboardChartSection({
                     return (
                       <div key={ghost?.categoryId ?? i} className="flex flex-col items-center gap-3 min-w-0">
                         <div className="relative w-full max-w-[104px] h-[212px] flex justify-center">
-                          <div className="absolute bottom-0 w-full flex justify-center" style={{ height: REST }}>
-                            <PillBar color={GHOST} variant="hatch" />
+                          <div className="absolute bottom-0 w-full overflow-hidden" style={{ height: REST }}>
+                            <div className="motion-bar-y w-full h-full" style={{ '--i': i } as CSSProperties}>
+                              <PillBar color={GHOST} variant="hatch" />
+                            </div>
                           </div>
                         </div>
                         <div className="text-[10.5px] text-muted-foreground uppercase mono tracking-[0.1em] truncate w-full text-center">
@@ -237,12 +246,14 @@ export function DashboardChartSection({
                       <div key={b.categoryId} className="flex flex-col items-center gap-3 min-w-0">
                         <div className="relative w-full max-w-[104px] h-[212px] flex justify-center">
                           {isMax && (
-                            <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-secondary rounded-full px-2.5 py-1 mono text-[10.5px] whitespace-nowrap z-10">
+                            <div className="motion-bar-label absolute top-0 left-1/2 -translate-x-1/2 bg-secondary rounded-full px-2.5 py-1 mono text-[10.5px] whitespace-nowrap z-10">
                               {Math.round((b.value / totalExpense) * 100)}%
                             </div>
                           )}
-                          <div className="absolute bottom-0 w-full flex justify-center" style={{ height: h }}>
-                            <PillBar color={b.color} variant={catVariant(i)} />
+                          <div className="absolute bottom-0 w-full overflow-hidden" style={{ height: h }}>
+                            <div className="motion-bar-y w-full h-full" style={{ '--i': i } as CSSProperties}>
+                              <PillBar color={b.color} variant={catVariant(i)} />
+                            </div>
                           </div>
                         </div>
                         <div className="text-[10.5px] text-muted-foreground uppercase mono tracking-[0.1em] truncate w-full text-center">
@@ -295,19 +306,21 @@ export function DashboardChartSection({
                     <div className="relative w-full max-w-[64px] h-[212px] flex justify-center">
                       {hasData && (
                         <div
-                          className={`absolute left-1/2 -translate-x-1/2 mono tabular text-[10.5px] whitespace-nowrap z-10 ${
+                          className={`motion-bar-label absolute left-1/2 -translate-x-1/2 mono tabular text-[10.5px] whitespace-nowrap z-10 ${
                             isLast ? 'bg-secondary rounded-full px-2.5 py-1' : 'text-muted-foreground'
                           }`}
-                          style={{ bottom: h + 8 }}
+                          style={{ bottom: h + 8, '--i': i } as CSSProperties}
                         >
                           {fmtCompact(t.net, anchorCurrency, { signed: true })}
                         </div>
                       )}
-                      <div className="absolute bottom-0 w-full flex justify-center" style={{ height: h }}>
-                        <PillBar
-                          color={hasData ? tone(t.net) : GHOST}
-                          variant={!hasData ? 'hatch' : isLast ? 'mid' : 'solid'}
-                        />
+                      <div className="absolute bottom-0 w-full overflow-hidden" style={{ height: h }}>
+                        <div className="motion-bar-y w-full h-full" style={{ '--i': i } as CSSProperties}>
+                          <PillBar
+                            color={hasData ? tone(t.net) : GHOST}
+                            variant={!hasData ? 'hatch' : isLast ? 'mid' : 'solid'}
+                          />
+                        </div>
                       </div>
                     </div>
                     <div className="text-[10.5px] text-muted-foreground uppercase mono tracking-[0.1em]">{t.month}</div>

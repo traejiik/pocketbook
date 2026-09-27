@@ -336,7 +336,7 @@ export function SettingsView({
 
   return (
     <>
-      <div className="px-4 lg:px-7 pb-9 pt-1 max-w-[860px] mx-auto space-y-7">
+      <div className="motion-stagger px-4 lg:px-7 pb-9 pt-1 max-w-[860px] mx-auto space-y-7">
         {/* ── Currencies & FX rates ──────────────────────────────────── */}
         <section id="currencies">
           <div className="flex items-center gap-2 mb-3">
