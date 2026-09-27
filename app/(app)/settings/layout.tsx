@@ -1,3 +1,4 @@
+import { SectionTransition } from '@/components/shell/PageTransition';
 import { SettingsSectionNav } from './SettingsSectionNav';
 
 // Shared frame for every settings subpage. The section chips live here so they
@@ -6,7 +7,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
   return (
     <div className="px-4 lg:px-7 pb-9 pt-1 max-w-[860px] mx-auto">
       <SettingsSectionNav />
-      {children}
+      <SectionTransition>{children}</SectionTransition>
     </div>
   );
 }

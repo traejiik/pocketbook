@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { hrefFor, type NavItem } from '@/components/shell/nav';
+import { hrefFor, siblingTransitionTypes, type NavItem } from '@/components/shell/nav';
 
 interface NavTreeItemProps {
   item: NavItem;
@@ -93,6 +93,7 @@ export function NavTreeItem({ item, active, activeChildId, rowClassName }: NavTr
               >
                 <Link
                   href={`/${item.id}/${child.id}`}
+                  transitionTypes={active ? siblingTransitionTypes(children, activeChildId, child.id) : undefined}
                   aria-current={childActive ? 'page' : undefined}
                   className={cn(
                     'flex items-center px-2.5 py-[7px] rounded-[9px] text-[12.5px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',

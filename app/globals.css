@@ -446,6 +446,84 @@
   }
 }
 
+/* ── Page transitions ──
+   React <ViewTransition> (components/shell/PageTransition.tsx). Between pages
+   the old content only fades out; the new page arrives through its own
+   `.motion-*` entrance, so nothing animates twice. The rest of the document
+   (root) swaps instantly — the sidebar and rail never fade. */
+::view-transition-old(root) {
+  display: none;
+}
+
+::view-transition-new(root) {
+  animation: none;
+}
+
+::view-transition-old(.page-exit) {
+  animation: motion-fade 140ms var(--ease-out-quart) reverse both;
+}
+
+/* A captured page is not clipped by its scroller, so the header, top bar and
+   dock are lifted above it and held still; otherwise a scrolled page would
+   briefly paint over them. */
+::view-transition-group(shell-header),
+::view-transition-group(shell-top-bar),
+::view-transition-group(shell-dock-fade),
+::view-transition-group(shell-dock) {
+  animation: none;
+  z-index: 100;
+}
+
+::view-transition-old(shell-header),
+::view-transition-old(shell-top-bar),
+::view-transition-old(shell-dock-fade),
+::view-transition-old(shell-dock) {
+  display: none;
+}
+
+::view-transition-new(shell-header),
+::view-transition-new(shell-top-bar),
+::view-transition-new(shell-dock-fade),
+::view-transition-new(shell-dock) {
+  animation: none;
+}
+
+/* Sibling subpages (Settings) slide the way their list reads. The incoming
+   page only travels — its cards' own rise supplies the fade. */
+@keyframes section-slide {
+  from {
+    translate: var(--section-offset) 0;
+  }
+}
+
+::view-transition-old(.section-out-forward),
+::view-transition-old(.section-out-back) {
+  animation:
+    motion-fade 140ms var(--ease-out-quart) reverse both,
+    section-slide 180ms var(--ease-out-quart) reverse both;
+}
+
+::view-transition-old(.section-out-forward) {
+  --section-offset: -24px;
+}
+
+::view-transition-old(.section-out-back) {
+  --section-offset: 24px;
+}
+
+::view-transition-new(.section-in-forward),
+::view-transition-new(.section-in-back) {
+  animation: section-slide 320ms var(--ease-out-quint) both;
+}
+
+::view-transition-new(.section-in-forward) {
+  --section-offset: 24px;
+}
+
+::view-transition-new(.section-in-back) {
+  --section-offset: -24px;
+}
+
 /* ── Reduced-motion: disable all animation for users who ask for it ── */
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -455,6 +533,14 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+
+  /* `*` does not reach the view-transition pseudo-elements; without this the
+     page hand-off and the Settings slides would still play. */
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
   }
 
   /* The rule above still honours animation-delay, which would hold staggered
