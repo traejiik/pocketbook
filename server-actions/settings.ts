@@ -91,7 +91,7 @@ export async function addTrackedCurrency(code: string) {
   });
   log.info('currency tracked', { currency: code, anchor });
   revalidateFinanceTags(CACHE_TAGS.fx);
-  revalidatePath('/settings');
+  revalidatePath('/settings', 'layout');
 }
 
 export async function removeTrackedCurrency(from: string, to: string) {
@@ -101,7 +101,7 @@ export async function removeTrackedCurrency(from: string, to: string) {
   });
   log.info('currency untracked', { pair: `${from}/${to}`, removed: removed.count });
   revalidateFinanceTags(CACHE_TAGS.fx);
-  revalidatePath('/settings');
+  revalidatePath('/settings', 'layout');
 }
 
 export async function setFxAutoSync(enabled: boolean) {
@@ -164,7 +164,7 @@ export async function setOllamaModel(model: string) {
   // The model in use is the first thing to check when insight output changes
   // character, so the switch itself is worth a line.
   log.info('setting changed', { setting: 'ollamaModel', value: model });
-  revalidatePath('/settings');
+  revalidatePath('/settings', 'layout');
 }
 
 export async function changePassword(input: { current: string; next: string }) {
@@ -193,7 +193,7 @@ export async function forceFxSync(): Promise<{ synced: number }> {
   const synced = await syncAllAutoRates();
   timer.ok({ synced });
   revalidateFinanceTags(CACHE_TAGS.fx);
-  revalidatePath('/settings');
+  revalidatePath('/settings', 'layout');
   return { synced };
 }
 

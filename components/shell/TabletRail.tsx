@@ -6,7 +6,8 @@ import { usePathname } from 'next/navigation';
 import { Plus, ChevronLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { LogoMark } from '@/components/shell/LogoMark';
-import { NAV, navIdForPath } from '@/components/shell/nav';
+import { NAV, hrefFor, navIdForPath, subNavIdForPath } from '@/components/shell/nav';
+import { NavTreeItem } from '@/components/shell/NavTree';
 
 interface TabletRailProps {
   upcomingRenewalsCount?: number;
@@ -28,6 +29,7 @@ interface TabletRailProps {
 export function TabletRail({ upcomingRenewalsCount = 0, onQuickAdd, className }: TabletRailProps) {
   const pathname = usePathname();
   const activeId = navIdForPath(pathname);
+  const activeChildId = subNavIdForPath(pathname);
   const [collapsed, setCollapsed] = useState(true);
 
   // Close on navigation: the drawer covers the page it just navigated to.
@@ -73,10 +75,23 @@ export function TabletRail({ upcomingRenewalsCount = 0, onQuickAdd, className }:
           const active = activeId === item.id;
           const Icon = item.icon;
           const showBadge = item.id === 'renewals' && upcomingRenewalsCount > 0;
+          // The open drawer shows subpages as a tree; the 76px rail has no
+          // room for one, so collapsed it stays a single icon.
+          if (item.children && !collapsed) {
+            return (
+              <NavTreeItem
+                key={item.id}
+                item={item}
+                active={active}
+                activeChildId={activeChildId}
+                rowClassName="min-h-11 px-3 rounded-[12px] text-[13px]"
+              />
+            );
+          }
           return (
             <Link
               key={item.id}
-              href={`/${item.id}`}
+              href={hrefFor(item)}
               aria-current={active ? 'page' : undefined}
               aria-label={item.label}
               title={collapsed ? item.label : undefined}

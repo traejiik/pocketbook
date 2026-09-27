@@ -5,7 +5,8 @@ import { usePathname } from 'next/navigation';
 import { Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { LogoMark } from '@/components/shell/LogoMark';
-import { NAV, navIdForPath } from '@/components/shell/nav';
+import { NAV, hrefFor, navIdForPath, subNavIdForPath } from '@/components/shell/nav';
+import { NavTreeItem } from '@/components/shell/NavTree';
 
 interface SidebarProps {
   upcomingRenewalsCount?: number;
@@ -17,6 +18,7 @@ interface SidebarProps {
 export function Sidebar({ upcomingRenewalsCount = 0, onQuickAdd, className }: SidebarProps) {
   const pathname = usePathname();
   const activeId = navIdForPath(pathname);
+  const activeChildId = subNavIdForPath(pathname);
 
   return (
     <aside
@@ -37,10 +39,21 @@ export function Sidebar({ upcomingRenewalsCount = 0, onQuickAdd, className }: Si
           const active = activeId === item.id;
           const Icon = item.icon;
           const showBadge = item.id === 'renewals' && upcomingRenewalsCount > 0;
+          if (item.children) {
+            return (
+              <NavTreeItem
+                key={item.id}
+                item={item}
+                active={active}
+                activeChildId={activeChildId}
+                rowClassName="px-3 py-[8.5px] rounded-[10px] text-[13px]"
+              />
+            );
+          }
           return (
             <Link
               key={item.id}
-              href={`/${item.id}`}
+              href={hrefFor(item)}
               aria-current={active ? 'page' : undefined}
               className={cn(
                 'group w-full flex items-center gap-2.5 px-3 py-[8.5px] rounded-[10px] text-[13px] transition-colors text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',

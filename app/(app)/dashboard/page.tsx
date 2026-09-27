@@ -98,7 +98,7 @@ export default async function DashboardPage() {
               {' '}couldn&apos;t be converted to {anchor}.
             </span>{' '}
             The totals below exclude {excludedCount === 1 ? 'it' : 'them'} — add a rate in{' '}
-            <Link href="/settings#currencies" className="text-foreground underline underline-offset-2">Settings</Link>.
+            <Link href="/settings/general" className="text-foreground underline underline-offset-2">Settings</Link>.
           </span>
         </div>
       )}
@@ -323,7 +323,7 @@ export default async function DashboardPage() {
               </Link>
             ) : (
               <Link
-                href="/settings#ai-insights"
+                href="/settings/ai-insights"
                 className="mt-4 w-full inline-flex items-center justify-center gap-2 h-11 lg:h-9 rounded-[12px] lg:rounded-[10px] border border-border font-medium text-[13px] lg:text-[12px] hover:bg-accent motion-press focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
               >
                 Configure Ollama

@@ -12,6 +12,6 @@ export async function runBackupNow() {
   await requireAuthenticatedUser()
   log.info('manual backup requested')
   const result = await runBackup({ source: 'manual' })
-  revalidatePath('/settings')
+  revalidatePath('/settings', 'layout')
   return result
 }

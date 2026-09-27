@@ -173,7 +173,7 @@ export async function saveNotificationSettings(
     }
   })
 
-  if (result.ok) revalidatePath('/settings')
+  if (result.ok) revalidatePath('/settings', 'layout')
   return result
 }
 
@@ -190,7 +190,7 @@ export async function disconnectDiscordNotifications() {
   })
 
   log.info('discord disconnected')
-  revalidatePath('/settings')
+  revalidatePath('/settings', 'layout')
   return {
     ok: true as const,
     settings: toAuthenticatedNotificationSettings(config, 'ready'),

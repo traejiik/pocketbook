@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import { LayoutGrid, List, Repeat, Plus, Menu, X, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useFabContext } from '@/contexts/fab-context';
-import { NAV, navIdForPath } from '@/components/shell/nav';
+import { NAV, hrefFor, navIdForPath } from '@/components/shell/nav';
 
 // Three destinations sit in the dock; the rest live behind More. Dashboard
 // reads "Home" here because the expanded label has to fit a 390px pill.
@@ -88,7 +88,7 @@ export function MobileNav({ onAdd, upcomingRenewalsCount = 0 }: MobileNavProps) 
             return (
               <Link
                 key={item.id}
-                href={`/${item.id}`}
+                href={hrefFor(item)}
                 // Closing here would run a frame before the route changes, so
                 // the dock would briefly re-render the page you are leaving as
                 // active. The pathname effect closes it once navigation lands;
@@ -126,7 +126,7 @@ export function MobileNav({ onAdd, upcomingRenewalsCount = 0 }: MobileNavProps) 
           return (
             <Link
               key={item.id}
-              href={`/${item.id}`}
+              href={hrefFor(item)}
               aria-current={active ? 'page' : undefined}
               aria-label={
                 showDot ? `${item.label}, ${upcomingRenewalsCount} due soon` : item.label
