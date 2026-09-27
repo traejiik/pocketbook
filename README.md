@@ -110,7 +110,7 @@ Pick your anchor currency, manage tracked FX rates, configure Discord identity a
 | **Forms** | react-hook-form + zod |
 | **AI** | Local Ollama — `PB_OLLAMA_BASE_URL` in deploy env, passed to the app as `OLLAMA_BASE_URL` |
 | **FX rates** | [frankfurter.dev](https://frankfurter.dev) (ECB feed), auto-synced daily |
-| **Runtime / deploy** | Node 24 Alpine · supervised Next.js + UTC scheduler · PostgreSQL 16 client tools · pnpm 10.33.0 · Docker Compose · GHCR image releases |
+| **Runtime / deploy** | Node 24 Alpine · supervised Next.js + UTC scheduler · PostgreSQL 16 client tools · pnpm 12.6.0 · Docker Compose · GHCR image releases |
 
 **Architecture in one line:** server components read from Prisma directly → pass props → Server Actions mutate → `revalidatePath` + `revalidateTag` refresh. The only REST routes are for Auth.js, SSE insights streaming, and scheduler-only sync endpoints authenticated by an ephemeral per-boot token shared inside `pocketbook-web`. No client-side data fetching for initial renders.
 
