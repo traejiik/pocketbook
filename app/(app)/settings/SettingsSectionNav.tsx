@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { SETTINGS_SECTIONS, subNavIdForPath } from '@/components/shell/nav';
+import { SETTINGS_SECTIONS, siblingTransitionTypes, subNavIdForPath } from '@/components/shell/nav';
 
 /**
  * Settings section chips, below 1025px only — the sidebar tree replaces them
@@ -47,6 +47,7 @@ export function SettingsSectionNav() {
               key={section.id}
               ref={active ? activeRef : undefined}
               href={`/settings/${section.id}`}
+              transitionTypes={siblingTransitionTypes(SETTINGS_SECTIONS, activeId, section.id)}
               aria-current={active ? 'page' : undefined}
               className={cn(
                 'inline-flex shrink-0 items-center h-11 md:h-10 px-4 rounded-full border text-[13px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',

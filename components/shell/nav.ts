@@ -62,6 +62,22 @@ export function hrefFor(item: NavItem): string {
   return item.children?.length ? `/${item.id}/${item.children[0].id}` : `/${item.id}`;
 }
 
+/**
+ * View-transition type for moving between two children of one section: the
+ * content slides the way the list reads (later child → forward). Only tag
+ * links inside the section — entering it from elsewhere is a page change.
+ */
+export function siblingTransitionTypes(
+  children: NavChild[],
+  fromId: string | null,
+  toId: string,
+): string[] | undefined {
+  const from = children.findIndex((c) => c.id === fromId);
+  const to = children.findIndex((c) => c.id === toId);
+  if (from < 0 || to < 0 || from === to) return undefined;
+  return [to > from ? 'section-forward' : 'section-back'];
+}
+
 /** Page title for the header / mobile top bar. */
 export function titleForPath(pathname: string): string {
   return TITLES[navIdForPath(pathname)] ?? 'Pocketbook';
