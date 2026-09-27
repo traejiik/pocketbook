@@ -97,7 +97,7 @@ export function RecurringRuleCard({ rule, hufEquivalent, daysAway, onEdit, ancho
           </div>
           <div className="h-1.5 bg-warning/18 rounded-full overflow-hidden">
             <div
-              className="h-full bg-warning rounded-full"
+              className="motion-bar-x h-full bg-warning rounded-full"
               style={{ width: inst.total > 0 ? `${(inst.paid / inst.total) * 100}%` : '0%' }}
             />
           </div>
