@@ -235,8 +235,8 @@ describe('tablet breakpoint contract', () => {
     expect(recurringBudget).toContain('due in 7 days');
     expect(recurringBudget).not.toContain('next 7 days');
 
-    const settings = source('app/(app)/settings/SettingsView.tsx');
-    expect(settings).toContain('px-4 lg:px-7 pb-9 pt-1');
+    expect(source('app/(app)/settings/layout.tsx')).toContain('px-4 lg:px-7 pb-9 pt-1');
+    const settings = source('app/(app)/settings/GeneralSettings.tsx');
     expect(settings).toContain('grid grid-cols-[auto_1fr_auto] lg:grid-cols-[auto_1fr_auto_auto_auto]');
     expect(settings).toContain('hidden lg:flex items-center gap-0.5');
     expect(settings).toContain('hidden lg:block w-[150px]');
@@ -245,6 +245,20 @@ describe('tablet breakpoint contract', () => {
     expect(source('app/(app)/renewals/RenewalsView.tsx')).toContain('px-4 lg:px-7 pb-9 pt-1');
     expect(source('app/(app)/categories/CategoriesView.tsx')).toContain('px-4 lg:px-7 pb-9 pt-1');
     expect(source('app/(app)/insights/page.tsx')).toContain('px-4 lg:px-7 pb-9 pt-1');
+  });
+
+  test('settings subpages: sidebar tree above 1025px, section chips below', () => {
+    const tree = source('components/shell/NavTree.tsx');
+    expect(tree).toContain("from '@/components/ui/collapsible'");
+    expect(source('components/shell/Sidebar.tsx')).toContain('<NavTreeItem');
+    // The collapsed 76px rail keeps a single icon; only the open drawer nests.
+    expect(source('components/shell/TabletRail.tsx')).toContain('item.children && !collapsed');
+
+    const chips = source('app/(app)/settings/SettingsSectionNav.tsx');
+    expect(chips).toContain('min-[1025px]:hidden');
+    expect(chips).toContain('h-11 md:h-10');
+    expect(chips).not.toContain('innerWidth');
+    expect(source('app/(app)/settings/layout.tsx')).toContain('<SettingsSectionNav />');
   });
 
   test('transaction form keeps touch-sized toggles but uniform-height inputs', () => {
@@ -324,9 +338,11 @@ describe('tablet breakpoint contract', () => {
     const insights = source('app/(app)/insights/page.tsx');
     expect(insights).toContain('max-w-[860px]');
 
-    const settings = source('app/(app)/settings/SettingsView.tsx');
-    expect(settings).toContain('calm-card p-6');
-    expect(settings).not.toContain('Loader2');
-    expect(settings).not.toContain('animate-spin');
+    for (const file of ['GeneralSettings', 'AiSettings', 'SecuritySettings', 'DataSettings']) {
+      const settings = source(`app/(app)/settings/${file}.tsx`);
+      expect(settings).toContain('calm-card p-6');
+      expect(settings).not.toContain('Loader2');
+      expect(settings).not.toContain('animate-spin');
+    }
   });
 });
