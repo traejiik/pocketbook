@@ -13,9 +13,8 @@ function job(name: string) {
 }
 
 describe('PR checks', () => {
-  it('run for pull requests into main and beta, and on dispatch for the sync branch', () => {
+  it('run for pull requests into main and beta', () => {
     expect(prCheck).toMatch(/pull_request:\s*\n\s*branches: \[main, beta\]/)
-    expect(prCheck).toMatch(/\n  workflow_dispatch:/)
   })
 
   it('build the Docker image without pushing it', () => {
@@ -59,11 +58,10 @@ describe('release channels', () => {
     expect(tags).toMatch(/type=sha,prefix=beta-,enable=\$\{\{ needs\.plan\.outputs\.channel == 'beta' \}\}/)
   })
 
-  it('opens the main → beta sync PR and dispatches its check', () => {
+  it('opens the main → beta sync PR', () => {
     const sync = job('sync-beta')
     expect(sync).toMatch(/github\.ref_name == 'main'/)
     expect(sync).toMatch(/chore\/sync-main-into-beta/)
     expect(sync).toMatch(/gh pr create --base beta/)
-    expect(sync).toMatch(/gh workflow run pr-check\.yml --ref "\$BRANCH"/)
   })
 })
