@@ -4,34 +4,66 @@ import { describe, expect, it } from 'vitest'
 const release = readFileSync('.github/workflows/release.yml', 'utf8')
 const prCheck = readFileSync('.github/workflows/pr-check.yml', 'utf8')
 
-describe('release channels', () => {
-  it('runs PR checks for pull requests into main and beta', () => {
+/** The YAML text of one top-level job, from its key to the next job key. */
+function job(name: string) {
+  const start = release.indexOf(`\n  ${name}:\n`)
+  expect(start).toBeGreaterThan(0)
+  const next = release.slice(start + 1).search(/\n  [a-z-]+:\n/)
+  return next === -1 ? release.slice(start) : release.slice(start, start + 1 + next)
+}
+
+describe('PR checks', () => {
+  it('run for pull requests into main and beta, and on dispatch for the sync branch', () => {
     expect(prCheck).toMatch(/pull_request:\s*\n\s*branches: \[main, beta\]/)
+    expect(prCheck).toMatch(/\n  workflow_dispatch:/)
   })
 
-  it('cuts releases from pushes to both main and beta', () => {
+  it('build the Docker image without pushing it', () => {
+    const build = prCheck.indexOf('Build Docker image')
+    expect(build).toBeGreaterThan(0)
+    expect(prCheck.slice(build)).toMatch(/push: false/)
+  })
+})
+
+describe('release channels', () => {
+  it('runs on pushes to both main and beta', () => {
     expect(release).toMatch(/push:\s*\n\s*branches: \[main, beta\]/)
   })
 
-  it('guards each channel before a release is created', () => {
-    const guard = release.indexOf('Enforce release channel')
-    const create = release.indexOf('Create release / decide whether to build')
-    expect(guard).toBeGreaterThan(0)
-    expect(guard).toBeLessThan(create)
-    expect(release).toMatch(/"\$BRANCH" == "beta" && ! "\$VERSION" =~ -\(beta\|rc\)/)
-    expect(release).toMatch(/"\$BRANCH" == "main" && "\$VERSION" == \*-beta\*/)
+  it('creates the tag and release only after the image is pushed', () => {
+    const create = job('release')
+    expect(create).toMatch(/needs: \[plan, docker\]/)
+    expect(create).toMatch(/gh release create/)
+    expect(job('docker')).not.toMatch(/gh release create/)
   })
 
-  it('only judges versions that would cut a new release', () => {
-    const guard = release.indexOf('Enforce release channel')
-    const alreadyReleased = release.indexOf('gh release view "v$VERSION"', guard)
-    const betaRule = release.indexOf('"$BRANCH" == "beta"', guard)
-    expect(alreadyReleased).toBeGreaterThan(guard)
-    expect(alreadyReleased).toBeLessThan(betaRule)
+  it('never releases from beta', () => {
+    const plan = job('plan')
+    const beta = plan.indexOf('github.ref_name }}" == "beta"')
+    expect(beta).toBeGreaterThan(0)
+    expect(plan.slice(beta, plan.indexOf('exit 0', beta))).toMatch(/out release false/)
   })
 
-  it('keeps latest stable-only and floats a beta tag for beta versions', () => {
-    expect(release).toMatch(/value=latest,enable=\$\{\{ needs\.release\.outputs\.prerelease == 'false' \}\}/)
-    expect(release).toMatch(/value=beta,enable=\$\{\{ contains\(needs\.release\.outputs\.version, '-beta'\) \}\}/)
+  it('rejects pre-release versions on main, judging only versions not yet released', () => {
+    const plan = job('plan')
+    const alreadyReleased = plan.indexOf('gh release view "$TAG"', plan.indexOf('package.json'))
+    const reject = plan.indexOf('"$VERSION" == *-*')
+    expect(alreadyReleased).toBeGreaterThan(0)
+    expect(reject).toBeGreaterThan(alreadyReleased)
+  })
+
+  it('keeps stable tags stable-only and beta tags beta-only', () => {
+    const tags = job('docker')
+    expect(tags).toMatch(/value=latest,enable=\$\{\{ needs\.plan\.outputs\.channel == 'stable' \}\}/)
+    expect(tags).toMatch(/value=beta,enable=\$\{\{ needs\.plan\.outputs\.channel == 'beta' \}\}/)
+    expect(tags).toMatch(/type=sha,prefix=beta-,enable=\$\{\{ needs\.plan\.outputs\.channel == 'beta' \}\}/)
+  })
+
+  it('opens the main → beta sync PR and dispatches its check', () => {
+    const sync = job('sync-beta')
+    expect(sync).toMatch(/github\.ref_name == 'main'/)
+    expect(sync).toMatch(/chore\/sync-main-into-beta/)
+    expect(sync).toMatch(/gh pr create --base beta/)
+    expect(sync).toMatch(/gh workflow run pr-check\.yml --ref "\$BRANCH"/)
   })
 })
