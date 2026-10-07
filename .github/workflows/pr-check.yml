@@ -3,9 +3,6 @@ name: PR checks
 on:
   pull_request:
     branches: [main, beta]
-  # The release workflow dispatches this on the bot-opened sync branch, because a
-  # PR created with GITHUB_TOKEN does not trigger pull_request workflows.
-  workflow_dispatch:
 
 permissions:
   contents: read

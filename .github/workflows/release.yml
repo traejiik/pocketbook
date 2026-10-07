@@ -147,8 +147,8 @@ jobs:
 
   sync-beta:
     # After every push to main, carry main into beta through a PR so the two never
-    # drift. A PR opened with GITHUB_TOKEN does not trigger pull_request workflows,
-    # so the required `check` is dispatched explicitly on the sync branch.
+    # drift. Its `check` run starts as "action_required" because a bot opened the
+    # PR: approve it once on the PR (or `gh api -X POST …/actions/runs/<id>/approve`).
     needs: [plan, release]
     if: >-
       always() && github.event_name == 'push' && github.ref_name == 'main' &&
@@ -157,7 +157,6 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-      actions: write
 
     steps:
       - name: Checkout
@@ -199,7 +198,7 @@ jobs:
           fi
           git push origin "$BRANCH"
 
-          BODY="Brings the latest \`main\` into \`beta\` so the beta cycle builds on every stable fix and the next graduation PR doesn't conflict."
+          BODY="Brings the latest \`main\` into \`beta\` so the beta cycle builds on every stable fix and the next graduation PR doesn't conflict."$'\n\n'"Opened by a bot, so the PR check waits for approval: **Approve and run** under Checks, then merge."
           if [[ "$CONFLICT" == "true" ]]; then
             BODY="$BODY"$'\n\n'"**Conflicts with beta.** Check out \`$BRANCH\`, run \`git merge origin/beta\`, resolve, and push."
           fi
@@ -209,5 +208,3 @@ jobs:
           elif [[ "$CONFLICT" == "true" ]]; then
             gh pr comment "$BRANCH" --body "New commits on main conflict with beta — merge \`origin/beta\` into \`$BRANCH\` and resolve."
           fi
-
-          gh workflow run pr-check.yml --ref "$BRANCH"
