@@ -1,14 +1,20 @@
-name: Create release on version change
+name: Release
 
-# Two channels share this workflow: `main` cuts stable releases and `beta` cuts
-# pre-releases. The channel guard below keeps each branch's versions honest.
+# Two channels share this workflow:
+#
+#   main  → stable releases. A new package.json version cuts `vX.Y.Z`: the image
+#           is built and pushed first, and only then is the tag + GitHub release
+#           created, so a failed build never leaves a release without an image.
+#           Every push to main also opens (or refreshes) the sync PR into beta.
+#   beta  → rolling pre-release image. Every push rebuilds `:beta` and
+#           `:beta-<sha>`. No version bump, no tag, no GitHub release.
 on:
   push:
     branches: [main, beta]
   workflow_dispatch:
     inputs:
       tag:
-        description: "Existing tag to (re)build the Docker image for, e.g. v2.7.0"
+        description: "Existing release tag to rebuild the Docker image for, e.g. v3.1.0"
         required: true
         type: string
 
@@ -17,108 +23,79 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  release:
+  plan:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
     outputs:
-      version: ${{ steps.version.outputs.version }}
-      tag: ${{ steps.version.outputs.tag }}
-      major_minor: ${{ steps.version.outputs.major_minor }}
-      prerelease: ${{ steps.version.outputs.prerelease }}
-      build: ${{ steps.guard.outputs.build }}
+      channel: ${{ steps.plan.outputs.channel }}
+      version: ${{ steps.plan.outputs.version }}
+      tag: ${{ steps.plan.outputs.tag }}
+      major_minor: ${{ steps.plan.outputs.major_minor }}
+      ref: ${{ steps.plan.outputs.ref }}
+      build: ${{ steps.plan.outputs.build }}
+      release: ${{ steps.plan.outputs.release }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
 
-      - name: Resolve version
-        id: version
+      - name: Decide what to build
+        id: plan
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          out() { echo "$1=$2" >> "$GITHUB_OUTPUT"; }
+
+          # Manual rebuild of an existing stable release's image.
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             TAG="${{ inputs.tag }}"
-            VERSION="${TAG#v}"
-          else
-            VERSION="$(jq -r .version package.json)"
-            TAG="v$VERSION"
-          fi
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-          echo "major_minor=$(echo "$VERSION" | cut -d. -f1-2)" >> "$GITHUB_OUTPUT"
-          if [[ "$VERSION" == *-* ]]; then
-            echo "prerelease=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "prerelease=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Enforce release channel
-        if: github.event_name == 'push'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          BRANCH="${{ github.ref_name }}"
-          # Only a version that would cut a new release is judged. Merges that
-          # carry no bump (e.g. feature PRs into beta while it still holds the
-          # last stable version) find their tag already released and pass.
-          if gh release view "v$VERSION" >/dev/null 2>&1; then
-            echo "v$VERSION already released — no channel check needed."
-            exit 0
-          fi
-          if [[ "$BRANCH" == "beta" && ! "$VERSION" =~ -(beta|rc)\. ]]; then
-            echo "::error::beta only releases pre-release versions (-beta.N / -rc.N); package.json is $VERSION."
-            exit 1
-          fi
-          if [[ "$BRANCH" == "main" && "$VERSION" == *-beta* ]]; then
-            echo "::error::main cannot release a beta version ($VERSION); set the final version before merging beta into main."
-            exit 1
-          fi
-
-      - name: Create release / decide whether to build
-        id: guard
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          TAG="${{ steps.version.outputs.tag }}"
-
-          # Manual rebuild: the release must already exist; only (re)build the image.
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             if ! gh release view "$TAG" >/dev/null 2>&1; then
               echo "::error::Release $TAG does not exist — nothing to rebuild."
               exit 1
             fi
-            echo "build=true" >> "$GITHUB_OUTPUT"
+            VERSION="${TAG#v}"
+            out channel stable; out version "$VERSION"; out tag "$TAG"
+            out major_minor "$(echo "$VERSION" | cut -d. -f1-2)"
+            out ref "$TAG"; out build true; out release false
             exit 0
           fi
 
-          # Push to main/beta: create the release if the tag does not exist yet.
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            echo "Release $TAG already exists — nothing to do."
-            echo "build=false" >> "$GITHUB_OUTPUT"
-          else
-            FLAGS=(--title "$TAG" --generate-notes --target "$GITHUB_SHA")
-            if [[ "${{ steps.version.outputs.prerelease }}" == "true" ]]; then
-              FLAGS+=(--prerelease)
-            fi
-            gh release create "$TAG" "${FLAGS[@]}"
-            echo "build=true" >> "$GITHUB_OUTPUT"
+          # Rolling beta: always build, never release.
+          if [[ "${{ github.ref_name }}" == "beta" ]]; then
+            out channel beta; out ref "$GITHUB_SHA"; out build true; out release false
+            exit 0
           fi
 
+          # main: release only when package.json names a version not yet released.
+          VERSION="$(jq -r .version package.json)"
+          TAG="v$VERSION"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "$TAG already released — nothing to build."
+            out channel stable; out build false; out release false
+            exit 0
+          fi
+          if [[ "$VERSION" == *-* ]]; then
+            echo "::error::main only releases stable versions; package.json is $VERSION. Set the final version before merging beta into main."
+            exit 1
+          fi
+          out channel stable; out version "$VERSION"; out tag "$TAG"
+          out major_minor "$(echo "$VERSION" | cut -d. -f1-2)"
+          out ref "$GITHUB_SHA"; out build true; out release true
+
   docker:
-    needs: release
-    if: needs.release.outputs.build == 'true'
+    needs: plan
+    if: needs.plan.outputs.build == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
 
     steps:
-      - name: Checkout release tag
+      - name: Checkout
         uses: actions/checkout@v6
         with:
-          ref: ${{ needs.release.outputs.tag }}
+          ref: ${{ needs.plan.outputs.ref }}
 
       - name: Log in to GHCR
         uses: docker/login-action@v4
@@ -136,10 +113,11 @@ jobs:
         with:
           images: ghcr.io/traejiik/pocketbook-web
           tags: |
-            type=raw,value=${{ needs.release.outputs.version }}
-            type=raw,value=${{ needs.release.outputs.major_minor }},enable=${{ needs.release.outputs.prerelease == 'false' }}
-            type=raw,value=latest,enable=${{ needs.release.outputs.prerelease == 'false' }}
-            type=raw,value=beta,enable=${{ contains(needs.release.outputs.version, '-beta') }}
+            type=raw,value=${{ needs.plan.outputs.version }},enable=${{ needs.plan.outputs.channel == 'stable' }}
+            type=raw,value=${{ needs.plan.outputs.major_minor }},enable=${{ needs.plan.outputs.channel == 'stable' }}
+            type=raw,value=latest,enable=${{ needs.plan.outputs.channel == 'stable' }}
+            type=raw,value=beta,enable=${{ needs.plan.outputs.channel == 'beta' }}
+            type=sha,prefix=beta-,enable=${{ needs.plan.outputs.channel == 'beta' }}
 
       - name: Build and push
         uses: docker/build-push-action@v7
@@ -150,3 +128,86 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  release:
+    needs: [plan, docker]
+    if: needs.plan.outputs.release == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Create tag and GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          TAG="${{ needs.plan.outputs.tag }}"
+          gh release create "$TAG" --title "$TAG" --generate-notes --target "$GITHUB_SHA"
+
+  sync-beta:
+    # After every push to main, carry main into beta through a PR so the two never
+    # drift. A PR opened with GITHUB_TOKEN does not trigger pull_request workflows,
+    # so the required `check` is dispatched explicitly on the sync branch.
+    needs: [plan, release]
+    if: >-
+      always() && github.event_name == 'push' && github.ref_name == 'main' &&
+      needs.plan.result == 'success' && needs.release.result != 'failure'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Open or refresh the sync PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BRANCH: chore/sync-main-into-beta
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin beta
+
+          if git merge-base --is-ancestor origin/main origin/beta; then
+            echo "beta already contains main — nothing to sync."
+            exit 0
+          fi
+
+          if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null; then
+            git fetch origin "$BRANCH"
+            git switch -c "$BRANCH" "origin/$BRANCH"
+          else
+            git switch -c "$BRANCH" origin/beta
+          fi
+
+          CONFLICT=false
+          if ! git merge --no-ff --no-edit origin/main -m "Merge main into beta"; then
+            git merge --abort
+            CONFLICT=true
+          fi
+
+          if [[ "$CONFLICT" == "true" ]] && ! git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null; then
+            # Publish main's tip so the PR exists; the conflict is resolved by hand
+            # by merging beta into this branch.
+            git switch -C "$BRANCH" origin/main
+          fi
+          git push origin "$BRANCH"
+
+          BODY="Brings the latest \`main\` into \`beta\` so the beta cycle builds on every stable fix and the next graduation PR doesn't conflict."
+          if [[ "$CONFLICT" == "true" ]]; then
+            BODY="$BODY"$'\n\n'"**Conflicts with beta.** Check out \`$BRANCH\`, run \`git merge origin/beta\`, resolve, and push."
+          fi
+
+          if [[ -z "$(gh pr list --head "$BRANCH" --base beta --state open --json number --jq '.[].number')" ]]; then
+            gh pr create --base beta --head "$BRANCH" --title "chore: sync main into beta" --body "$BODY"
+          elif [[ "$CONFLICT" == "true" ]]; then
+            gh pr comment "$BRANCH" --body "New commits on main conflict with beta — merge \`origin/beta\` into \`$BRANCH\` and resolve."
+          fi
+
+          gh workflow run pr-check.yml --ref "$BRANCH"
