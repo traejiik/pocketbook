@@ -1,10 +1,12 @@
 FROM node:24-alpine3.22 AS base
-RUN npm install -g pnpm@10.33.0
+RUN npm install -g pnpm@12.6.0
 
 # --- deps stage ---
 FROM base AS deps
 WORKDIR /app
-COPY package.json pnpm-lock.yaml ./
+# pnpm-workspace.yaml carries the build-script policy (`allowBuilds`); without it
+# pnpm 12 refuses to install over the unreviewed dependency builds.
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
 
 # --- builder stage ---

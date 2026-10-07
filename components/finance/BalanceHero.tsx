@@ -1,5 +1,6 @@
 import { ArrowDownRight, ArrowUpRight } from 'lucide-react'
 import { fmtAnchor, fmtHUF } from '@/lib/format'
+import { cn } from '@/lib/utils'
 import type { BalancePoint } from '@/lib/aggregations'
 
 interface BalanceHeroProps {
@@ -10,6 +11,7 @@ interface BalanceHeroProps {
   /** Oldest → newest month-end balances; the last point is the current month. */
   trend: BalancePoint[]
   currency?: string
+  className?: string
 }
 
 // Chart geometry, in viewBox units. The line keeps clear of the top edge for the
@@ -64,7 +66,7 @@ function BalanceChart({ trend, currency }: { trend: { month: string; balance: nu
         <svg
           viewBox={`0 0 ${W} ${H}`}
           preserveAspectRatio="none"
-          className="absolute inset-0 w-full h-full overflow-visible"
+          className="motion-wipe absolute inset-0 w-full h-full overflow-visible"
           role="img"
           aria-label={label}
         >
@@ -82,7 +84,7 @@ function BalanceChart({ trend, currency }: { trend: { month: string; balance: nu
         </svg>
         <span
           aria-hidden="true"
-          className="absolute w-[19px] h-[19px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[hsl(var(--bh-tone)/0.22)] flex items-center justify-center"
+          className="motion-pop absolute w-[19px] h-[19px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[hsl(var(--bh-tone)/0.22)] flex items-center justify-center"
           style={{ left: `${(endX / W) * 100}%`, top: `${(endY / H) * 100}%` }}
         >
           <span className="w-[9px] h-[9px] rounded-full bg-[hsl(var(--balance-ink))]" />
@@ -101,7 +103,7 @@ function BalanceChart({ trend, currency }: { trend: { month: string; balance: nu
  * addition to the v5 dashboard, which has no running balance; the KPI strip below
  * it is unchanged and its Net stays the month's own figure.
  */
-export function BalanceHero({ balance, monthNet, trend, currency = 'HUF' }: BalanceHeroProps) {
+export function BalanceHero({ balance, monthNet, trend, currency = 'HUF', className }: BalanceHeroProps) {
   const isNeg = balance < 0
   const abs = Math.abs(balance)
   const isHUF = currency === 'HUF'
@@ -124,7 +126,7 @@ export function BalanceHero({ balance, monthNet, trend, currency = 'HUF' }: Bala
     <section
       aria-label="Balance"
       data-negative={isNeg || undefined}
-      className="balance-hero relative overflow-hidden px-5 py-[22px] md:px-6 lg:px-[30px] lg:py-[26px] grid grid-cols-1 md:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] gap-6 items-end"
+      className={cn('balance-hero relative overflow-hidden px-5 py-[22px] md:px-6 lg:px-[30px] lg:py-[26px] grid grid-cols-1 md:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] gap-6 items-end', className)}
     >
       <div className="flex flex-col gap-3 md:gap-3.5 min-w-0">
         <span className="text-[15px] text-[hsl(var(--balance-sub))]">Balance</span>

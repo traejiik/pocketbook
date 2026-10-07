@@ -1,13 +1,12 @@
 'use client';
 
-import { useState, useTransition, useRef, useEffect, useId } from 'react';
+import { useState, useTransition, useEffect, useId } from 'react';
 import { useRouter } from 'next/navigation';
-import { DollarSign, Lock, Sparkles, Check, AlertTriangle, RefreshCw, Plus, Trash2, Edit, Repeat, Database, Upload } from 'lucide-react';
+import { DollarSign, Check, AlertTriangle, RefreshCw, Plus, Trash2, Edit, Repeat } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DatePicker } from '@/components/ui/date-picker';
@@ -21,22 +20,10 @@ import {
   addTrackedCurrency,
   removeTrackedCurrency,
   setFxAutoSync,
-  setAutoInsights,
   setOpeningBalance,
   clearOpeningBalance,
-  setOllamaModel,
-  changePassword,
   forceFxSync,
-  clearAllData,
 } from '@/server-actions/settings';
-import { previewTransactionImport, previewRecurringImport, type TransactionImportPreview, type RecurringImportPreview } from '@/server-actions/import';
-import { RecurringImportReview } from '@/components/import/RecurringImportReview';
-import { CsvImportRow } from '@/components/import/CsvImportRow';
-import { TransactionImportReview } from '@/components/import/TransactionImportReview';
-import type { AuthenticatedNotificationSettings } from '@/lib/notifications/types';
-import type { BackupStatus } from '@/lib/operations/backup';
-import { NotificationSettings } from './NotificationSettings';
-import { BackupSettings } from './BackupSettings';
 
 type Rate = {
   id: string;
@@ -52,20 +39,10 @@ type Props = {
   anchorCurrency: string;
   exchangeRates: Rate[];
   fxAutoSync: boolean;
-  ollamaUrl: string;
-  ollamaConnected: boolean;
-  ollamaModel: string;
-  ollamaModels: Array<{ name: string; size: number }>;
-  autoInsightsMonthly: boolean;
   openingBalance: number;
   openingBalanceCurrency: string;
   /** `YYYY-MM`, or null when carry-over has no configured starting point. */
   openingBalanceMonth: string | null;
-  notificationSettings: AuthenticatedNotificationSettings;
-  backupStatus: BackupStatus | null;
-  nextBackupRun: string;
-  dbSize: string;
-  version: string;
 };
 
 const ANCHOR_OPTIONS = [
@@ -75,93 +52,18 @@ const ANCHOR_OPTIONS = [
   { code: 'GBP', symbol: '£',  name: 'British Pound',    flag: '🇬🇧' },
 ];
 
-function formatModelSize(bytes: number): string {
-  if (bytes >= 1e9) return `${(bytes / 1e9).toFixed(1)} GB`;
-  if (bytes >= 1e6) return `${(bytes / 1e6).toFixed(0)} MB`;
-  return `${bytes} B`;
-}
-
-function passwordStrength(pw: string): { bars: number; label: string } {
-  let score = 0;
-  if (pw.length >= 12) score++;
-  if (pw.length >= 16) score++;
-  if (/[A-Z]/.test(pw) && /[a-z]/.test(pw)) score++;
-  if (/\d/.test(pw)) score++;
-  if (/[^A-Za-z0-9]/.test(pw)) score++;
-  const bars = Math.min(4, Math.ceil(score * 0.8));
-  const labels = ['', 'Weak', 'Fair', 'Good', 'Strong'];
-  return { bars, label: labels[bars] ?? '' };
-}
-
-function ImportSection() {
-  return (
-    <section id="import">
-      <div className="flex items-center gap-2 mb-3">
-        <Upload className="w-4 h-4 text-muted-foreground" />
-        <h2 className="text-[14px] font-semibold tracking-tight">Import data</h2>
-      </div>
-      <div className="calm-card p-6 space-y-5">
-        <CsvImportRow<Extract<TransactionImportPreview, { ok: true }>>
-          title="Import transactions from CSV"
-          noun="transaction"
-          hint={<>Columns: <span className="mono">date, description, amount, currency, type, category</span> (name) or <span className="mono">category_id</span>, optional <span className="mono">recurring_rule_name</span>. You review every row before anything is saved; an export from the Transactions page re-imports as duplicates.</>}
-          preview={previewTransactionImport}
-          renderReview={(p, { open, onOpenChange, done }) => (
-            <TransactionImportReview
-              open={open}
-              onOpenChange={onOpenChange}
-              filename={p.filename}
-              rows={p.rows}
-              categories={p.categories}
-              onImported={done}
-            />
-          )}
-        />
-        <div className="h-px bg-border/60" />
-        <CsvImportRow<Extract<RecurringImportPreview, { ok: true }>>
-          title="Import recurring rules from CSV"
-          noun="rule"
-          hint={<>Columns: <span className="mono">name, amount, currency, cycle, next_due, kind, category</span> (or <span className="mono">category_id</span>), optional <span className="mono">installment_paid, installment_total, installment_ends_on</span>. The review shows any past charges each rule will log.</>}
-          preview={previewRecurringImport}
-          renderReview={(p, { open, onOpenChange, done }) => (
-            <RecurringImportReview
-              open={open}
-              onOpenChange={onOpenChange}
-              filename={p.filename}
-              rows={p.rows}
-              categories={p.categories}
-              onImported={done}
-            />
-          )}
-        />
-      </div>
-    </section>
-  );
-}
-
-export function SettingsView({
+export function GeneralSettings({
   anchorCurrency: initialAnchor,
   exchangeRates: initialRates,
   fxAutoSync: initialAutoSync,
-  ollamaUrl,
-  ollamaConnected,
-  ollamaModel: initialModel,
-  ollamaModels,
-  autoInsightsMonthly: initialAutoInsights,
   openingBalance: initialOpeningBalance,
   openingBalanceCurrency: initialOpeningCurrency,
   openingBalanceMonth: initialOpeningMonth,
-  notificationSettings,
-  backupStatus,
-  nextBackupRun,
-  dbSize,
-  version,
 }: Props) {
   const [anchor, setAnchor] = useState(initialAnchor);
   const [pendingAnchor, setPendingAnchor] = useState<string | null>(null);
   const [rates, setRates] = useState(initialRates);
 
-  const modelLabelId = useId();
   const newCurrencyId = useId();
 
   // For each unordered pair {A,B} keep only the record with the higher rate
@@ -178,8 +80,6 @@ export function SettingsView({
     return acc;
   }, []);
   const [autoSync, setAutoSync] = useState(initialAutoSync);
-  const [model, setModel] = useState(initialModel);
-  const [autoInsights, setAutoInsightsState] = useState(initialAutoInsights);
   // Opening balance form. Strings while editing so a half-typed amount is not
   // coerced; parsed once on Save.
   const [openingAmount, setOpeningAmount] = useState(
@@ -194,13 +94,6 @@ export function SettingsView({
   );
   const [addCurrencyOpen, setAddCurrencyOpen] = useState(false);
   const [newCurrencyCode, setNewCurrencyCode] = useState('');
-  const [clearDbOpen, setClearDbOpen] = useState(false);
-
-  // Password form
-  const [currentPw, setCurrentPw] = useState('');
-  const [newPw, setNewPw] = useState('');
-  const [confirmPw, setConfirmPw] = useState('');
-
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
@@ -307,36 +200,9 @@ export function SettingsView({
     startTransition(async () => { await setFxAutoSync(val); });
   };
 
-  const handleModelChange = (m: string) => {
-    setModel(m);
-    startTransition(async () => {
-      await setOllamaModel(m);
-      notify.success(`Default model set to ${m}`);
-    });
-  };
-
-  const handleAutoInsightsToggle = (val: boolean) => {
-    setAutoInsightsState(val);
-    startTransition(async () => { await setAutoInsights(val); });
-  };
-
-  const handlePasswordChange = () => {
-    if (newPw !== confirmPw) { toast.error('Passwords do not match'); return; }
-    if (newPw.length < 12) { toast.error('New password must be at least 12 characters'); return; }
-    startTransition(async () => {
-      const result = await changePassword({ current: currentPw, next: newPw });
-      if (result.error) { toast.error(result.error); return; }
-      notify.success('Password updated');
-      setCurrentPw(''); setNewPw(''); setConfirmPw('');
-    });
-  };
-
-  const strength = passwordStrength(newPw);
-  const barColours = ['bg-border', 'bg-destructive', 'bg-warning', 'bg-income', 'bg-income'];
-
   return (
     <>
-      <div className="px-4 lg:px-7 pb-9 pt-1 max-w-[860px] mx-auto space-y-7">
+      <div className="motion-stagger space-y-7">
         {/* ── Currencies & FX rates ──────────────────────────────────── */}
         <section id="currencies">
           <div className="flex items-center gap-2 mb-3">
@@ -599,159 +465,6 @@ export function SettingsView({
             <div>Each transaction locks its exchange rate when logged, so editing rates or the daily sync won&apos;t move past totals — only recurring and new transactions use the new rate. Switching the anchor currency is the exception: it re-locks every transaction to today&apos;s rates once.</div>
           </div>
         </section>
-
-        {/* ── Security ──────────────────────────────────────────────── */}
-        <section id="security">
-          <div className="flex items-center gap-2 mb-3">
-            <Lock className="w-4 h-4 text-muted-foreground" />
-            <h2 className="text-[14px] font-semibold tracking-tight">Security</h2>
-          </div>
-          <div className="calm-card p-6 space-y-4">
-            <div>
-              <Label htmlFor="pw-current">Current password</Label>
-              <Input id="pw-current" type="password" autoComplete="current-password" placeholder="••••••••••••" value={currentPw} onChange={e => setCurrentPw(e.target.value)} />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="pw-new">New password</Label>
-                <Input id="pw-new" type="password" autoComplete="new-password" placeholder="At least 12 characters" value={newPw} onChange={e => setNewPw(e.target.value)} />
-              </div>
-              <div>
-                <Label htmlFor="pw-confirm">Confirm</Label>
-                <Input id="pw-confirm" type="password" autoComplete="new-password" placeholder="Repeat new password" value={confirmPw} onChange={e => setConfirmPw(e.target.value)} />
-              </div>
-            </div>
-            {newPw.length > 0 && (
-              <div className="flex items-center gap-2 text-[11.5px] text-muted-foreground">
-                <span className="flex gap-0.5">
-                  {[1, 2, 3, 4].map(i => (
-                    <span
-                      key={i}
-                      className={cn('w-6 h-1 rounded-full', i <= strength.bars ? barColours[strength.bars] : 'bg-border')}
-                    />
-                  ))}
-                </span>
-                <span>{strength.label}</span>
-              </div>
-            )}
-            <div className="flex items-center justify-end gap-2 pt-2">
-              <Button variant="ghost" size="sm" onClick={() => { setCurrentPw(''); setNewPw(''); setConfirmPw(''); }}>Cancel</Button>
-              <Button size="sm" onClick={handlePasswordChange} disabled={isPending || !currentPw || !newPw}>
-                <Check className="w-3.5 h-3.5 mr-1.5" />Update password
-              </Button>
-            </div>
-          </div>
-        </section>
-
-        {/* ── AI Insights ───────────────────────────────────────────── */}
-        <section id="ai-insights">
-          <div className="flex items-center gap-2 mb-3">
-            <Sparkles className="w-4 h-4 text-muted-foreground" />
-            <h2 className="text-[14px] font-semibold tracking-tight">AI insights</h2>
-          </div>
-          <div className="calm-card p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-[13px] font-medium">Ollama endpoint</div>
-                <div className="text-[11.5px] text-muted-foreground mt-0.5 mono">{ollamaUrl}</div>
-              </div>
-              <Badge className={cn(
-                'text-[11px] flex items-center gap-1.5',
-                ollamaConnected ? 'bg-income/10 text-income border-income/30' : 'bg-destructive/10 text-destructive border-destructive/30',
-              )}>
-                <span className={cn('w-1.5 h-1.5 rounded-full', ollamaConnected ? 'bg-income' : 'bg-destructive')} />
-                {ollamaConnected ? 'Connected' : 'Unreachable'}
-              </Badge>
-            </div>
-            <div className="h-px bg-border" />
-            {ollamaConnected ? (
-              <div>
-                <Label id={modelLabelId}>Default model</Label>
-                <div role="radiogroup" aria-labelledby={modelLabelId} className="space-y-2 mt-2">
-                  {ollamaModels.map(m => (
-                    <button
-                      key={m.name}
-                      role="radio"
-                      aria-checked={model === m.name}
-                      onClick={() => handleModelChange(m.name)}
-                      className={cn(
-                        'w-full text-left p-3 rounded-md border transition-colors flex items-center gap-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
-                        model === m.name ? 'border-ring/60 bg-accent/40' : 'border-border bg-transparent hover:bg-accent/30',
-                      )}
-                    >
-                      <span className={cn(
-                        'w-3.5 h-3.5 rounded-full border flex items-center justify-center shrink-0',
-                        model === m.name ? 'border-primary' : 'border-border',
-                      )}>
-                        {model === m.name && <span className="w-1.5 h-1.5 rounded-full bg-primary" />}
-                      </span>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-baseline gap-2">
-                          <span className="text-[13px] font-medium mono">{m.name}</span>
-                          <span className="text-[11px] text-muted-foreground">· {formatModelSize(m.size)}</span>
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <p className="text-[12.5px] text-muted-foreground py-3 px-4 rounded-md bg-secondary/60 border border-border">
-                Ollama is unreachable — connect it to browse available models.
-              </p>
-            )}
-            <div className="flex items-center justify-between pt-2 border-t border-border">
-              <div className="text-[12px] text-muted-foreground inline-flex items-center gap-2">
-                <Switch checked={autoInsights} onCheckedChange={handleAutoInsightsToggle} />
-                Auto-generate on the 1st of each month
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* ── Notifications ────────────────────────────────────────── */}
-        <NotificationSettings initialSettings={notificationSettings} />
-
-        {/* ── Database backups ─────────────────────────────────────── */}
-        <BackupSettings status={backupStatus} nextRun={nextBackupRun} />
-
-        {/* ── Import Data ───────────────────────────────────────────── */}
-        <ImportSection />
-
-        {/* ── About ─────────────────────────────────────────────────── */}
-        <section id="about">
-          <div className="calm-card p-6 grid grid-cols-2 gap-5 text-[12px]">
-            <div>
-              <div className="text-[10.5px] uppercase tracking-[0.08em] text-muted-foreground font-medium">Version</div>
-              <div className="mono text-foreground/85 mt-1">{version}</div>
-            </div>
-            <div>
-              <div className="text-[10.5px] uppercase tracking-[0.08em] text-muted-foreground font-medium">Database size</div>
-              <div className="mono text-foreground/85 mt-1">{dbSize}</div>
-            </div>
-          </div>
-        </section>
-
-        {/* ── Danger zone ───────────────────────────────────────────── */}
-        <section id="data">
-          <div className="flex items-center gap-2 mb-3">
-            <Database className="w-4 h-4 text-muted-foreground" />
-            <h2 className="text-[14px] font-semibold tracking-tight">Data</h2>
-          </div>
-          <div className="calm-card p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-[13px] font-medium">Clear all data</div>
-                <div className="text-[11.5px] text-muted-foreground mt-0.5">
-                  Deletes every transaction, recurring rule, category, and AI insight. Account and settings are kept.
-                </div>
-              </div>
-              <Button variant="destructive" size="sm" onClick={() => setClearDbOpen(true)}>
-                <Trash2 className="w-3.5 h-3.5 mr-1.5" />Clear database
-              </Button>
-            </div>
-          </div>
-        </section>
       </div>
 
       {/* Anchor change confirmation dialog */}
@@ -766,36 +479,6 @@ export function SettingsView({
           <DialogFooter>
             <Button variant="ghost" onClick={() => setPendingAnchor(null)}>Cancel</Button>
             <Button onClick={confirmAnchorChange} disabled={isPending}>Confirm</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Clear database confirmation dialog */}
-      <Dialog open={clearDbOpen} onOpenChange={setClearDbOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Clear all data?</DialogTitle>
-          </DialogHeader>
-          <p className="text-[13px] text-muted-foreground">
-            This permanently deletes every transaction, recurring rule, category, and AI insight.
-            Your account credentials and app settings are not affected. This cannot be undone.
-          </p>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setClearDbOpen(false)}>Cancel</Button>
-            <Button
-              variant="destructive"
-              disabled={isPending}
-              onClick={() => {
-                startTransition(async () => {
-                  await clearAllData();
-                  setClearDbOpen(false);
-                  notify.success('All data cleared');
-                  router.refresh();
-                });
-              }}
-            >
-              <Trash2 className="w-3.5 h-3.5 mr-1.5" />Yes, clear everything
-            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -80,7 +80,7 @@ export function RenewalsView({ renewals, anchorCurrency = 'HUF' }: Props) {
   }))
 
   return (
-    <div className="px-4 lg:px-7 pb-9 pt-1 space-y-4 max-w-[1320px] mx-auto">
+    <div className="motion-stagger px-4 lg:px-7 pb-9 pt-1 space-y-4 max-w-[1320px] mx-auto">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="text-[12.5px] text-muted-foreground">
           {filtered.length} renewals · {fmtAnchor(total, anchorCurrency)} due in next {horizon} days

@@ -8,6 +8,7 @@ import { TabletRail } from './TabletRail';
 import { Header } from './Header';
 import { MobileTopBar } from './MobileTopBar';
 import { MobileNav } from './MobileNav';
+import { PageTransition } from './PageTransition';
 import { useTransactionSheet } from '@/contexts/sheet-context';
 import { FabProvider } from '@/contexts/fab-context';
 import { notify } from '@/lib/ui-notify';
@@ -112,7 +113,7 @@ export function AppShell({
             id="main-content"
             className="pt-2 pb-[calc(6.5rem+env(safe-area-inset-bottom))] overflow-x-hidden md:pb-0 md:flex-1 md:min-h-0 md:overflow-y-auto md:overscroll-contain"
           >
-            {children}
+            <PageTransition>{children}</PageTransition>
           </main>
         </div>
         <MobileNav onAdd={openNew} upcomingRenewalsCount={upcomingRenewalsCount} />

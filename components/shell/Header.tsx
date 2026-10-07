@@ -48,7 +48,7 @@ export function Header({ displayName = 'User', className }: HeaderProps) {
   }
 
   return (
-    <header className={cn('h-[68px] shrink-0 items-center gap-4 pl-7 pr-6 relative z-30', className)}>
+    <header className={cn('h-[68px] shrink-0 items-center gap-4 pl-7 pr-6 relative z-30 bg-background [view-transition-name:shell-header]', className)}>
       {/* Fixed-width title slot — keeps search aligned across screens */}
       <div className="w-[148px] shrink-0">
         <h1 className="text-[17px] font-semibold tracking-tight whitespace-nowrap truncate">

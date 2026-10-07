@@ -58,6 +58,9 @@
 
 /* ── Light theme (v5) ── */
 :root {
+  /* Motion easings — theme-independent, so they live only here. */
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
   --background: 240 12% 97%;
   --foreground: 240 9% 12%;
   --card: 0 0% 100%;
@@ -308,6 +311,217 @@
       display: none;
     }
   }
+
+  /* ── Motion ──
+     Calm by design: one short settle as a page arrives, then the data draws
+     itself from its baseline. Figures are never animated — a number that counts
+     up is briefly wrong, and this is a money instrument. Every keyframe has only
+     a `from`, so with animation disabled the element simply sits at its real
+     state. Fill mode is `backwards`, never `both`: a filled transform would leave
+     a containing block on page wrappers and trap any `position: fixed` inside.
+     Pure CSS, so server-rendered pages need no JS for any of it. */
+  @keyframes motion-rise {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+  }
+
+  @keyframes motion-fade {
+    from {
+      opacity: 0;
+    }
+  }
+
+  @keyframes motion-grow-y {
+    from {
+      transform: translateY(100%);
+    }
+  }
+
+  @keyframes motion-grow-x {
+    from {
+      transform: translateX(-100%);
+    }
+  }
+
+  @keyframes motion-wipe {
+    from {
+      clip-path: inset(-12px 100% -12px -12px);
+    }
+  }
+
+  /* `scale`, not `transform`: Tailwind 4's translate utilities set the separate
+     `translate` property, so the endpoint's centring survives the animation. */
+  @keyframes motion-pop {
+    from {
+      opacity: 0;
+      scale: 0.4;
+    }
+  }
+
+  @keyframes motion-gauge {
+    from {
+      stroke-dashoffset: var(--gauge-from);
+    }
+  }
+
+  /* Card entrance. `.motion-stagger` staggers its direct children by DOM order,
+     from `--stagger-base`; `.motion-rise` is a single element at `--i`. */
+  .motion-rise,
+  .motion-stagger > * {
+    animation: motion-rise 460ms var(--ease-out-quint) backwards;
+    animation-delay: calc(var(--stagger-base, 0ms) + var(--i, 0) * 50ms);
+  }
+
+  .motion-stagger > :nth-child(2) { --i: 1; }
+  .motion-stagger > :nth-child(3) { --i: 2; }
+  .motion-stagger > :nth-child(4) { --i: 3; }
+  .motion-stagger > :nth-child(5) { --i: 4; }
+  .motion-stagger > :nth-child(6) { --i: 5; }
+  /* Long pages (Settings, Recurring) cap the stagger so nothing waits > 300ms. */
+  .motion-stagger > :nth-child(n + 7) { --i: 6; }
+
+  /* Bars grow out of their own track (the parent clips), so the rounded cap
+     stays round the whole way instead of squashing under scaleY. */
+  .motion-bar-y,
+  .motion-bar-x {
+    animation: 640ms var(--ease-out-quart) backwards;
+    animation-delay: calc(var(--bar-base, 0ms) + var(--i, 0) * 45ms);
+  }
+
+  .motion-bar-y {
+    animation-name: motion-grow-y;
+  }
+
+  .motion-bar-x {
+    animation-name: motion-grow-x;
+  }
+
+  /* Labels that belong to a bar arrive once it has mostly landed. */
+  .motion-bar-label {
+    animation: motion-fade 240ms var(--ease-out-quart) backwards;
+    animation-delay: calc(var(--bar-base, 0ms) + var(--i, 0) * 45ms + 380ms);
+  }
+
+  .motion-gauge {
+    animation: motion-gauge 900ms var(--ease-out-quart) 320ms backwards;
+  }
+
+  /* Balance history unrolls left to right; the endpoint lands last. */
+  .motion-wipe {
+    animation: motion-wipe 900ms var(--ease-out-quart) 180ms backwards;
+  }
+
+  .motion-pop {
+    animation: motion-pop 320ms var(--ease-out-quart) 960ms backwards;
+  }
+
+  /* Timeline markers ride a full-width track and move by transform, so a
+     horizon or data change slides them to their new day rather than jumping. */
+  .motion-track {
+    transition: transform 320ms var(--ease-out-quart);
+  }
+
+  /* Segmented control: the shared selected pill slides between options. Width
+     tweens too (labels differ), which is acceptable on one absolutely placed
+     element with nothing laid out against it. */
+  /* Class-led on purpose: Tailwind drops utility-layer rules that open with an
+     attribute selector. */
+  .segmented[data-animate] > .segmented-indicator {
+    transition:
+      transform 220ms var(--ease-out-quart),
+      width 220ms var(--ease-out-quart);
+  }
+
+  /* Pressed feedback on dashboard CTAs. */
+  .motion-press {
+    transition-property: color, background-color, opacity, transform;
+    transition-duration: 150ms;
+    transition-timing-function: var(--ease-out-quart);
+  }
+
+  .motion-press:active {
+    transform: scale(0.97);
+  }
+}
+
+/* ── Page transitions ──
+   React <ViewTransition> (components/shell/PageTransition.tsx). Between pages
+   the old content only fades out; the new page arrives through its own
+   `.motion-*` entrance, so nothing animates twice. The rest of the document
+   (root) swaps instantly — the sidebar and rail never fade. */
+::view-transition-old(root) {
+  display: none;
+}
+
+::view-transition-new(root) {
+  animation: none;
+}
+
+::view-transition-old(.page-exit) {
+  animation: motion-fade 140ms var(--ease-out-quart) reverse both;
+}
+
+/* A captured page is not clipped by its scroller, so the header, top bar and
+   dock are lifted above it and held still; otherwise a scrolled page would
+   briefly paint over them. */
+::view-transition-group(shell-header),
+::view-transition-group(shell-top-bar),
+::view-transition-group(shell-dock-fade),
+::view-transition-group(shell-dock) {
+  animation: none;
+  z-index: 100;
+}
+
+::view-transition-old(shell-header),
+::view-transition-old(shell-top-bar),
+::view-transition-old(shell-dock-fade),
+::view-transition-old(shell-dock) {
+  display: none;
+}
+
+::view-transition-new(shell-header),
+::view-transition-new(shell-top-bar),
+::view-transition-new(shell-dock-fade),
+::view-transition-new(shell-dock) {
+  animation: none;
+}
+
+/* Sibling subpages (Settings) slide the way their list reads. The incoming
+   page only travels — its cards' own rise supplies the fade. */
+@keyframes section-slide {
+  from {
+    translate: var(--section-offset) 0;
+  }
+}
+
+::view-transition-old(.section-out-forward),
+::view-transition-old(.section-out-back) {
+  animation:
+    motion-fade 140ms var(--ease-out-quart) reverse both,
+    section-slide 180ms var(--ease-out-quart) reverse both;
+}
+
+::view-transition-old(.section-out-forward) {
+  --section-offset: -24px;
+}
+
+::view-transition-old(.section-out-back) {
+  --section-offset: 24px;
+}
+
+::view-transition-new(.section-in-forward),
+::view-transition-new(.section-in-back) {
+  animation: section-slide 320ms var(--ease-out-quint) both;
+}
+
+::view-transition-new(.section-in-forward) {
+  --section-offset: 24px;
+}
+
+::view-transition-new(.section-in-back) {
+  --section-offset: -24px;
 }
 
 /* ── Reduced-motion: disable all animation for users who ask for it ── */
@@ -319,6 +533,37 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+
+  /* `*` does not reach the view-transition pseudo-elements; without this the
+     page hand-off and the Settings slides would still play. */
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+
+  /* The rule above still honours animation-delay, which would hold staggered
+     dashboard elements invisible for up to ~1s. Drop them outright instead —
+     every dashboard keyframe is `from`-only, so the end state is the resting one. */
+  .motion-rise,
+  .motion-stagger > *,
+  .motion-bar-y,
+  .motion-bar-x,
+  .motion-bar-label,
+  .motion-gauge,
+  .motion-wipe,
+  .motion-pop {
+    animation: none !important;
+  }
+
+  .motion-track,
+  .segmented-indicator {
+    transition: none !important;
+  }
+
+  .motion-press:active {
+    transform: none;
   }
 }
 

@@ -1,3 +1,12 @@
-ignoredBuiltDependencies:
-  - sharp
-  - unrs-resolver
+# pnpm 11+ fails an install when a dependency's build script has not been
+# reviewed. None of these are needed: Prisma 7 generates its client with
+# `prisma generate` and the runner image installs its own CLI, esbuild ships
+# platform binaries as optional deps, and sharp/msw/unrs-resolver are unused at
+# build time. `false` keeps the pnpm 10 behaviour (scripts skipped) explicit.
+allowBuilds:
+  '@prisma/engines': false
+  esbuild: false
+  msw: false
+  prisma: false
+  sharp: false
+  unrs-resolver: false

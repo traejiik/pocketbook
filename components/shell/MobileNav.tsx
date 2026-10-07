@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import { LayoutGrid, List, Repeat, Plus, Menu, X, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useFabContext } from '@/contexts/fab-context';
-import { NAV, navIdForPath } from '@/components/shell/nav';
+import { NAV, hrefFor, navIdForPath } from '@/components/shell/nav';
 
 // Three destinations sit in the dock; the rest live behind More. Dashboard
 // reads "Home" here because the expanded label has to fit a 390px pill.
@@ -63,7 +63,7 @@ export function MobileNav({ onAdd, upcomingRenewalsCount = 0 }: MobileNavProps) 
       {/* Content dissolves into the dock instead of ending in a hard cut. */}
       <div
         aria-hidden
-        className="md:hidden pointer-events-none fixed inset-x-0 bottom-0 z-30 h-[140px] bg-[linear-gradient(to_top,hsl(var(--background))_22%,transparent)]"
+        className="md:hidden pointer-events-none fixed inset-x-0 bottom-0 z-30 [view-transition-name:shell-dock-fade] h-[140px] bg-[linear-gradient(to_top,hsl(var(--background))_22%,transparent)]"
       />
 
       {moreOpen && (
@@ -88,7 +88,7 @@ export function MobileNav({ onAdd, upcomingRenewalsCount = 0 }: MobileNavProps) 
             return (
               <Link
                 key={item.id}
-                href={`/${item.id}`}
+                href={hrefFor(item)}
                 // Closing here would run a frame before the route changes, so
                 // the dock would briefly re-render the page you are leaving as
                 // active. The pathname effect closes it once navigation lands;
@@ -116,7 +116,7 @@ export function MobileNav({ onAdd, upcomingRenewalsCount = 0 }: MobileNavProps) 
 
       <nav
         aria-label="Main navigation"
-        className="md:hidden fixed z-40 left-[max(env(safe-area-inset-left),0.875rem)] right-[max(env(safe-area-inset-right),0.875rem)] bottom-[calc(env(safe-area-inset-bottom)+1.125rem)] flex h-[60px] items-center gap-[2px] rounded-full border border-border bg-card/85 p-[6px] backdrop-blur-xl shadow-pb-3"
+        className="md:hidden fixed z-40 left-[max(env(safe-area-inset-left),0.875rem)] right-[max(env(safe-area-inset-right),0.875rem)] bottom-[calc(env(safe-area-inset-bottom)+1.125rem)] flex h-[60px] items-center gap-[2px] rounded-full border border-border bg-card/85 p-[6px] backdrop-blur-xl shadow-pb-3 [view-transition-name:shell-dock]"
       >
         {PRIMARY.map((item) => {
           const Icon = item.icon;
@@ -126,7 +126,7 @@ export function MobileNav({ onAdd, upcomingRenewalsCount = 0 }: MobileNavProps) 
           return (
             <Link
               key={item.id}
-              href={`/${item.id}`}
+              href={hrefFor(item)}
               aria-current={active ? 'page' : undefined}
               aria-label={
                 showDot ? `${item.label}, ${upcomingRenewalsCount} due soon` : item.label

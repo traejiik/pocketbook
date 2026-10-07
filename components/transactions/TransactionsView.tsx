@@ -305,7 +305,7 @@ export function TransactionsView({
   return (
     <div className="px-4 lg:px-7 pb-9 pt-1 max-w-[1320px] mx-auto">
       {/* ─────────── Mobile (<md) ─────────── */}
-      <div className="md:hidden">
+      <div className="motion-rise md:hidden">
         <MobileTransactions
           baseGroups={mobileBaseGroups}
           baseCount={mobileBaseList.length}
@@ -330,7 +330,7 @@ export function TransactionsView({
       </div>
 
       {/* ─────────── Tablet (md–lg) ─────────── */}
-      <div className="hidden md:block lg:hidden md:max-w-[920px] md:mx-auto">
+      <div className="motion-rise hidden md:block lg:hidden md:max-w-[920px] md:mx-auto">
         <TransactionSearchFrame
           className="space-y-5"
           q={search}
@@ -436,7 +436,7 @@ export function TransactionsView({
       </div>
 
       {/* ─────────── Desktop (lg+) ─────────── */}
-      <div className="hidden lg:block">
+      <div className="motion-rise hidden lg:block">
         <TransactionSearchFrame
           className="space-y-4"
           q={search}

@@ -1,5 +1,6 @@
 'use client'
 
+import type { CSSProperties } from 'react'
 import { fmtAnchor } from '@/lib/format'
 
 interface TimelineEvent {
@@ -27,10 +28,18 @@ export function TimelineStrip({ events, horizon, anchorCurrency = 'HUF' }: Timel
         {events.map((e) => {
           const pct = Math.min(98, Math.max(0, (e.daysAway / horizon) * 100))
           return (
+            // A full-width track moved by transform (a % of the track, unlike `left`
+            // on the marker, which cannot be composited), so switching the horizon
+            // slides every marker to its rescaled day. Hovered tracks lift above
+            // their neighbours so the tooltip is never painted under the next one.
             <div
               key={e.id}
-              className="absolute -translate-x-1/2 group"
-              style={{ left: `${pct}%`, top: 0 }}
+              className="motion-track absolute inset-0 pointer-events-none hover:z-10"
+              style={{ transform: `translateX(${pct}%)` }}
+            >
+            <div
+              className="motion-bar-label absolute left-0 top-0 -translate-x-1/2 group pointer-events-auto"
+              style={{ '--bar-base': '240ms', '--i': Math.round(pct / 10) } as CSSProperties}
             >
               <div className="w-0.5 bg-border h-3 mx-auto" />
               <div
@@ -46,6 +55,7 @@ export function TimelineStrip({ events, horizon, anchorCurrency = 'HUF' }: Timel
               <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute -top-12 left-1/2 -translate-x-1/2 bg-popover border border-border rounded px-2 py-1 text-[11px] whitespace-nowrap shadow-pb-2 z-10">
                 {e.name} · {fmtAnchor(e.hufEquivalent, anchorCurrency)}
               </div>
+            </div>
             </div>
           )
         })}
