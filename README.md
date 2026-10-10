@@ -44,6 +44,7 @@ Numbers lead. Surfaces recede. A single calm blue is reserved for what matters.
 - **💱 Multi-currency, done right** — HUF-first with USD/EUR/GBP support, ECB rates auto-synced daily, triangulated conversion, and honest handling of amounts it can't convert.
 - **🔁 Recurring & installments** — subscriptions, rent, and installment plans tracked with idempotent auto-logging and reconciled counters. Paid a bill early? Log it early and the rule skips that due date instead of logging it twice.
 - **↪️ Month carry-over** — each month opens with the previous months' net, derived from the ledger rather than posted as a transaction, so editing history never leaves a stale balance. An optional opening balance in Settings anchors the running total to what you actually held when you started logging, and any category can be left out of the balance (transfers, reimbursements) without changing its Net.
+- **🐷 Savings that add up** — every savings category is a pot. The Savings page shows the all-time total, what went in and what came back out, each pot's balance and a month-by-month history; withdrawals are recorded as their own type, so they lower the pot and return to your balance without ever counting as income.
 - **📅 Renewal radar** — a cash-out timeline that tells you what's leaving your account in the next 30/60/90 days.
 - **⚡ Fast and honest UI** — optimistic writes, skeletons instead of spinners, tabular numerics on every figure, dark-mode-first, and a real `⌘K` search.
 - **📥 One-way CSV import** — bootstrap from your old spreadsheet in one shot.
@@ -220,10 +221,10 @@ date,description,amount,currency,type,category,recurring_rule_name
 ```
 
 - `date` — ISO 8601 (`YYYY-MM-DD`)
-- `amount` — either sign works; the stored sign always comes from `type` (income positive, expense and savings negative)
+- `amount` — either sign works; the stored sign always comes from `type` (income and withdrawals positive, expense and savings negative)
 - `currency` — `HUF`, `USD`, `EUR` or `GBP` (case-insensitive)
-- `type` — `INCOME`, `EXPENSE`, or `SAVINGS`
-- `category` — a category **name** within that type (case-insensitive), or `category_id` with the exact id. Optional: a blank value, or no category column at all, simply leaves the picker empty in the review. Anything the file leaves unresolved is gathered into a **Needs a category** block at the top of the review: one entry per name, with how many rows use it, a picker and a **Create** button (a palette colour you can change later on the Categories page). Resolving an entry applies to every row in the file that used that name, so a file that mentions "Fitness" ten times is one decision, not ten.
+- `type` — `INCOME`, `EXPENSE`, `SAVINGS`, or `WITHDRAWAL` (money taken back out of a savings category)
+- `category` — a category **name** within that type (case-insensitive; a `WITHDRAWAL` row matches savings categories), or `category_id` with the exact id. Optional: a blank value, or no category column at all, simply leaves the picker empty in the review. Anything the file leaves unresolved is gathered into a **Needs a category** block at the top of the review: one entry per name, with how many rows use it, a picker and a **Create** button (a palette colour you can change later on the Categories page). Resolving an entry applies to every row in the file that used that name, so a file that mentions "Fitness" ten times is one decision, not ten.
 - `recurring_rule_name` — optional; links the row to a rule by name (an unknown name is flagged, not silently dropped). A plain link never moves the rule's next due date.
 - Quoted fields, commas inside quotes, CRLF endings and Excel's UTF-8 BOM are all handled. Extra columns are ignored. Files are capped at 2 MB / 5 000 rows.
 
