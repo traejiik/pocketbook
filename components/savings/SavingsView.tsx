@@ -79,9 +79,9 @@ export function SavingsView({
       list.push(r)
       byMonth.set(key, list)
     }
-    const ascending = [...byMonth.keys()].sort()
+    const months = []
     let running = 0
-    const months = ascending.map((month) => {
+    for (const month of [...byMonth.keys()].sort()) {
       const items = byMonth.get(month)!
       let inflow = 0, outflow = 0
       for (const it of items) {
@@ -90,8 +90,8 @@ export function SavingsView({
         else outflow += it.anchorAmount
       }
       running += inflow - outflow
-      return { month, in: Math.round(inflow), out: Math.round(outflow), net: Math.round(inflow - outflow), totalAfter: Math.round(running), items }
-    })
+      months.push({ month, in: Math.round(inflow), out: Math.round(outflow), net: Math.round(inflow - outflow), totalAfter: Math.round(running), items })
+    }
     return months.reverse()
   }, [movements, pot])
 
@@ -140,7 +140,7 @@ export function SavingsView({
         <ArrowDown className="w-4 h-4" aria-hidden="true" />
         Withdraw
       </Button>
-      <Button onClick={() => openNewOfType('SAVINGS')} className="h-11 md:h-9">
+      <Button onClick={() => openNewOfType('SAVINGS')} aria-label="Add to savings" className="h-11 md:h-9">
         <Plus className="w-4 h-4" aria-hidden="true" />
         <span className="md:hidden">Add</span>
         <span className="hidden md:inline">Add to savings</span>
@@ -170,11 +170,11 @@ export function SavingsView({
           </div>
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <span className="tabular text-[11.5px] font-medium text-savings bg-savings/12 rounded-full px-2.5 py-1">
-              {signed(summary.thisMonth, anchorCurrency)} this month
+              {summary.thisMonth === 0 ? 'No change this month' : `${signed(summary.thisMonth, anchorCurrency)} this month`}
             </span>
             {summary.since && <span className="text-[11px] text-muted-foreground">since {monthSince(summary.since)}</span>}
           </div>
-          <div className="flex-1 min-h-6" />
+          <div className="hidden lg:block flex-1 min-h-6" />
           <dl className="grid grid-cols-2 gap-4 border-t border-border/60 pt-4 mt-4 lg:mt-0">
             <div>
               <dt className="text-[10.5px] text-muted-foreground uppercase tracking-[0.06em]">Deposited</dt>

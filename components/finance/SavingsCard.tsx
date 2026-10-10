@@ -53,7 +53,7 @@ function Icon({ small }: { small?: boolean }) {
 export function SavingsCard({ summary, anchor, className }: { summary: SavingsSummary; anchor: string; className?: string }) {
   const trend = summary.months.slice(-12)
   const total = fmtAnchor(summary.total, anchor)
-  const month = `${signed(summary.thisMonth, anchor)} this month`
+  const month = summary.thisMonth === 0 ? 'No change this month' : `${signed(summary.thisMonth, anchor)} this month`
   const sinceLabel = summary.since ? since(summary.since) : null
 
   return (
@@ -89,7 +89,7 @@ export function SavingsCard({ summary, anchor, className }: { summary: SavingsSu
       </CalmCard>
 
       {/* Tablet → 1439: compact strip */}
-      <CalmCard className="hidden md:flex min-[1440px]:hidden items-center gap-4 h-[76px] pl-4 pr-1.5">
+      <CalmCard className="hidden md:max-[1439px]:flex items-center gap-4 h-[76px] pl-4 pr-1.5">
         <Icon />
         <div className="shrink-0">
           <div className="text-[11.5px] text-muted-foreground">Total saved · all time</div>

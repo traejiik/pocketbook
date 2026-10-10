@@ -836,7 +836,13 @@ const cachedSavingsSummary = cachedAggregation(
   savingsSummary,
 );
 
-export const getSavingsSummary = cache(() => cachedSavingsSummary(utcMonthKey(new Date())));
+// `YYYY-MM` (1-based, zero-padded) to match the SQL `to_char` keys — not
+// `utcMonthKey`, which is an internal zero-based bucket id.
+function isoMonthKeyUtc(d: Date): string {
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+}
+
+export const getSavingsSummary = cache(() => cachedSavingsSummary(isoMonthKeyUtc(new Date())));
 
 /** Each savings pot's balance, for the transaction sheet's withdraw picker. */
 export const getPotBalances = cache(async () => (await getSavingsSummary()).pots);
