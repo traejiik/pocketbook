@@ -2,6 +2,8 @@ import { cache } from 'react';
 import { prisma } from './prisma';
 import { toAnchor, frozenToAnchor } from './fx';
 import { CACHE_TAGS, cachedAggregation } from './cache';
+import { isTxType, signForType } from './transaction-type';
+import { buildSavingsSummary, type SavingsGroup, type SavingsSummary } from './savings';
 
 export { getAnchorCurrency } from './fx';
 import { Prisma } from '@prisma/client';
@@ -47,19 +49,22 @@ async function kpisForRange(start: Date, end: Date) {
     select: { ...FX_COLUMNS, type: true },
   });
 
-  let income = 0, expense = 0, savings = 0, unconvertibleCount = 0;
+  // `savings` is the month's *net* saving: deposits minus withdrawals, so it can be
+  // negative. A withdrawal is never income; it only offsets what was put aside.
+  let income = 0, expense = 0, savings = 0, withdrawn = 0, unconvertibleCount = 0;
   for (const t of txs) {
     const amt = await txToAnchor(t);
     if (amt === null) { unconvertibleCount++; continue; }   // no FX path — surfaced, not silently dropped
     if (t.type === 'INCOME')  income  += amt;
     if (t.type === 'EXPENSE') expense += amt;
     if (t.type === 'SAVINGS') savings += amt;
+    if (t.type === 'WITHDRAWAL') { savings -= amt; withdrawn += amt; }
   }
 
   const net = income - expense - savings;
-  const incomeUsedPct = income > 0 ? Math.round(((expense + savings) / income) * 100) : 0;
+  const incomeUsedPct = income > 0 ? Math.max(0, Math.round(((expense + savings) / income) * 100)) : 0;
 
-  return { income, expense, savings, net, incomeUsedPct, unconvertibleCount };
+  return { income, expense, savings, withdrawn, net, incomeUsedPct, unconvertibleCount };
 }
 
 // `monthKey` is a `YYYY-MM` string (e.g. AiInsight.monthCovered). Boundaries are
@@ -83,7 +88,7 @@ function utcMonthStart(now: Date, offset: number): Date {
 // they land in the cache key — a range computed from `new Date()` *inside* the
 // cached callback would freeze the current month into the entry.
 const cachedKpisForRange = cachedAggregation(
-  ['kpis-for-range'],
+  ['kpis-for-range-v2'],
   [CACHE_TAGS.transactions, CACHE_TAGS.fx],
   (startIso: string, endIso: string) => kpisForRange(new Date(startIso), new Date(endIso)),
 );
@@ -304,9 +309,7 @@ async function monthlyTrendFrom(latestMonthIso: string, months: number) {
     bucket.count++;          // before conversion, so an unconvertible row still marks the month as having data
     const amt = await txToAnchor(t);
     if (amt === null) continue;
-    if (t.type === 'INCOME')  bucket.net += amt;
-    if (t.type === 'EXPENSE') bucket.net -= amt;
-    if (t.type === 'SAVINGS') bucket.net -= amt;
+    bucket.net += signForType(t.type) * amt;
   }
 
   return [...buckets.values()].map((b) => ({ month: b.month, net: Math.round(b.net), count: b.count }));
@@ -446,6 +449,7 @@ export const getCategories = cache(async () => {
 // both aggregates are coerced at the point of use. `total` is already absolute.
 type CategoryStatGroup = {
   categoryId: string;
+  type: string;
   currency: string;
   fxRate: unknown;
   fxAnchor: string | null;
@@ -474,11 +478,11 @@ type CategoryStatGroup = {
 async function categoriesWithStats() {
   const cats = await prisma.category.findMany({ orderBy: { name: 'asc' } });
   const groups = await prisma.$queryRaw<CategoryStatGroup[]>`
-    SELECT "categoryId", "currency", "fxRate", "fxAnchor",
+    SELECT "categoryId", "type", "currency", "fxRate", "fxAnchor",
            SUM(ABS("amount")) AS total,
            COUNT(*)           AS n
     FROM "Transaction"
-    GROUP BY "categoryId", "currency", "fxRate", "fxAnchor"
+    GROUP BY "categoryId", "type", "currency", "fxRate", "fxAnchor"
   `;
 
   const countMap = new Map<string, number>();
@@ -489,7 +493,10 @@ async function categoriesWithStats() {
     countMap.set(g.categoryId, (countMap.get(g.categoryId) ?? 0) + Number(g.n));
     const converted = await txToAnchor({ ...g, amount: g.total });
     if (converted === null) continue;
-    sumMap.set(g.categoryId, (sumMap.get(g.categoryId) ?? 0) + converted);
+    // A withdrawal takes from its savings pot, so a SAVINGS category's total is its
+    // balance (deposits − withdrawals); every other category only holds one type.
+    const signed = g.type === 'WITHDRAWAL' ? -converted : converted;
+    sumMap.set(g.categoryId, (sumMap.get(g.categoryId) ?? 0) + signed);
   }
 
   return cats.map((c) => ({
@@ -503,7 +510,7 @@ async function categoriesWithStats() {
 // `Category` has no date columns and both aggregates are coerced to numbers above
 // (a raw `bigint` would not survive `JSON.stringify`), so the result is JSON-safe.
 const cachedCategoriesWithStats = cachedAggregation(
-  ['categories-with-stats-v2'],
+  ['categories-with-stats-v3'],
   [CACHE_TAGS.transactions, CACHE_TAGS.categories, CACHE_TAGS.fx],
   categoriesWithStats,
 );
@@ -527,7 +534,7 @@ type SignedNetGroup = {
   n: string;       // COUNT(*)         — bigint
 };
 
-// Signed net (income − expense − savings) of every transaction in
+// Signed net (income + withdrawals − expense − savings) of every transaction in
 // `[startDay, endDay)`, or of all history before `endDay` when `startDay` is null.
 // Only categories with `includeInBalance` count: this is the balance's own net,
 // not the month's reported Net (KPIs and trend keep every category).
@@ -555,9 +562,7 @@ async function cumulativeNetBetween(
   for (const g of groups) {
     const converted = await txToAnchor({ ...g, amount: g.total });
     if (converted === null) { unconvertibleCount += Number(g.n); continue; }
-    if (g.type === 'INCOME')  net += converted;
-    if (g.type === 'EXPENSE') net -= converted;
-    if (g.type === 'SAVINGS') net -= converted;
+    if (isTxType(g.type)) net += signForType(g.type) * converted;
   }
 
   return { net, unconvertibleCount };
@@ -568,7 +573,7 @@ async function cumulativeNetBetween(
 // Tagged with `categories` because toggling a category's `includeInBalance`
 // changes the sum without touching a single transaction.
 const cachedCumulativeNet = cachedAggregation(
-  ['cumulative-net-v2'],
+  ['cumulative-net-v3'],
   [CACHE_TAGS.transactions, CACHE_TAGS.categories, CACHE_TAGS.fx],
   cumulativeNetBetween,
 );
@@ -777,3 +782,61 @@ const cachedRecurringBudgetSummary = cachedAggregation(
 export const getRecurringBudgetSummary = cache(
   (): Promise<RecurringBudgetSummary> => cachedRecurringBudgetSummary(),
 )
+
+// ── Savings ────────────────────────────────────────────────────────────────
+//
+// Every SAVINGS deposit and WITHDRAWAL, grouped by (month, pot, type, currency,
+// locked rate) with `ABS()` inside the `SUM` — the same bounded-rows pattern as
+// `categoriesWithStats` — then converted and summed in `buildSavingsSummary`.
+// Savings history is low-volume, but grouping keeps this flat as it grows.
+
+type SavingsStatGroup = {
+  month: string;
+  categoryId: string;
+  type: 'SAVINGS' | 'WITHDRAWAL';
+  currency: string;
+  fxRate: unknown;
+  fxAnchor: string | null;
+  total: string;   // SUM(ABS(amount)) — numeric
+  n: string;       // COUNT(*)         — bigint
+};
+
+async function savingsSummary(todayMonth: string): Promise<SavingsSummary> {
+  const [pots, groups] = await Promise.all([
+    prisma.category.findMany({ where: { kind: 'SAVINGS' }, select: { id: true, name: true, color: true }, orderBy: { name: 'asc' } }),
+    prisma.$queryRaw<SavingsStatGroup[]>`
+      SELECT to_char(t."date", 'YYYY-MM') AS month, t."categoryId", t."type"::text AS type,
+             t."currency", t."fxRate", t."fxAnchor",
+             SUM(ABS(t."amount")) AS total,
+             COUNT(*)             AS n
+      FROM "Transaction" t
+      WHERE t."type" IN ('SAVINGS', 'WITHDRAWAL')
+      GROUP BY 1, 2, 3, 4, 5, 6
+    `,
+  ]);
+
+  const converted: SavingsGroup[] = [];
+  for (const g of groups) {
+    converted.push({
+      month: g.month,
+      categoryId: g.categoryId,
+      type: g.type,
+      amount: await txToAnchor({ ...g, amount: g.total }),
+      n: Number(g.n),
+    });
+  }
+  return buildSavingsSummary(converted, pots, todayMonth);
+}
+
+// The current month is an argument so it lands in the cache key (rule 5c). The
+// result is plain numbers and strings, so it survives the JSON round trip as is.
+const cachedSavingsSummary = cachedAggregation(
+  ['savings-summary-v1'],
+  [CACHE_TAGS.transactions, CACHE_TAGS.categories, CACHE_TAGS.fx],
+  savingsSummary,
+);
+
+export const getSavingsSummary = cache(() => cachedSavingsSummary(utcMonthKey(new Date())));
+
+/** Each savings pot's balance, for the transaction sheet's withdraw picker. */
+export const getPotBalances = cache(async () => (await getSavingsSummary()).pots);

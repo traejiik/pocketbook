@@ -116,7 +116,7 @@ describe('anchor conversion detail amounts', () => {
 
     const sql = lastRawSql().replace(/\s+/g, ' ')
     expect(sql).toMatch(/SUM\(ABS\("amount"\)\)/)
-    expect(sql).toMatch(/GROUP BY "categoryId", "currency", "fxRate", "fxAnchor"/)
+    expect(sql).toMatch(/GROUP BY "categoryId", "type", "currency", "fxRate", "fxAnchor"/)
   })
 
   it('counts unconvertible rows but leaves them out of the total', async () => {

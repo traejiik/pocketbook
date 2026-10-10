@@ -120,14 +120,16 @@ describe('cache tag matrix', () => {
     mocks.registrations.find((r) => r.keyParts.includes(key))
 
   it.each([
-    ['kpis-for-range', [CACHE_TAGS.transactions, CACHE_TAGS.fx]],
+    ['kpis-for-range-v2', [CACHE_TAGS.transactions, CACHE_TAGS.fx]],
     ['expenses-by-category-for-range', [CACHE_TAGS.transactions, CACHE_TAGS.categories, CACHE_TAGS.fx]],
     ['monthly-trend', [CACHE_TAGS.transactions, CACHE_TAGS.fx]],
     ['upcoming-renewals', [CACHE_TAGS.recurring, CACHE_TAGS.categories, CACHE_TAGS.fx]],
-    ['categories-with-stats-v2', [CACHE_TAGS.transactions, CACHE_TAGS.categories, CACHE_TAGS.fx]],
+    ['categories-with-stats-v3', [CACHE_TAGS.transactions, CACHE_TAGS.categories, CACHE_TAGS.fx]],
     ['recurring-budget-summary', [CACHE_TAGS.recurring, CACHE_TAGS.categories, CACHE_TAGS.fx]],
     // `categories` because `includeInBalance` filters the carry-over sum.
-    ['cumulative-net-v2', [CACHE_TAGS.transactions, CACHE_TAGS.categories, CACHE_TAGS.fx]],
+    ['cumulative-net-v3', [CACHE_TAGS.transactions, CACHE_TAGS.categories, CACHE_TAGS.fx]],
+    // `categories` because pots are SAVINGS-kind categories (names, colours, kind).
+    ['savings-summary-v1', [CACHE_TAGS.transactions, CACHE_TAGS.categories, CACHE_TAGS.fx]],
   ])('%s is invalidated by the right tags', (key, tags) => {
     expect(registrationFor(key)?.options.tags).toEqual(tags)
   })
