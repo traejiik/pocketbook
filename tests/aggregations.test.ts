@@ -230,6 +230,35 @@ describe('aggregation reads project only the columns they use', () => {
   })
 })
 
+describe('savings withdrawals in the month figures', () => {
+  const row = (type: string, amount: number) => ({ amount, currency: 'HUF', fxRate: 1, fxAnchor: 'HUF', type })
+
+  it('reports net savings, never counts a withdrawal as income, and raises Net', async () => {
+    mocks.findMany.mockResolvedValue([
+      row('INCOME', 600_000),
+      row('EXPENSE', -400_000),
+      row('SAVINGS', -120_000),
+      row('WITHDRAWAL', 320_000),
+    ])
+    const kpis = await getCurrentMonthKpis()
+    expect(kpis).toMatchObject({ income: 600_000, expense: 400_000, savings: -200_000, withdrawn: 320_000, net: 400_000 })
+    expect(kpis.incomeUsedPct).toBe(33)
+  })
+
+  it('nets a pot to its balance on the Categories page', async () => {
+    mocks.queryRaw.mockResolvedValue([
+      { categoryId: 'travel', type: 'SAVINGS', currency: 'HUF', fxRate: 1, fxAnchor: 'HUF', total: '400000', n: '4' },
+      { categoryId: 'travel', type: 'WITHDRAWAL', currency: 'HUF', fxRate: 1, fxAnchor: 'HUF', total: '320000', n: '1' },
+    ])
+    const cats = [{ id: 'travel', name: 'Travel', color: '#e0a458', kind: 'SAVINGS', includeInBalance: true }]
+    const { prisma } = await import('@/lib/prisma')
+    ;(prisma as unknown as { category: { findMany: () => Promise<unknown> } }).category = { findMany: async () => cats }
+    const { getCategoriesWithStats } = await import('@/lib/aggregations')
+    const [travel] = await getCategoriesWithStats()
+    expect(travel).toMatchObject({ txCount: 5, txTotalHUF: 80_000 })
+  })
+})
+
 describe('getOpeningBalance derives the month-to-month carry-over', () => {
   // The raw query is a tagged template: `strings` are the SQL fragments, and the
   // bound values are the interpolations. `Prisma.sql`/`Prisma.empty` fragments
@@ -270,6 +299,16 @@ describe('getOpeningBalance derives the month-to-month carry-over', () => {
     expect(result.carriedFromLedger).toBe(130_000)
     expect(result.startingBalance).toBeNull()
     expect(toAnchor).not.toHaveBeenCalled()
+  })
+
+  it('adds withdrawals back: money out of savings returns to the balance', async () => {
+    mocks.queryRaw.mockResolvedValue([
+      group('INCOME', 500_000),
+      group('EXPENSE', 320_000),
+      group('SAVINGS', 150_000),
+      group('WITHDRAWAL', 100_000),
+    ])
+    expect((await getOpeningBalance('2026-09')).opening).toBe(130_000)
   })
 
   it('adds the starting balance and starts the scan at its effective month', async () => {

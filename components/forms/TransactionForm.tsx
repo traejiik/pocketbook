@@ -42,13 +42,15 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { DatePicker } from '@/components/ui/date-picker';
+import { Segmented } from '@/components/ui/segmented';
+import { TX_TYPES, kindForType, type TxType } from '@/lib/transaction-type';
 
 const formSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   description: z.string().min(1, 'Description is required').max(200),
   amount: z.string().min(1, 'Amount is required'),
   currency: z.enum(['HUF', 'USD', 'EUR', 'GBP']),
-  type: z.enum(['INCOME', 'EXPENSE', 'SAVINGS']),
+  type: z.enum(TX_TYPES),
   categoryId: z.string().min(1, 'Select a category'),
   recurringRuleId: z.string().nullable(),
   logEarly: z.boolean(),
@@ -97,6 +99,11 @@ const TYPE_OPTIONS = [
 const TONE_BG   = { expense: 'bg-expense',   income: 'bg-income',   savings: 'bg-savings'   } as const;
 const TONE_TEXT = { expense: 'text-expense',  income: 'text-income', savings: 'text-savings'  } as const;
 
+const SAVINGS_DIRECTION = [
+  { value: 'SAVINGS' as const, label: 'Deposit' },
+  { value: 'WITHDRAWAL' as const, label: 'Withdraw' },
+];
+
 export function TransactionForm({
   categories,
   recurringRules,
@@ -106,7 +113,7 @@ export function TransactionForm({
   setDeleteConfirmOpen,
   anchorCurrency = 'HUF',
 }: TransactionFormProps) {
-  const { open, editingTx, close } = useTransactionSheet();
+  const { open, editingTx, newType, potBalances, close } = useTransactionSheet();
   const useBottomSheet = useIsMobile('(max-width: 1024px)', true);
 
   const {
@@ -149,13 +156,13 @@ export function TransactionForm({
         description: '',
         amount: '',
         currency: 'HUF',
-        type: 'EXPENSE',
+        type: newType ?? 'EXPENSE',
         categoryId: '',
         recurringRuleId: null,
         logEarly: false,
       });
     }
-  }, [open, editingTx, reset]);
+  }, [open, editingTx, newType, reset]);
 
   // The selected chip can sit outside the visible part of the scrolling row, so
   // bring it into view when the sheet opens or the type changes the list.
@@ -170,7 +177,11 @@ export function TransactionForm({
   const recurringRuleId = watch('recurringRuleId');
   const logEarly = watch('logEarly');
 
-  const eligibleCategories = categories.filter(c => c.kind === type);
+  // A withdrawal books against a savings pot, so the strip and the chips follow
+  // the type's *kind*; Deposit / Withdraw is a second switch under Savings.
+  const typeKind = kindForType(type);
+  const isWithdrawal = type === 'WITHDRAWAL';
+  const eligibleCategories = categories.filter(c => c.kind === typeKind);
 
   useEffect(() => {
     if (!open) return;
@@ -217,7 +228,7 @@ export function TransactionForm({
       setValue('currency', rule.currency);
     }
     if (!descVal) setValue('description', rule.name);
-    if (categories.some(c => c.id === rule.categoryId && c.kind === type)) setValue('categoryId', rule.categoryId);
+    if (categories.some(c => c.id === rule.categoryId && c.kind === typeKind)) setValue('categoryId', rule.categoryId);
   }
 
   const amtNum = parseFloat(amtStr?.replace(',', '.') ?? '0') || 0;
@@ -227,6 +238,26 @@ export function TransactionForm({
     : currency === 'GBP' ? fxRates.GBP
     : 1;
   const hufEquiv = amtNum * rate;
+
+  // Pot balances are in the anchor. The client only has HUF rates, so the check
+  // runs when the amount can be put in the anchor; the server always re-checks.
+  const toAnchorAmount = (n: number, cur: string) =>
+    cur === anchorCurrency ? n
+    : anchorCurrency === 'HUF' ? n * (cur === 'USD' ? fxRates.USD : cur === 'EUR' ? fxRates.EUR : cur === 'GBP' ? fxRates.GBP : 1)
+    : null;
+  const withdrawal = (() => {
+    if (!isWithdrawal || !categoryId) return null;
+    let available = potBalances[categoryId] ?? 0;
+    // Editing: judge the pot as if this row were not there yet.
+    if (editingTx && editingTx.categoryId === categoryId) {
+      const own = toAnchorAmount(Math.abs(editingTx.amount), editingTx.currency);
+      if (own !== null) available += editingTx.type === 'WITHDRAWAL' ? own : editingTx.type === 'SAVINGS' ? -own : 0;
+    }
+    const requested = toAnchorAmount(amtNum, currency);
+    const over = requested !== null && requested > available + 0.5;
+    return { available, after: requested === null ? null : available - requested, over };
+  })();
+  const potName = eligibleCategories.find(c => c.id === categoryId)?.name ?? '';
 
   function onSubmit(values: FormValues) {
     const parsedAmount = parseFloat(values.amount.replace(',', '.'));
@@ -239,6 +270,11 @@ export function TransactionForm({
       toast.error('Please select a category.');
       return;
     }
+    if (withdrawal?.over) {
+      toast.error(`${category.name} only holds ${fmtAnchor(Math.max(0, withdrawal.available), anchorCurrency)}.`);
+      return;
+    }
+    const withdrawing = values.type === 'WITHDRAWAL';
 
     onFormSubmit(
       {
@@ -249,8 +285,8 @@ export function TransactionForm({
         currency: values.currency,
         type: values.type,
         categoryId: values.categoryId,
-        recurringRuleId: values.logEarly || plainLink ? values.recurringRuleId || null : null,
-        logEarly: values.logEarly,
+        recurringRuleId: !withdrawing && (values.logEarly || plainLink) ? values.recurringRuleId || null : null,
+        logEarly: !withdrawing && values.logEarly,
       },
       category,
     );
@@ -284,9 +320,9 @@ export function TransactionForm({
             <div className="h-1.5 w-10 rounded-full bg-border" />
           </div>
           <SheetHeader className="px-5 pt-5 pb-4 border-b border-border">
-            <SheetTitle>{editingTx ? 'Edit transaction' : 'Add transaction'}</SheetTitle>
-            <SheetDescription className="text-[11.5px] mono">
-              {editingTx ? `id · ${editingTx.id}` : 'Record a one-off or recurring entry'}
+            <SheetTitle>{editingTx ? 'Edit transaction' : isWithdrawal ? 'Withdraw from savings' : 'Add transaction'}</SheetTitle>
+            <SheetDescription className={cn('text-[11.5px]', (editingTx || !isWithdrawal) && 'mono')}>
+              {editingTx ? `id · ${editingTx.id}` : isWithdrawal ? 'Moves money back into your balance' : 'Record a one-off or recurring entry'}
             </SheetDescription>
           </SheetHeader>
 
@@ -311,11 +347,11 @@ export function TransactionForm({
                     <button
                       key={o.value}
                       type="button"
-                      aria-pressed={type === o.value}
-                      onClick={() => setValue('type', o.value)}
+                      aria-pressed={typeKind === o.value}
+                      onClick={() => { if (typeKind !== o.value) setValue('type', o.value); }}
                       className={cn(
                         'h-11 xl:h-8 text-[12.5px] font-medium rounded-[5px] transition-colors flex items-center justify-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
-                        type === o.value
+                        typeKind === o.value
                           ? `bg-card shadow-pb-1 ${TONE_TEXT[o.tone]}`
                           : 'text-muted-foreground hover:text-foreground',
                       )}
@@ -325,6 +361,16 @@ export function TransactionForm({
                     </button>
                   ))}
                 </div>
+                {typeKind === 'SAVINGS' && (
+                  <Segmented
+                    className="mt-2"
+                    size={useBottomSheet ? 'lg' : 'sm'}
+                    fullWidth
+                    options={SAVINGS_DIRECTION}
+                    value={type as 'SAVINGS' | 'WITHDRAWAL'}
+                    onChange={v => setValue('type', v)}
+                  />
+                )}
               </div>
 
               {/* Description */}
@@ -397,8 +443,8 @@ export function TransactionForm({
 
               {/* Category pills */}
               <div className="space-y-1.5">
-                <Label id="tx-category-label" hint={`${eligibleCategories.length} ${type.toLowerCase()} categories`}>
-                  Category
+                <Label id="tx-category-label" hint={`${eligibleCategories.length} ${typeKind.toLowerCase()} categories`}>
+                  {isWithdrawal ? 'From' : 'Category'}
                 </Label>
                 {/* One horizontally scrolling row on phones — eleven chips wrap to four
                     rows otherwise, pushing the rest of the form off screen. From md
@@ -429,16 +475,31 @@ export function TransactionForm({
                         style={{ background: c.color }}
                       />
                       {c.name}
+                      {isWithdrawal && (
+                        <span className="tabular text-muted-foreground">· {fmtAnchor(potBalances[c.id] ?? 0, anchorCurrency)}</span>
+                      )}
                     </button>
                   ))}
                 </div>
                 {errors.categoryId && (
                   <p id="tx-category-error" className="text-[11px] text-destructive">{errors.categoryId.message}</p>
                 )}
+                {withdrawal && withdrawal.over && (
+                  <p role="alert" className="text-[11.5px] text-destructive">
+                    {potName} only holds <span className="tabular">{fmtAnchor(Math.max(0, withdrawal.available), anchorCurrency)}</span>.
+                  </p>
+                )}
+                {withdrawal && !withdrawal.over && withdrawal.after !== null && amtNum > 0 && (
+                  <div className="flex justify-between text-[12px] text-muted-foreground rounded-md bg-secondary/60 px-3 py-2">
+                    <span>{potName} after</span>
+                    <span className="tabular text-foreground">{fmtAnchor(withdrawal.after, anchorCurrency)}</span>
+                  </div>
+                )}
               </div>
 
-              {/* Log recurring early — settle a rule's next payment before its due date */}
-              {plainLink ? (
+              {/* Log recurring early — settle a rule's next payment before its due date.
+                  Withdrawals never link to a rule, so it is hidden for them. */}
+              {isWithdrawal ? null : plainLink ? (
                 <div className="text-[12px] text-muted-foreground">
                   Linked to <span className="text-foreground">{plainLink}</span>
                 </div>
@@ -511,8 +572,8 @@ export function TransactionForm({
                 <Button type="button" variant="ghost" size="sm" onClick={close}>
                   Cancel
                 </Button>
-                <Button type="submit" size="sm">
-                  {editingTx ? 'Save changes' : 'Add transaction'}
+                <Button type="submit" size="sm" disabled={!!withdrawal?.over}>
+                  {editingTx ? 'Save changes' : isWithdrawal ? (amtNum > 0 ? `Withdraw ${fmtAnchor(amtNum, currency)}` : 'Withdraw') : 'Add transaction'}
                 </Button>
               </div>
             </div>

@@ -10,6 +10,7 @@ export const august: InsightSnapshot = {
     income: 585_140,
     expense: 468_482,
     savings: 50_000,
+    withdrawn: 0,
     net: 66_658,
     operatingNet: 116_658,
     savingsRate: 9,

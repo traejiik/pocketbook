@@ -23,6 +23,7 @@ function snapshot(over: SnapshotOverride = {}): InsightSnapshot {
       income: 800_000,
       expense: 500_000,
       savings: 100_000,
+      withdrawn: 0,
       net: 200_000,
       operatingNet: 300_000,
       savingsRate: 13,
@@ -364,5 +365,21 @@ describe('steady month directive', () => {
     const { prompt } = buildPromptFromSnapshot(snapshot({ verdict: 'steady' }))
     expect(prompt).toContain('Category figures go back one month only')
     expect(prompt).toContain('the six-month history is net totals')
+  })
+})
+
+describe('savings withdrawals in the prompt', () => {
+  it('names both halves of net savings and says a withdrawal is not income', () => {
+    const { prompt } = buildPromptFromSnapshot(snapshot({
+      kpis: { savings: -200_000, withdrawn: 320_000, net: 500_000, operatingNet: 300_000 },
+    }))
+    expect(prompt).toContain('Savings, net of withdrawals: −200 000 Ft — 120 000 Ft put aside and 320 000 Ft taken back out of savings, which is not income')
+    expect(prompt).toContain('more was taken out of savings than put in; that money is not income')
+  })
+
+  it('keeps the plain savings line when nothing was withdrawn', () => {
+    const { prompt } = buildPromptFromSnapshot(snapshot())
+    expect(prompt).toContain('Savings put aside: 100 000 Ft')
+    expect(prompt).not.toContain('net of withdrawals')
   })
 })

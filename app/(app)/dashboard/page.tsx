@@ -15,6 +15,7 @@ import {
   getCurrentMonthOpeningBalance,
   getCurrentMonthBalanceNet,
   getBalanceTrend,
+  getSavingsSummary,
 } from '@/lib/aggregations'
 import { prisma } from '@/lib/prisma'
 import { pingOllama } from '@/lib/ollama'
@@ -24,6 +25,8 @@ import { BalanceHero } from '@/components/finance/BalanceHero'
 import { GaugeMeter } from '@/components/finance/GaugeMeter'
 import { CalmCard, CalmCardHead } from '@/components/finance/CalmCard'
 import { CategoryAvatar } from '@/components/finance/CategoryAvatar'
+import { SavingsCard } from '@/components/finance/SavingsCard'
+import { isSavingsType, typeGlyph } from '@/lib/transaction-type'
 import { DashboardChartSection } from './DashboardChartSection'
 
 export default async function DashboardPage() {
@@ -32,7 +35,7 @@ export default async function DashboardPage() {
   const settingsPromise = prisma.appSettings.findUnique({ where: { id: 'singleton' } })
   const pingPromise = settingsPromise.then(s => pingOllama(s?.ollamaUrl ?? 'http://ollama:11434'))
 
-  const [kpis, lastKpis, opening, balanceNet, balanceTrend, byCategory, lastMonthByCategory, upcoming, recentTx, trend6mo, lastInsight, insightCount, settings, ollamaReachable] = await Promise.all([
+  const [kpis, lastKpis, opening, balanceNet, balanceTrend, byCategory, lastMonthByCategory, upcoming, recentTx, trend6mo, lastInsight, insightCount, savings, settings, ollamaReachable] = await Promise.all([
     getCurrentMonthKpis(),
     getLastMonthKpis(),
     getCurrentMonthOpeningBalance(),
@@ -45,6 +48,7 @@ export default async function DashboardPage() {
     getMonthlyTrend(6),
     getLastAiInsight(),
     getAiInsightCount(),
+    getSavingsSummary(),
     settingsPromise,
     pingPromise,
   ])
@@ -226,12 +230,12 @@ export default async function DashboardPage() {
                       color:
                         t.type === 'INCOME'
                           ? 'hsl(var(--income))'
-                          : t.type === 'SAVINGS'
+                          : isSavingsType(t.type)
                           ? 'hsl(var(--savings))'
                           : 'hsl(var(--foreground) / 0.85)',
                     }}
                   >
-                    {t.type === 'INCOME' ? '+' : t.type === 'SAVINGS' ? '↓' : '−'}
+                    {typeGlyph(t.type)}
                     {fmtCur(Math.abs(amtNum), t.currency as 'HUF' | 'USD' | 'EUR' | 'GBP').replace('−', '')}
                   </div>
                 </div>
@@ -331,6 +335,11 @@ export default async function DashboardPage() {
             )}
           </CalmCard>
         </div>
+
+        {/* All-time savings: last on every tier; details on /savings */}
+        {savings.pots.length > 0 && (
+          <SavingsCard summary={savings} anchor={anchor} className="col-span-12 md:order-6 lg:order-none" />
+        )}
       </div>
     </div>
   )

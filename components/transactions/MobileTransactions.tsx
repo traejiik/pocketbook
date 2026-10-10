@@ -12,8 +12,9 @@ import { MonthNetStrip } from './MonthNetStrip';
 import { fmtCur, fmtDate, fmtAnchor, dayOfWeek } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import type { SerializedTx } from './TransactionsView';
+import { isSavingsType, typeGlyph, typeLabel, type TxTypeFilter } from '@/lib/transaction-type';
 
-type TypeFilter = 'all' | 'INCOME' | 'EXPENSE' | 'SAVINGS';
+type TypeFilter = TxTypeFilter;
 export interface TxGroup {
   date: string;
   items: SerializedTx[];
@@ -54,12 +55,11 @@ function MobileTxDetailRow({
   const isOptimistic = tx.id.startsWith('optimistic-');
   const amtColor =
     tx.type === 'INCOME' ? 'hsl(var(--income))'
-    : tx.type === 'SAVINGS' ? 'hsl(var(--savings))'
+    : isSavingsType(tx.type) ? 'hsl(var(--savings))'
     : 'hsl(var(--expense))';
-  const sign = tx.type === 'INCOME' ? '+' : tx.type === 'SAVINGS' ? '↓' : '−';
+  const sign = typeGlyph(tx.type);
   const isFx = tx.currency !== anchorCurrency;
-  const typeLabel = tx.type.charAt(0) + tx.type.slice(1).toLowerCase();
-  const rowLabel = `${isOptimistic ? 'Saving ' : 'Edit '}transaction: ${fmtDate(tx.date)}, ${tx.description}, ${tx.category.name}, ${typeLabel} ${fmtAnchor(Math.abs(tx.amount), tx.currency)}`;
+  const rowLabel = `${isOptimistic ? 'Saving ' : 'Edit '}transaction: ${fmtDate(tx.date)}, ${tx.description}, ${tx.category.name}, ${typeLabel(tx.type)} ${fmtAnchor(Math.abs(tx.amount), tx.currency)}`;
 
   return (
     <button

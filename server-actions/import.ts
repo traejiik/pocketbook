@@ -71,6 +71,7 @@ export async function commitTransactionImport(rows: unknown[]): Promise<ImportRe
   revalidateFinanceTags(CACHE_TAGS.transactions, ...(result.touchedRules ? [CACHE_TAGS.recurring] : []))
   revalidatePath('/transactions')
   revalidatePath('/dashboard')
+  revalidatePath('/savings')
   revalidatePath('/renewals')
   revalidatePath('/recurring')
   revalidatePath('/categories')
@@ -114,6 +115,7 @@ export async function commitRecurringImport(rules: unknown[]): Promise<Recurring
   revalidatePath('/recurring')
   revalidatePath('/renewals')
   revalidatePath('/dashboard')
+  revalidatePath('/savings')
   if (result.backfilled > 0) revalidatePath('/transactions')
   return result
 }

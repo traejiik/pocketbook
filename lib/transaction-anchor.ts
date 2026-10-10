@@ -1,3 +1,5 @@
+import { signForType, type TxType } from './transaction-type'
+
 export type FxRates = { USD: number; EUR: number; GBP: number }
 
 type AnchorInput = {
@@ -5,7 +7,7 @@ type AnchorInput = {
   /** Frozen anchor value of a persisted row; absent on optimistic rows. */
   amountAnchor?: number | null
   currency: string
-  type: 'INCOME' | 'EXPENSE' | 'SAVINGS'
+  type: TxType
 }
 
 /**
@@ -25,7 +27,7 @@ export function toHUF(tx: AnchorInput, rates: FxRates): number {
     : tx.currency === 'GBP' ? rates.GBP
     : 1
   const magnitude = Math.abs(tx.amountAnchor != null ? tx.amountAnchor : tx.amount * rate)
-  return tx.type === 'INCOME' ? magnitude : -magnitude
+  return signForType(tx.type) * magnitude
 }
 
 /**

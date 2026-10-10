@@ -2,18 +2,20 @@ import { SessionProvider } from 'next-auth/react';
 import { AppShell } from '@/components/shell/AppShell';
 import { TransactionSheetProvider } from '@/contexts/sheet-context';
 import { NotificationsProvider } from '@/contexts/notifications-context';
-import { getUpcomingRenewals } from '@/lib/aggregations';
+import { getPotBalances, getUpcomingRenewals } from '@/lib/aggregations';
 import { prisma } from '@/lib/prisma';
 import type { SerializedCategory, SerializedRecurringRule } from '@/components/forms/TransactionForm';
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const [renewals, renewalsSoon, categories, recurringRules, exchangeRates] = await Promise.all([
+  const [renewals, renewalsSoon, categories, recurringRules, exchangeRates, pots] = await Promise.all([
     getUpcomingRenewals(30),
     getUpcomingRenewals(7),
     prisma.category.findMany({ orderBy: { name: 'asc' } }),
     prisma.recurringRule.findMany({ where: { archived: false }, orderBy: { name: 'asc' } }),
     prisma.exchangeRate.findMany(),
+    getPotBalances(),
   ]);
+  const potBalances = Object.fromEntries(pots.map((p) => [p.id, p.balance]));
 
   const serialisedCategories: SerializedCategory[] = categories.map(c => ({
     id: c.id, name: c.name, color: c.color, kind: c.kind, includeInBalance: c.includeInBalance,
@@ -35,7 +37,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <SessionProvider>
       <NotificationsProvider renewalsCount={renewalsSoon.length}>
-        <TransactionSheetProvider>
+        <TransactionSheetProvider potBalances={potBalances}>
           <AppShell
             upcomingRenewalsCount={renewals.length}
             categories={serialisedCategories}

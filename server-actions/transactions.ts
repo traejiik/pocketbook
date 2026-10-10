@@ -3,12 +3,15 @@
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
-import { lockRate } from '@/lib/fx';
+import { getAnchorCurrency, lockRate } from '@/lib/fx';
 import { CACHE_TAGS, revalidateFinanceTags } from '@/lib/cache';
 import { requireAuthenticatedUser } from '@/lib/require-auth';
 import { logger } from '@/lib/logger';
 import { reconcileInstallmentRule } from '@/lib/installments';
 import { releaseOccurrence, settleNextOccurrence } from '@/lib/recurring-early';
+import { TX_TYPES, kindForType, signedForType } from '@/lib/transaction-type';
+import { getPotBalance } from '@/lib/pot-balance';
+import { fmtAnchor } from '@/lib/format';
 
 const log = logger('transactions');
 
@@ -18,7 +21,7 @@ const txSchema = z.object({
   description: z.string().min(1).max(200),
   amount: z.number().positive(),
   currency: z.enum(['HUF', 'USD', 'EUR', 'GBP']),
-  type: z.enum(['INCOME', 'EXPENSE', 'SAVINGS']),
+  type: z.enum(TX_TYPES),
   categoryId: z.string().min(1),
   recurringRuleId: z.string().optional().nullable(),
   /**
@@ -38,8 +41,9 @@ export async function upsertTransaction(input: TxInput): Promise<TxResult> {
   const parsed = txSchema.parse(input);
   const { id, logEarly, ...fields } = parsed;
 
-  // Income is positive; expense and savings are stored negative
-  const signedAmount = fields.type === 'INCOME' ? fields.amount : -fields.amount;
+  // The sign comes from the type (rule 16): income and withdrawals positive,
+  // expenses and savings deposits negative.
+  const signedAmount = signedForType(fields.amount, fields.type);
   const base = {
     date: new Date(fields.date),
     description: fields.description,
@@ -53,6 +57,12 @@ export async function upsertTransaction(input: TxInput): Promise<TxResult> {
   // Freeze the FX rate at write time so the transaction's anchor value stays put
   // even as live rates move. `lock.fxAnchor` is the current anchor currency.
   const lock = await lockRate(fields.currency);
+
+  const guard = await checkCategoryAndPot(fields, id, lock.fxRate, logEarly);
+  if (guard) {
+    log.warn('transaction rejected', { id, type: fields.type, categoryId: fields.categoryId, reason: guard.error });
+    return guard;
+  }
 
   let notice: string | undefined;
   let ruleId: string | null = requestedRule;
@@ -137,9 +147,40 @@ export async function upsertTransaction(input: TxInput): Promise<TxResult> {
   revalidateFinanceTags(CACHE_TAGS.transactions, CACHE_TAGS.recurring);
   revalidatePath('/transactions');
   revalidatePath('/dashboard');
+  revalidatePath('/savings');
   revalidatePath('/renewals');
   revalidatePath('/recurring');
   return notice ? { ok: true, notice } : { ok: true };
+}
+
+type Fields = Omit<z.output<typeof txSchema>, 'id' | 'logEarly'>;
+
+// The category must be of the kind the type books against (a withdrawal comes out
+// of a SAVINGS pot), and a withdrawal can neither link to a recurring rule nor take
+// more than its pot holds. The pot check converts at the rate being locked now and
+// excludes the row being edited; with no FX path it cannot judge, so it lets the
+// write through rather than blocking on a missing rate.
+async function checkCategoryAndPot(
+  fields: Fields,
+  id: string | undefined,
+  fxRate: number | null,
+  logEarly: boolean,
+): Promise<{ error: string } | null> {
+  const category = await prisma.category.findUnique({ where: { id: fields.categoryId }, select: { kind: true, name: true } });
+  if (!category) return { error: 'Category not found.' };
+  if (category.kind !== kindForType(fields.type)) {
+    return { error: `"${category.name}" is not a ${kindForType(fields.type).toLowerCase()} category.` };
+  }
+  if (fields.type !== 'WITHDRAWAL') return null;
+  if (fields.recurringRuleId || logEarly) return { error: 'A withdrawal cannot be linked to a recurring rule.' };
+  if (fxRate === null) return null;
+
+  const [balance, anchor] = await Promise.all([getPotBalance(fields.categoryId, id), getAnchorCurrency()]);
+  const requested = fields.amount * fxRate;
+  if (requested > balance + 0.5) {
+    return { error: `${category.name} only holds ${fmtAnchor(Math.max(0, balance), anchor)}.` };
+  }
+  return null;
 }
 
 export async function deleteTransaction(id: string) {
@@ -168,6 +209,7 @@ export async function deleteTransaction(id: string) {
   revalidateFinanceTags(CACHE_TAGS.transactions, CACHE_TAGS.recurring);
   revalidatePath('/transactions');
   revalidatePath('/dashboard');
+  revalidatePath('/savings');
   revalidatePath('/renewals');
   revalidatePath('/recurring');
 }
