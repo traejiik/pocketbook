@@ -1,4 +1,5 @@
 import type { Prisma } from '@prisma/client'
+import type { TxType } from './transaction-type'
 import { formatDateOnly, nextOccurrence, type RecurringCycle } from './recurring-dates'
 
 // "Log recurring early": a transaction entered before its rule's due date
@@ -16,7 +17,7 @@ export type Settlement = { coversDueDate: Date; nextDue: Date } | { error: strin
 export async function settleNextOccurrence(
   tx: Prisma.TransactionClient,
   ruleId: string,
-  type: 'INCOME' | 'EXPENSE' | 'SAVINGS',
+  type: TxType,
 ): Promise<Settlement> {
   const rule = await tx.recurringRule.findUnique({
     where: { id: ruleId },

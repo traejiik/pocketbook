@@ -30,6 +30,7 @@ vi.mock('@/lib/fx', () => ({
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     transaction: { findUnique: txFindUnique },
+    category: { findUnique: vi.fn(async () => ({ kind: 'EXPENSE', name: 'Phone' })) },
     $transaction: transactionMock,
   },
 }))
