@@ -26,7 +26,10 @@ export type MonthVerdict = 'sparse' | 'deficit' | 'tight' | 'strong' | 'steady'
 export type InsightKpis = {
   income: number
   expense: number
+  /** Net saving: put aside minus withdrawn. Negative when more came out than went in. */
   savings: number
+  /** Taken back out of savings this month. Never income. */
+  withdrawn: number
   /** income − expense − savings. What the dashboard shows. */
   net: number
   /** income − expense. Excludes savings, so this is the one that says whether the
@@ -147,6 +150,7 @@ export async function collectInsightSnapshot(monthKey: string): Promise<InsightS
     income: Math.round(rawKpis.income),
     expense: Math.round(rawKpis.expense),
     savings: Math.round(rawKpis.savings),
+    withdrawn: Math.round(rawKpis.withdrawn),
     net: Math.round(rawKpis.net),
     operatingNet: Math.round(rawKpis.income - rawKpis.expense),
     savingsRate: rawKpis.income > 0 ? Math.round((rawKpis.savings / rawKpis.income) * 100) : 0,

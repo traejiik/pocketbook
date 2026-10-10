@@ -328,7 +328,12 @@ export function buildPromptFromSnapshot(
   // savings caveat there just invites the model to explain a distinction the
   // month does not contain.
   const netLines =
-    kpis.savings > 0
+    kpis.savings < 0
+      ? [
+          `  Income minus expenses: ${money(kpis.operatingNet)} — ${operatingNetNote}`,
+          `  Net after savings: ${money(kpis.net)} — higher than income minus expenses because more was taken out of savings than put in; that money is not income`,
+        ]
+      : kpis.savings > 0
       ? [
           `  Income minus expenses: ${money(kpis.operatingNet)} — ${operatingNetNote}`,
           `  Net after savings: ${money(kpis.net)} — savings are subtracted here, so this can be negative in a month that spent well within its income`,
@@ -340,7 +345,12 @@ export function buildPromptFromSnapshot(
 
   const incomeLine = `  Income: ${money(kpis.income)}${s.prev ? delta(kpis.income, s.prev.income) : ''}`
   const expenseLine = `  Expenses: ${money(kpis.expense)}${s.prev ? delta(kpis.expense, s.prev.expense) : ''}`
-  const savingsLine = `  Savings put aside: ${money(kpis.savings)}${s.prev ? delta(kpis.savings, s.prev.savings) : ''}`
+  // A withdrawal is money the user already had, so the line names both halves and
+  // says outright that it is not income — otherwise a small model credits the month.
+  const withdrawn = kpis.withdrawn ?? 0
+  const savingsLine = withdrawn > 0
+    ? `  Savings, net of withdrawals: ${money(kpis.savings)} — ${money(kpis.savings + withdrawn)} put aside and ${money(withdrawn)} taken back out of savings, which is not income`
+    : `  Savings put aside: ${money(kpis.savings)}${s.prev ? delta(kpis.savings, s.prev.savings) : ''}`
   const rateLine = `  Savings rate: ${kpis.savingsRate}% of income`
   // Carry-over is a running total, not money earned this month; the wording keeps
   // the model from reading it as income or crediting the month with it.
