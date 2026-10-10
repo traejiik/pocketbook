@@ -17,6 +17,9 @@ enum TransactionType {
   INCOME
   EXPENSE
   SAVINGS
+  // Money taken back out of a SAVINGS-kind category ("pot"). Stored positive:
+  // it raises the running balance and lowers the pot, and never counts as income.
+  WITHDRAWAL
 }
 
 enum RecurringCycle {

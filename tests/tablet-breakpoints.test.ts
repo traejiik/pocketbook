@@ -270,8 +270,8 @@ describe('tablet breakpoint contract', () => {
     expect(form).toContain('max-h-[92dvh]');
     expect(form).toContain('!rounded-t-[24px]');
     expect(form).toContain('h-1.5 w-10 rounded-full bg-border');
-    expect(form).toContain("{editingTx ? 'Edit transaction' : 'Add transaction'}");
-    expect(form).toContain("{editingTx ? `id · ${editingTx.id}` : 'Record a one-off or recurring entry'}");
+    expect(form).toContain("{editingTx ? 'Edit transaction' : isWithdrawal ? 'Withdraw from savings' : 'Add transaction'}");
+    expect(form).toContain("'Record a one-off or recurring entry'");
     // Type segmented + category pills stay touch-sized on mobile/tablet, shrinking only at xl
     expect(form).toContain('h-11 xl:h-8');
     expect(form).toContain('py-2 xl:py-1');

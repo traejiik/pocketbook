@@ -52,6 +52,7 @@ export async function upsertCategory(input: CategoryInput): Promise<{ ok: true }
   revalidateFinanceTags(CACHE_TAGS.categories);
   revalidatePath('/categories');
   revalidatePath('/dashboard');
+  revalidatePath('/savings');
   revalidatePath('/transactions');
   revalidatePath('/insights');
   return { ok: true };
@@ -125,5 +126,6 @@ export async function deleteCategory(id: string, replacementId?: string) {
   revalidateFinanceTags(CACHE_TAGS.categories, CACHE_TAGS.transactions, CACHE_TAGS.recurring);
   revalidatePath('/categories');
   revalidatePath('/dashboard');
+  revalidatePath('/savings');
   revalidatePath('/transactions');
 }

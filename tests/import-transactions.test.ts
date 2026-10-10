@@ -172,3 +172,24 @@ describe('importTransactions', () => {
     expect(result.errors[0]).toMatch(/^Line 3: No expense category named "Nowhere"/)
   })
 })
+
+describe('savings withdrawals in CSV import', () => {
+  it('stores a withdrawal positive and resolves its category among savings pots', async () => {
+    categoryFindMany.mockResolvedValue([...CATS, { id: 'travel', name: 'Travel', kind: 'SAVINGS' }])
+    const parsed = parseTransactionRows(csv('2026-05-22,Lisbon trip,-320000,HUF,withdrawal,Travel,,'))
+    expect(parsed[0].value).toMatchObject({ type: 'WITHDRAWAL', amount: 320000 })
+
+    const [row] = await classifyImportRows(parsed)
+    expect(row).toMatchObject({ status: 'new', categoryId: 'travel', unmatchedCategory: null })
+
+    const result = await commitImportRows([{ date: row.date, description: row.description, amount: row.amount, currency: 'HUF', type: 'WITHDRAWAL', categoryId: 'travel', recurringRuleId: null }])
+    expect(result.imported).toBe(1)
+    expect(txCreateMany).toHaveBeenLastCalledWith(expect.objectContaining({ data: [expect.objectContaining({ amount: 320000, type: 'WITHDRAWAL' })] }))
+  })
+
+  it('asks for a savings pot when the named one does not exist', async () => {
+    const [row] = await classifyImportRows(parseTransactionRows(csv('2026-05-22,Lisbon trip,320000,HUF,WITHDRAWAL,Travel,,')))
+    expect(row.unmatchedCategory).toBe('Travel')
+    expect(row.messages).toContain('No savings category named "Travel" — pick one or create it')
+  })
+})

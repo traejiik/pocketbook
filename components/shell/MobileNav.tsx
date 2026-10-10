@@ -16,7 +16,7 @@ const PRIMARY: { id: string; label: string; icon: LucideIcon }[] = [
   { id: 'recurring', label: 'Recurring', icon: Repeat },
 ];
 
-const MORE_IDS = new Set(['renewals', 'categories', 'insights', 'settings']);
+const MORE_IDS = new Set(['renewals', 'savings', 'categories', 'insights', 'settings']);
 const MORE = NAV.filter((item) => MORE_IDS.has(item.id));
 
 // justify-center is a no-op while the pill hugs its content, and does the work

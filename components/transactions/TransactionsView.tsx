@@ -18,17 +18,18 @@ import { MobileTransactions, TransactionSearchFrame } from '@/components/transac
 import { PaginationControls } from '@/components/ui/pagination';
 import { TransactionForm, type SerializedCategory, type SerializedRecurringRule } from '@/components/forms/TransactionForm';
 import { balanceContribution, toHUF } from '@/lib/transaction-anchor';
+import { isSavingsType, matchesTypeFilter, parseTypeFilter, signedForType, typeGlyph, typeLabel, type TxType, type TxTypeFilter } from '@/lib/transaction-type';
 
 export interface SerializedTx {
   id: string;
   date: string; // "YYYY-MM-DD"
   description: string;
-  amount: number; // signed — negative for EXPENSE/SAVINGS
+  amount: number; // signed — negative for EXPENSE/SAVINGS, positive for INCOME/WITHDRAWAL
   // Frozen anchor value (signed), using the rate locked when the row was logged.
   // Absent on optimistic rows not yet round-tripped → falls back to a live rate.
   amountAnchor?: number;
   currency: string;
-  type: 'INCOME' | 'EXPENSE' | 'SAVINGS';
+  type: TxType;
   categoryId: string;
   category: SerializedCategory;
   recurringRuleId: string | null;
@@ -37,7 +38,7 @@ export interface SerializedTx {
   coversDueDate?: string | null;
 }
 
-type TypeFilter = 'all' | 'INCOME' | 'EXPENSE' | 'SAVINGS';
+type TypeFilter = TxTypeFilter;
 interface TxGroup {
   date: string;
   items: SerializedTx[];
@@ -68,12 +69,12 @@ function buildGroups(list: SerializedTx[]): TxGroup[] {
 
 function amountColor(type: SerializedTx['type']): string {
   return type === 'INCOME' ? 'hsl(var(--income))'
-    : type === 'SAVINGS' ? 'hsl(var(--savings))'
+    : isSavingsType(type) ? 'hsl(var(--savings))'
     : 'hsl(var(--expense))';
 }
 
 function amountSign(type: SerializedTx['type']): string {
-  return type === 'INCOME' ? '+' : type === 'SAVINGS' ? '↓' : '−';
+  return typeGlyph(type);
 }
 
 function spaceFt(n: number): string {
@@ -82,8 +83,7 @@ function spaceFt(n: number): string {
 
 function rowLabelFor(tx: SerializedTx): string {
   const isOptimistic = tx.id.startsWith('optimistic-');
-  const typeLabel = tx.type.charAt(0) + tx.type.slice(1).toLowerCase();
-  return `${isOptimistic ? 'Saving ' : 'Edit '}transaction: ${fmtDate(tx.date)}, ${tx.description}, ${tx.category.name}, ${typeLabel} ${fmtAnchor(Math.abs(tx.amount), tx.currency)}`;
+  return `${isOptimistic ? 'Saving ' : 'Edit '}transaction: ${fmtDate(tx.date)}, ${tx.description}, ${tx.category.name}, ${typeLabel(tx.type)} ${fmtAnchor(Math.abs(tx.amount), tx.currency)}`;
 }
 
 const DESKTOP_GRID = 'grid-cols-[110px_1fr_220px_150px_130px_36px]';
@@ -118,16 +118,13 @@ export function TransactionsView({
 
   const [search, setSearch] = useState(() => searchParams.get('q') ?? '');
   const [typeFilter, setTypeFilter] = useState<TypeFilter>(() => {
-    const t = searchParams.get('type');
-    return t === 'INCOME' || t === 'EXPENSE' || t === 'SAVINGS' ? t : 'all';
+    return parseTypeFilter(searchParams.get('type'));
   });
 
   useEffect(() => {
     const q = searchParams.get('q') ?? '';
     setSearch(q);
-    const t = searchParams.get('type');
-    if (t === 'INCOME' || t === 'EXPENSE' || t === 'SAVINGS') setTypeFilter(t);
-    else setTypeFilter('all');
+    setTypeFilter(parseTypeFilter(searchParams.get('type')));
   }, [searchParams]);
 
   const [catFilter, setCatFilter] = useState('all');
@@ -153,7 +150,7 @@ export function TransactionsView({
 
   const handleFormSubmit = useCallback(
     (input: TxInput, category: SerializedCategory) => {
-      const signedAmount = input.type === 'INCOME' ? input.amount : -input.amount;
+      const signedAmount = signedForType(input.amount, input.type);
       const optimisticRow: SerializedTx = {
         id: input.id ?? `optimistic-${Date.now()}`,
         date: input.date,
@@ -187,7 +184,7 @@ export function TransactionsView({
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
     return optimisticTxs.filter(t => {
-      if (typeFilter !== 'all' && t.type !== typeFilter) return false;
+      if (!matchesTypeFilter(t.type, typeFilter)) return false;
       if (catFilter !== 'all' && t.categoryId !== catFilter) return false;
       if (q && !t.description.toLowerCase().includes(q) && !t.category.name.toLowerCase().includes(q)) return false;
       return true;
@@ -222,7 +219,7 @@ export function TransactionsView({
   // it still respects the type + category filters.
   const mobileBaseList = useMemo(
     () => optimisticTxs.filter(t => {
-      if (typeFilter !== 'all' && t.type !== typeFilter) return false;
+      if (!matchesTypeFilter(t.type, typeFilter)) return false;
       if (catFilter !== 'all' && t.categoryId !== catFilter) return false;
       return true;
     }),
