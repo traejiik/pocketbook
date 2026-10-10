@@ -19,7 +19,7 @@ vi.mock('@/lib/auth', () => ({ auth: authMock }))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn(), revalidateTag: vi.fn() }))
 vi.mock('@/lib/fx', () => ({ lockRate: vi.fn(async () => ({ fxRate: 1, fxAnchor: 'HUF' })) }))
 vi.mock('@/lib/prisma', () => ({
-  prisma: { ...client, $transaction: vi.fn(async (cb: (tx: typeof client) => unknown) => cb(client)) },
+  prisma: { ...client, category: { findUnique: vi.fn(async () => ({ kind: 'EXPENSE', name: 'Housing' })) }, $transaction: vi.fn(async (cb: (tx: typeof client) => unknown) => cb(client)) },
 }))
 
 const day = (iso: string) => new Date(iso + 'T00:00:00Z')

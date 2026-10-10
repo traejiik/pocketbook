@@ -77,7 +77,7 @@ export function AppShell({
           notify.error(result.error);
           return;
         }
-        notify.success(`Added ${input.description}`);
+        notify.success(input.type === 'WITHDRAWAL' ? `Withdrawal saved: ${input.description}` : `Added ${input.description}`);
         close();
       } catch {
         notify.error('Failed to save transaction');

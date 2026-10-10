@@ -29,6 +29,7 @@ function revalidateRecurringSyncPaths() {
   revalidateFinanceTags(CACHE_TAGS.transactions, CACHE_TAGS.recurring)
   revalidatePath('/transactions')
   revalidatePath('/dashboard')
+  revalidatePath('/savings')
   revalidatePath('/renewals')
   revalidatePath('/recurring')
 }

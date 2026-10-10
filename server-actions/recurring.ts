@@ -79,6 +79,7 @@ export async function upsertRecurringRule(input: RecurringRuleInput): Promise<Re
     revalidatePath('/recurring');
     revalidatePath('/renewals');
     revalidatePath('/dashboard');
+    revalidatePath('/savings');
     return { ok: true };
   }
 
@@ -105,6 +106,7 @@ export async function upsertRecurringRule(input: RecurringRuleInput): Promise<Re
   revalidatePath('/recurring');
   revalidatePath('/renewals');
   revalidatePath('/dashboard');
+  revalidatePath('/savings');
 
   if (catchUp.transactions.length > 0) {
     revalidatePath('/transactions');
@@ -130,6 +132,7 @@ export async function archiveRecurringRule(id: string) {
   revalidatePath('/recurring');
   revalidatePath('/renewals');
   revalidatePath('/dashboard');
+  revalidatePath('/savings');
 }
 
 export async function deleteRecurringRule(id: string): Promise<{ ok: true } | { error: string }> {
@@ -151,6 +154,7 @@ export async function deleteRecurringRule(id: string): Promise<{ ok: true } | { 
   revalidatePath('/recurring');
   revalidatePath('/renewals');
   revalidatePath('/dashboard');
+  revalidatePath('/savings');
   return { ok: true };
 }
 
@@ -186,6 +190,7 @@ export async function unarchiveRecurringRule(id: string): Promise<{ ok: true } |
   revalidatePath('/recurring');
   revalidatePath('/renewals');
   revalidatePath('/dashboard');
+  revalidatePath('/savings');
   return { ok: true };
 }
 

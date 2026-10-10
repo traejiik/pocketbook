@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { prisma } from './prisma'
 import { lockRate, type FxLock } from './fx'
-import { signedAmount } from './recurring-dates'
+import { TX_TYPES, kindForType, signedForType, type TxType } from './transaction-type'
 import { parseCsvRecords } from './csv'
 import { reconcileInstallmentRule } from './installments'
 
@@ -18,15 +18,15 @@ import { reconcileInstallmentRule } from './installments'
 
 export const SUPPORTED_CURRENCIES = ['HUF', 'USD', 'EUR', 'GBP'] as const
 export type ImportCurrency = (typeof SUPPORTED_CURRENCIES)[number]
-export type ImportType = 'INCOME' | 'EXPENSE' | 'SAVINGS'
+export type ImportType = TxType
 
-const TYPES = ['INCOME', 'EXPENSE', 'SAVINGS'] as const
+const TYPES = TX_TYPES
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
 export type ImportedRow = {
   date: string
   description: string
-  /** Signed from `type`: income positive, expense and savings negative. */
+  /** Signed from `type`: income and withdrawals positive, expense and savings negative. */
   amount: number
   currency: ImportCurrency
   type: ImportType
@@ -66,7 +66,7 @@ export function parseTransactionRows(csv: string): ParsedImportRow[] {
     const currency = v.currency.toUpperCase()
     if (!(SUPPORTED_CURRENCIES as readonly string[]).includes(currency)) errors.push(`Unsupported currency "${v.currency}"`)
     const type = v.type.toUpperCase()
-    if (!(TYPES as readonly string[]).includes(type)) errors.push(`Invalid type "${v.type}" (expected INCOME, EXPENSE or SAVINGS)`)
+    if (!(TYPES as readonly string[]).includes(type)) errors.push(`Invalid type "${v.type}" (expected INCOME, EXPENSE, SAVINGS or WITHDRAWAL)`)
     // A missing category is not an error: the review sheet offers a picker.
     const categoryId = v.category_id || undefined
     const categoryName = v.category || undefined
@@ -79,7 +79,7 @@ export function parseTransactionRows(csv: string): ParsedImportRow[] {
         date: v.date,
         description: v.description,
         // The sign comes from `type`, never from the file (AGENTS.md §16).
-        amount: signedAmount(Math.abs(amount), type as ImportType),
+        amount: signedForType(amount, type as ImportType),
         currency: currency as ImportCurrency,
         type: type as ImportType,
         categoryId,
@@ -176,14 +176,14 @@ export async function classifyImportRows(parsed: ParsedImportRow[], client: Clie
     if (value.categoryId) {
       const cat = catById.get(value.categoryId)
       if (!cat) messages.push(`Category id "${value.categoryId}" not found — pick one`)
-      else if (cat.kind !== value.type) messages.push(`"${cat.name}" is not a ${value.type.toLowerCase()} category — pick one`)
+      else if (cat.kind !== kindForType(value.type)) messages.push(`"${cat.name}" is not a ${kindForType(value.type).toLowerCase()} category — pick one`)
       else categoryId = cat.id
     } else if (value.categoryName) {
-      const cat = catByName.get(`${value.type}|${value.categoryName.trim().toLowerCase()}`)
+      const cat = catByName.get(`${kindForType(value.type)}|${value.categoryName.trim().toLowerCase()}`)
       if (cat) categoryId = cat.id
       else {
         unmatchedCategory = value.categoryName
-        messages.push(`No ${value.type.toLowerCase()} category named "${value.categoryName}" — pick one or create it`)
+        messages.push(`No ${kindForType(value.type).toLowerCase()} category named "${value.categoryName}" — pick one or create it`)
       }
     } else {
       messages.push('No category in the file — pick one')
@@ -261,8 +261,8 @@ export async function commitImportRows(input: unknown[]): Promise<ImportResult> 
     let skipped = 0
     const data = []
     for (const row of rows) {
-      if (kindOf.get(row.categoryId) !== row.type) {
-        errors.push(`Skipped "${row.description}": category does not exist or does not match ${row.type.toLowerCase()}`)
+      if (kindOf.get(row.categoryId) !== kindForType(row.type)) {
+        errors.push(`Skipped "${row.description}": category does not exist or does not match ${kindForType(row.type).toLowerCase()}`)
         skipped++
         continue
       }
@@ -278,7 +278,7 @@ export async function commitImportRows(input: unknown[]): Promise<ImportResult> 
       data.push({
         date: new Date(row.date + 'T00:00:00Z'),
         description: row.description,
-        amount: signedAmount(Math.abs(row.amount), row.type),
+        amount: signedForType(row.amount, row.type),
         currency: row.currency,
         type: row.type,
         categoryId: row.categoryId,

@@ -9,7 +9,8 @@ import { createCategoryFromImport } from '@/server-actions/categories'
 import type { ImportResult, PreviewRow } from '@/lib/import-transactions'
 import { fmtCur, fmtDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
-import { CategoryResolver, ImportNotices, type CategoryGap, type Kind } from './CategoryResolver'
+import { kindForType } from '@/lib/transaction-type'
+import { CategoryResolver, ImportNotices, type CategoryGap } from './CategoryResolver'
 import { ImportReviewSheet, ReviewDisclosure, ReviewGroupHeading, ReviewSummary } from './ImportReviewSheet'
 
 type Currency = 'HUF' | 'USD' | 'EUR' | 'GBP'
@@ -25,7 +26,7 @@ interface Props {
 
 type Choice = { include: boolean; categoryId: string | null }
 
-const TONE = { INCOME: 'text-income', EXPENSE: 'text-expense', SAVINGS: 'text-savings' } as const
+const TONE = { INCOME: 'text-income', EXPENSE: 'text-expense', SAVINGS: 'text-savings', WITHDRAWAL: 'text-savings' } as const
 
 export function TransactionImportReview({ open, onOpenChange, filename, rows, categories: initialCategories, onImported }: Props) {
   // Categories created from this sheet join the list every row can pick from.
@@ -52,10 +53,11 @@ export function TransactionImportReview({ open, onOpenChange, filename, rows, ca
     const byKey = new Map<string, CategoryGap>()
     for (const row of groups.new) {
       if (choices[row.line]?.categoryId || !row.type) continue
-      const key = `${row.type}|${row.unmatchedCategory?.trim().toLowerCase() ?? ''}`
+      const kind = kindForType(row.type)
+      const key = `${kind}|${row.unmatchedCategory?.trim().toLowerCase() ?? ''}`
       const existing = byKey.get(key)
       if (existing) existing.lines.push(row.line)
-      else byKey.set(key, { key, name: row.unmatchedCategory, kind: row.type as Kind, lines: [row.line] })
+      else byKey.set(key, { key, name: row.unmatchedCategory, kind, lines: [row.line] })
     }
     return [...byKey.values()]
   }, [groups.new, choices])
@@ -155,7 +157,7 @@ export function TransactionImportReview({ open, onOpenChange, filename, rows, ca
           <ul className="calm-card divide-y divide-border/40 overflow-hidden">
             {groups.new.map((r) => {
               const choice = choices[r.line]
-              const kindCategories = categories.filter((c) => c.kind === r.type)
+              const kindCategories = categories.filter((c) => r.type && c.kind === kindForType(r.type))
               const cat = kindCategories.find((c) => c.id === choice?.categoryId)
               return (
                 <li
