@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, test } from 'vitest';
 import { NAV, SETTINGS_SECTIONS, hrefFor, navIdForPath, subNavIdForPath, titleForPath } from '@/components/shell/nav';
@@ -25,3 +25,15 @@ describe('settings subpage navigation', () => {
     expect(titleForPath('/settings/notifications')).toBe('Settings');
   });
 });
+
+describe('savings navigation', () => {
+  test('sits under Renewals in the sidebar, and so in the mobile More panel', () => {
+    const ids = NAV.map((item) => item.id)
+    expect(ids.indexOf('savings')).toBe(ids.indexOf('renewals') + 1)
+    expect(hrefFor(NAV.find((item) => item.id === 'savings')!)).toBe('/savings')
+
+    const dock = readFileSync('components/shell/MobileNav.tsx', 'utf8')
+    expect(dock).toContain("const MORE_IDS = new Set(['renewals', 'savings', 'categories', 'insights', 'settings']);")
+    expect(dock).toContain('const MORE = NAV.filter((item) => MORE_IDS.has(item.id));')
+  })
+})
