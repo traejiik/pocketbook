@@ -1,6 +1,6 @@
-import { prisma } from './prisma'
-import { parseCsvRecords } from './csv'
-import { DEFAULT_BACKFILL_MONTHS } from './recurring-backfill'
+import { prisma } from '../prisma'
+import { parseCsvRecords } from '../csv'
+import { DEFAULT_BACKFILL_MONTHS } from '../recurring/backfill'
 import {
   createRecurringRule,
   installmentError,
@@ -8,10 +8,10 @@ import {
   planNewRule,
   recurringRuleSchema,
   type RecurringRuleFields,
-} from './recurring-create'
+} from '../recurring/create'
 
 // Recurring rules import in the same preview → review → commit shape as
-// transactions (see lib/import-transactions.ts). Creating a rule can log past
+// transactions (see lib/import/transactions.ts). Creating a rule can log past
 // charges, so the preview shows each rule's catch-up before anything is written.
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/

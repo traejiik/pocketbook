@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
-import { INSIGHT_MODEL_OPTIONS, INSIGHT_REQUEST } from '@/lib/insights-generation'
-import { streamGenerate, stripThinkTags } from '@/lib/ollama'
+import { INSIGHT_MODEL_OPTIONS, INSIGHT_REQUEST } from '@/lib/insights/generation'
+import { streamGenerate, stripThinkTags } from '@/lib/insights/ollama'
 
 function stubOllama() {
   const fetchMock = vi.fn().mockResolvedValue({

@@ -16,7 +16,7 @@ vi.mock('@/lib/prisma', () => ({
 }))
 vi.mock('@/lib/fx', () => ({ lockRate: vi.fn(async (c: string) => ({ fxRate: c === 'EUR' ? 390 : 1, fxAnchor: 'HUF' })) }))
 
-const { parseRecurringRows, classifyRecurringRows, commitRecurringRows } = await import('@/lib/import-recurring')
+const { parseRecurringRows, classifyRecurringRows, commitRecurringRows } = await import('@/lib/import/recurring')
 
 const TODAY = new Date(Date.UTC(2026, 8, 20))
 const HEADER = 'name,amount,currency,cycle,next_due,kind,category,installment_paid,installment_total'
@@ -62,7 +62,7 @@ describe('classifyRecurringRows', () => {
     )), undefined, TODAY)
 
     expect(rows[0]).toMatchObject({ status: 'new', rule: { categoryId: 'housing' } })
-    // Monthly rules log the last four occurrences on creation (lib/recurring-backfill.ts).
+    // Monthly rules log the last four occurrences on creation (lib/recurring/backfill.ts).
     expect(rows[0].backfill).toEqual({ count: 4, from: '2026-06-05', to: '2026-09-05', nextDue: '2026-10-05' })
     expect(rows[1]).toMatchObject({ status: 'duplicate', messages: ['An active rule already has this name'] })
     expect(rows[2]).toMatchObject({ status: 'new', rule: { categoryId: null } })

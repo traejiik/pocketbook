@@ -5,8 +5,8 @@ import { Bell } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Sheet, SheetTrigger, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { useNotifications } from '@/contexts/notifications-context';
-import { useIsMobile } from '@/hooks/use-is-mobile';
+import { useNotifications } from '@/components/providers/notifications-context';
+import { useIsMobile } from '@/lib/hooks/use-is-mobile';
 
 export function NotificationsBell({ className }: { className?: string }) {
   const [open, setOpen] = useState(false);

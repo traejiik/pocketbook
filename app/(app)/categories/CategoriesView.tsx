@@ -19,9 +19,9 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Skeleton } from '@/components/ui/skeleton'
 import { Switch } from '@/components/ui/switch'
 import { fmtAnchor } from '@/lib/format'
-import { useFabContext } from '@/contexts/fab-context'
+import { useFabContext } from '@/components/providers/fab-context'
 import { CATEGORY_PALETTE, hexToRgba } from '@/lib/colors'
-import { useIsMobile } from '@/hooks/use-is-mobile'
+import { useIsMobile } from '@/lib/hooks/use-is-mobile'
 
 /**
  * The saturation/hue canvas only renders inside the colour popover, so it is

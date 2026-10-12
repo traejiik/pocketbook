@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma'
-import { generateAndSaveInsight } from '@/lib/insights-generation'
+import { generateAndSaveInsight } from '@/lib/insights/generation'
 import { sendNotification } from '@/lib/notifications/send'
 import { logger } from '@/lib/logger'
 

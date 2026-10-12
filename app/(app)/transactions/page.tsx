@@ -5,7 +5,7 @@ import { startOfMonth, endOfMonth, format } from 'date-fns';
 import { prisma } from '@/lib/prisma';
 import { getAnchorCurrency, getOpeningBalance } from '@/lib/aggregations';
 import { TransactionsView, type SerializedTx } from '@/components/transactions/TransactionsView';
-import type { SerializedCategory, SerializedRecurringRule } from '@/components/forms/TransactionForm';
+import type { SerializedCategory, SerializedRecurringRule } from '@/components/transactions/TransactionForm';
 
 export default async function TransactionsPage({
   searchParams,

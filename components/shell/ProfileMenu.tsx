@@ -7,7 +7,7 @@ import { signOut, useSession } from 'next-auth/react';
 import { cn } from '@/lib/utils';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Sheet, SheetTrigger, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { useIsMobile } from '@/hooks/use-is-mobile';
+import { useIsMobile } from '@/lib/hooks/use-is-mobile';
 
 interface ProfileMenuProps {
   displayName?: string;

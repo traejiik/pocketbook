@@ -1,11 +1,11 @@
 import type { Prisma } from '@prisma/client'
-import type { TxType } from './transaction-type'
-import { formatDateOnly, nextOccurrence, type RecurringCycle } from './recurring-dates'
+import type { TxType } from '../transactions/type'
+import { formatDateOnly, nextOccurrence, type RecurringCycle } from './dates'
 
 // "Log recurring early": a transaction entered before its rule's due date
 // settles that occurrence. The rule's `nextDue` advances one cycle and the
 // transaction records the date it settled (`coversDueDate`), so the daily sync
-// (lib/recurring-sync.ts) never logs the same payment again on the due day.
+// (lib/recurring/sync.ts) never logs the same payment again on the due day.
 
 export type Settlement = { coversDueDate: Date; nextDue: Date } | { error: string }
 

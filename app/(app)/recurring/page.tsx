@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { getRecurringRules, getArchivedRecurringRules, getCategories, getRecurringBudgetSummary, getAnchorCurrency } from '@/lib/aggregations'
 import { RecurringView, type SerialisedRule } from './RecurringView'
-import { buildRecurringRuleViewModels } from '@/lib/recurring-view-model'
+import { buildRecurringRuleViewModels } from '@/lib/recurring/view-model'
 
 export default async function RecurringPage() {
   const [rules, archived, categories, budget, anchorCurrency] = await Promise.all([

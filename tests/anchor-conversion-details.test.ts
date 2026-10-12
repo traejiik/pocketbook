@@ -73,7 +73,7 @@ describe('anchor conversion detail amounts', () => {
       },
     ]
 
-    const { buildRecurringRuleViewModels } = await import('@/lib/recurring-view-model')
+    const { buildRecurringRuleViewModels } = await import('@/lib/recurring/view-model')
     const serialised = await buildRecurringRuleViewModels(rules, 'HUF')
 
     expect(serialised.find((rule) => rule.id === 'usd-rule')?.anchorEquivalent).toBe(358400)

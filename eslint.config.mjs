@@ -19,8 +19,6 @@ const config = [
     files: [
       'app/**/*.{ts,tsx}',
       'components/**/*.{ts,tsx}',
-      'contexts/**/*.{ts,tsx}',
-      'hooks/**/*.{ts,tsx}',
       'lib/**/*.ts',
       'server-actions/**/*.ts',
       'runtime/**/*.ts',

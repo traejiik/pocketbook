@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { CACHE_TAGS, revalidateFinanceTags } from '@/lib/cache'
 import { requireAuthenticatedUser } from '@/lib/require-auth'
-import { syncDueRecurringRules, type RecurringSyncResult } from '@/lib/recurring-sync'
+import { syncDueRecurringRules, type RecurringSyncResult } from '@/lib/recurring/sync'
 import { logger } from '@/lib/logger'
 
 const log = logger('recurring')

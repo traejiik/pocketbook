@@ -1,4 +1,4 @@
-import { logger } from './logger';
+import { logger } from '../logger';
 
 const log = logger('ollama');
 
@@ -59,7 +59,7 @@ export type OllamaThink = boolean | 'low' | 'medium' | 'high';
 /**
  * Generation knobs. All optional so existing callers keep the old behaviour, but
  * anything that cares about output quality should pass an explicit set — see
- * `INSIGHT_MODEL_OPTIONS` in `lib/insights-generation.ts`.
+ * `INSIGHT_MODEL_OPTIONS` in `lib/insights/generation.ts`.
  *
  * `numCtx` matters more than it looks: Ollama falls back to a 2048-token context
  * for most models unless the Modelfile says otherwise, and it truncates from the

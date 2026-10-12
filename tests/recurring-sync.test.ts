@@ -56,7 +56,7 @@ function rule(overrides = {}) {
 
 describe('planDueRecurringRule', () => {
   it('logs all missed monthly due dates, signs expenses negative, and advances nextDue', async () => {
-    const { planDueRecurringRule } = await import('@/lib/recurring-sync')
+    const { planDueRecurringRule } = await import('@/lib/recurring/sync')
     const plan = planDueRecurringRule(rule(), today)
 
     expect(plan.nextDue).toBe('2026-06-05')
@@ -75,7 +75,7 @@ describe('planDueRecurringRule', () => {
   })
 
   it('skips already-linked transactions while still advancing the rule', async () => {
-    const { planDueRecurringRule } = await import('@/lib/recurring-sync')
+    const { planDueRecurringRule } = await import('@/lib/recurring/sync')
     const plan = planDueRecurringRule(rule({
       transactions: [{ date: new Date(Date.UTC(2026, 3, 5)) }],
     }), today)
@@ -85,7 +85,7 @@ describe('planDueRecurringRule', () => {
   })
 
   it('never regenerates an occurrence that was logged early', async () => {
-    const { planDueRecurringRule } = await import('@/lib/recurring-sync')
+    const { planDueRecurringRule } = await import('@/lib/recurring/sync')
     // Paid on 2 Apr for the 5 Apr due date; the row sits on a different day.
     const plan = planDueRecurringRule(rule({
       transactions: [{ date: new Date(Date.UTC(2026, 3, 2)), coversDueDate: new Date(Date.UTC(2026, 3, 5)) }],
@@ -95,7 +95,7 @@ describe('planDueRecurringRule', () => {
   })
 
   it('increments installments and archives rules when the final payment is logged', async () => {
-    const { planDueRecurringRule } = await import('@/lib/recurring-sync')
+    const { planDueRecurringRule } = await import('@/lib/recurring/sync')
     const plan = planDueRecurringRule(rule({
       id: 'rule-phone',
       name: 'Phone plan',
@@ -112,7 +112,7 @@ describe('planDueRecurringRule', () => {
   })
 
   it('logs annual income as positive and advances by year', async () => {
-    const { planDueRecurringRule } = await import('@/lib/recurring-sync')
+    const { planDueRecurringRule } = await import('@/lib/recurring/sync')
     const plan = planDueRecurringRule(rule({
       name: 'Bonus',
       amount: 1000,
@@ -144,7 +144,7 @@ describe('syncDueRecurringRules', () => {
   })
 
   it('creates due transactions and updates nextDue atomically', async () => {
-    const { syncDueRecurringRules } = await import('@/lib/recurring-sync')
+    const { syncDueRecurringRules } = await import('@/lib/recurring/sync')
 
     const result = await syncDueRecurringRules()
 

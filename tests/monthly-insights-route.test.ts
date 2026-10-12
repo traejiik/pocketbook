@@ -12,7 +12,7 @@ vi.mock('@/lib/prisma', () => ({
     aiInsight: { findFirst: mocks.findInsight },
   },
 }))
-vi.mock('@/lib/insights-generation', () => ({
+vi.mock('@/lib/insights/generation', () => ({
   generateAndSaveInsight: mocks.generate,
 }))
 

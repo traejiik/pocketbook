@@ -7,10 +7,10 @@ import { getAnchorCurrency, lockRate } from '@/lib/fx';
 import { CACHE_TAGS, revalidateFinanceTags } from '@/lib/cache';
 import { requireAuthenticatedUser } from '@/lib/require-auth';
 import { logger } from '@/lib/logger';
-import { reconcileInstallmentRule } from '@/lib/installments';
-import { releaseOccurrence, settleNextOccurrence } from '@/lib/recurring-early';
-import { TX_TYPES, kindForType, signedForType } from '@/lib/transaction-type';
-import { getPotBalance } from '@/lib/pot-balance';
+import { reconcileInstallmentRule } from '@/lib/recurring/installments';
+import { releaseOccurrence, settleNextOccurrence } from '@/lib/recurring/early';
+import { TX_TYPES, kindForType, signedForType } from '@/lib/transactions/type';
+import { getPotBalance } from '@/lib/savings/pot-balance';
 import { fmtAnchor } from '@/lib/format';
 
 const log = logger('transactions');

@@ -11,11 +11,11 @@ import {
   DEFAULT_BACKFILL_MONTHS,
   MAX_BACKFILL_MONTHS,
   planRecurringCatchUp,
-} from '@/lib/recurring-backfill'
+} from '@/lib/recurring/backfill'
 import { commitRecurringImport, type ImportCategory } from '@/server-actions/import'
 import { createCategoryFromImport } from '@/server-actions/categories'
 import { CategoryResolver, type CategoryGap, type Kind } from './CategoryResolver'
-import type { RecurringPreviewRow } from '@/lib/import-recurring'
+import type { RecurringPreviewRow } from '@/lib/import/recurring'
 import { fmtCur, fmtDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import type { ImportOutcome } from './CsvImportRow'
