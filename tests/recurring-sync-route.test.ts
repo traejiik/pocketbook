@@ -6,7 +6,7 @@ const mocks = vi.hoisted(() => ({
   revalidateTag: vi.fn(),
 }))
 
-vi.mock('@/lib/recurring-sync', () => ({
+vi.mock('@/lib/recurring/sync', () => ({
   syncDueRecurringRules: mocks.syncDueRecurringRules,
 }))
 vi.mock('next/cache', () => ({

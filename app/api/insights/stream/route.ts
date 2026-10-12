@@ -1,8 +1,8 @@
 import { auth } from '@/lib/auth';
-import { buildInsightPrompt, finaliseNote, INSIGHT_REQUEST } from '@/lib/insights-generation';
+import { buildInsightPrompt, finaliseNote, INSIGHT_REQUEST } from '@/lib/insights/generation';
 import { monthKeyOf } from '@/lib/format';
 import { logger } from '@/lib/logger';
-import { streamGenerate } from '@/lib/ollama';
+import { streamGenerate } from '@/lib/insights/ollama';
 import { prisma } from '@/lib/prisma';
 
 const log = logger('insights');

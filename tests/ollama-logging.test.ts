@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { configureLogger, resetLoggerConfig, setLogSink, type LogLevel } from '@/lib/logger'
-import { streamGenerate } from '@/lib/ollama'
+import { streamGenerate } from '@/lib/insights/ollama'
 
 let lines: Array<{ level: LogLevel; line: string }> = []
 

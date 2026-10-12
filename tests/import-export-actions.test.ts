@@ -106,7 +106,7 @@ describe('exportTransactionsCsv', () => {
 
     // What the importer's duplicate check reads back from the ledger.
     txFindMany.mockResolvedValue(ledger.map((t) => ({ ...t, amount: -120000, recurringRuleId: null })))
-    const { parseTransactionRows, classifyImportRows } = await import('@/lib/import-transactions')
+    const { parseTransactionRows, classifyImportRows } = await import('@/lib/import/transactions')
     const rows = await classifyImportRows(parseTransactionRows(result.csv))
     expect(rows).toHaveLength(1)
     expect(rows[0]).toMatchObject({ status: 'duplicate', description: 'Rent, flat 2', categoryId: 'food' })

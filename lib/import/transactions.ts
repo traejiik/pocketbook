@@ -1,9 +1,9 @@
 import { z } from 'zod'
-import { prisma } from './prisma'
-import { lockRate, type FxLock } from './fx'
-import { TX_TYPES, kindForType, signedForType, type TxType } from './transaction-type'
-import { parseCsvRecords } from './csv'
-import { reconcileInstallmentRule } from './installments'
+import { prisma } from '../prisma'
+import { lockRate, type FxLock } from '../fx'
+import { TX_TYPES, kindForType, signedForType, type TxType } from '../transactions/type'
+import { parseCsvRecords } from '../csv'
+import { reconcileInstallmentRule } from '../recurring/installments'
 
 // CSV import runs in three steps so the Settings flow can show a review before
 // anything is written:

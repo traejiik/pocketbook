@@ -10,14 +10,14 @@ import {
   parseTransactionRows,
   type ImportResult,
   type PreviewRow,
-} from '@/lib/import-transactions'
+} from '@/lib/import/transactions'
 import {
   classifyRecurringRows,
   commitRecurringRows,
   parseRecurringRows,
   type RecurringImportResult,
   type RecurringPreviewRow,
-} from '@/lib/import-recurring'
+} from '@/lib/import/recurring'
 import { logger } from '@/lib/logger'
 
 const log = logger('import')

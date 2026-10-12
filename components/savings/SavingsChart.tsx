@@ -1,7 +1,7 @@
 'use client'
 
 import { fmtAnchor } from '@/lib/format'
-import type { SavingsMonth } from '@/lib/savings'
+import type { SavingsMonth } from '@/lib/savings/summary'
 
 const W = 1000
 const H = 200

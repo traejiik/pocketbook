@@ -9,11 +9,11 @@ import { Header } from './Header';
 import { MobileTopBar } from './MobileTopBar';
 import { MobileNav } from './MobileNav';
 import { PageTransition } from './PageTransition';
-import { useTransactionSheet } from '@/contexts/sheet-context';
-import { FabProvider } from '@/contexts/fab-context';
+import { useTransactionSheet } from '@/components/providers/sheet-context';
+import { FabProvider } from '@/components/providers/fab-context';
 import { notify } from '@/lib/ui-notify';
-import { useGlobalKeys } from '@/hooks/use-global-keys';
-import { TransactionForm, type SerializedCategory, type SerializedRecurringRule } from '@/components/forms/TransactionForm';
+import { useGlobalKeys } from '@/lib/hooks/use-global-keys';
+import { TransactionForm, type SerializedCategory, type SerializedRecurringRule } from '@/components/transactions/TransactionForm';
 import { upsertTransaction, type TxInput } from '@/server-actions/transactions';
 import { syncDueRecurringRulesAction } from '@/server-actions/recurring-sync';
 

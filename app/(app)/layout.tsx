@@ -1,10 +1,10 @@
 import { SessionProvider } from 'next-auth/react';
 import { AppShell } from '@/components/shell/AppShell';
-import { TransactionSheetProvider } from '@/contexts/sheet-context';
-import { NotificationsProvider } from '@/contexts/notifications-context';
+import { TransactionSheetProvider } from '@/components/providers/sheet-context';
+import { NotificationsProvider } from '@/components/providers/notifications-context';
 import { getPotBalances, getUpcomingRenewals } from '@/lib/aggregations';
 import { prisma } from '@/lib/prisma';
-import type { SerializedCategory, SerializedRecurringRule } from '@/components/forms/TransactionForm';
+import type { SerializedCategory, SerializedRecurringRule } from '@/components/transactions/TransactionForm';
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const [renewals, renewalsSoon, categories, recurringRules, exchangeRates, pots] = await Promise.all([

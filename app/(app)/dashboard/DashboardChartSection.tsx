@@ -6,7 +6,7 @@ import { ChevronRight, Plus } from 'lucide-react'
 import { Segmented } from '@/components/ui/segmented'
 import { HATCH_BACKGROUND, PillBar } from '@/components/finance/PillBar'
 import { CalmCard, CalmCardHead } from '@/components/finance/CalmCard'
-import { useTransactionSheet } from '@/contexts/sheet-context'
+import { useTransactionSheet } from '@/components/providers/sheet-context'
 import { fmtAnchor, fmtCompact } from '@/lib/format'
 
 const SHORT_LABEL: Record<string, string> = {

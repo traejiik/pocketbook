@@ -1,12 +1,12 @@
 import { z } from 'zod'
 import type { Prisma } from '@prisma/client'
-import { lockRate, type FxLock } from './fx'
+import { lockRate, type FxLock } from '../fx'
 import {
   DEFAULT_BACKFILL_MONTHS,
   MAX_BACKFILL_MONTHS,
   planRecurringCatchUp,
   type RecurringCatchUpPlan,
-} from './recurring-backfill'
+} from './backfill'
 
 // Creating a recurring rule is shared by the Recurring page action and the CSV
 // rule importer: both validate with `recurringRuleSchema`, plan the catch-up

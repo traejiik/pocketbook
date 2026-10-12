@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState, useCallback } from 'react';
-import type { TxType } from '@/lib/transaction-type';
+import type { TxType } from '@/lib/transactions/type';
 
 export interface EditingTx {
   id: string;

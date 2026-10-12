@@ -1,5 +1,5 @@
-import { prisma } from './prisma'
-import { frozenToAnchor, type Currency } from './fx'
+import { prisma } from '../prisma'
+import { frozenToAnchor, type Currency } from '../fx'
 
 /**
  * One savings pot's balance in the anchor (deposits − withdrawals), read fresh and

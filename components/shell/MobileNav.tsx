@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { LayoutGrid, List, Repeat, Plus, Menu, X, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useFabContext } from '@/contexts/fab-context';
+import { useFabContext } from '@/components/providers/fab-context';
 import { NAV, hrefFor, navIdForPath } from '@/components/shell/nav';
 
 // Three destinations sit in the dock; the rest live behind More. Dashboard
