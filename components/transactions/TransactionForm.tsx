@@ -9,11 +9,11 @@ import { toast } from 'sonner';
 import { notify } from '@/lib/ui-notify';
 
 import { deleteTransaction, type TxInput } from '@/server-actions/transactions';
-import { useTransactionSheet } from '@/contexts/sheet-context';
-import { useIsMobile } from '@/hooks/use-is-mobile';
+import { useTransactionSheet } from '@/components/providers/sheet-context';
+import { useIsMobile } from '@/lib/hooks/use-is-mobile';
 import { cn } from '@/lib/utils';
 import { fmtAnchor, fmtDate, todayIso } from '@/lib/format';
-import { nextOccurrence, parseDateOnly, formatDateOnly } from '@/lib/recurring-dates';
+import { nextOccurrence, parseDateOnly, formatDateOnly } from '@/lib/recurring/dates';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -43,7 +43,7 @@ import {
 } from '@/components/ui/select';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Segmented } from '@/components/ui/segmented';
-import { TX_TYPES, kindForType, type TxType } from '@/lib/transaction-type';
+import { TX_TYPES, kindForType, type TxType } from '@/lib/transactions/type';
 
 const formSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),

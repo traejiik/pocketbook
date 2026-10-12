@@ -1,6 +1,6 @@
-import { fmtAnchor } from './format'
-import type { InsightSnapshot, MonthVerdict } from './insights-data'
-import { HEADLINE_FLOOR_SHARE, pickStory, smallMoves, type CategoryMove, type Story } from './insights-story'
+import { fmtAnchor } from '../format'
+import type { InsightSnapshot, MonthVerdict } from './data'
+import { HEADLINE_FLOOR_SHARE, pickStory, smallMoves, type CategoryMove, type Story } from './story'
 
 /**
  * Persona and the rules that do not change month to month. Sent as Ollama's

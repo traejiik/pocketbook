@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
 import { CACHE_TAGS, revalidateFinanceTags } from '@/lib/cache';
 import { requireAuthenticatedUser } from '@/lib/require-auth';
-import { resumeNextDue } from '@/lib/recurring-backfill';
+import { resumeNextDue } from '@/lib/recurring/backfill';
 import {
   createRecurringRule,
   dateOnlyStringToDate,
@@ -14,7 +14,7 @@ import {
   planNewRule,
   recurringRuleSchema,
   type RecurringRuleInput,
-} from '@/lib/recurring-create';
+} from '@/lib/recurring/create';
 import { logger } from '@/lib/logger';
 
 const log = logger('recurring');

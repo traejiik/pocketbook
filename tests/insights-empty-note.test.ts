@@ -15,15 +15,15 @@ vi.mock('@/lib/prisma', () => ({
     aiInsight: { create: mocks.create, deleteMany: mocks.deleteMany },
   },
 }))
-vi.mock('@/lib/insights-data', () => ({ collectInsightSnapshot: mocks.snapshot }))
-vi.mock('@/lib/insights-prompt', async (importOriginal) => ({
+vi.mock('@/lib/insights/data', () => ({ collectInsightSnapshot: mocks.snapshot }))
+vi.mock('@/lib/insights/prompt', async (importOriginal) => ({
   // Constants stay real — the figure check reads the prior-openings heading.
-  ...(await importOriginal<typeof import('@/lib/insights-prompt')>()),
+  ...(await importOriginal<typeof import('@/lib/insights/prompt')>()),
   buildPromptFromSnapshot: mocks.buildPrompt,
 }))
-vi.mock('@/lib/ollama', async (importOriginal) => ({
+vi.mock('@/lib/insights/ollama', async (importOriginal) => ({
   // `stripThinkTags` stays real — it is part of what is under test here.
-  ...(await importOriginal<typeof import('@/lib/ollama')>()),
+  ...(await importOriginal<typeof import('@/lib/insights/ollama')>()),
   streamGenerate: mocks.stream,
 }))
 
@@ -50,7 +50,7 @@ describe('generateAndSaveInsight', () => {
   })
 
   const run = async () => {
-    const { generateAndSaveInsight } = await import('@/lib/insights-generation')
+    const { generateAndSaveInsight } = await import('@/lib/insights/generation')
     return generateAndSaveInsight({
       monthCovered: '2026-09',
       ollamaUrl: 'http://ollama:11434',

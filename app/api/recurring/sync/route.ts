@@ -1,4 +1,4 @@
-import { syncDueRecurringRules } from '@/lib/recurring-sync'
+import { syncDueRecurringRules } from '@/lib/recurring/sync'
 import { revalidatePath } from 'next/cache'
 import { CACHE_TAGS, revalidateFinanceTags } from '@/lib/cache'
 import { logger } from '@/lib/logger'

@@ -1,4 +1,4 @@
-import type { InsightSnapshot } from '@/lib/insights-data'
+import type { InsightSnapshot } from '@/lib/insights/data'
 
 // The real August 2026 ledger, as the notes read by hand in September were given
 // it. Every "invented" case below is a figure one of those notes actually wrote.

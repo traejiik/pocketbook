@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 
 import { notify } from '@/lib/ui-notify';
 import { upsertTransaction, type TxInput } from '@/server-actions/transactions';
-import { useTransactionSheet, type EditingTx } from '@/contexts/sheet-context';
+import { useTransactionSheet, type EditingTx } from '@/components/providers/sheet-context';
 import { fmtAnchor, fmtCur, fmtDate, dayOfWeek, monthKeyOf, shiftMonthKey } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { Segmented } from '@/components/ui/segmented';
@@ -16,9 +16,9 @@ import { CategoryAvatar } from '@/components/finance/CategoryAvatar';
 import { MonthNetStrip } from '@/components/transactions/MonthNetStrip';
 import { MobileTransactions, TransactionSearchFrame } from '@/components/transactions/MobileTransactions';
 import { PaginationControls } from '@/components/ui/pagination';
-import { TransactionForm, type SerializedCategory, type SerializedRecurringRule } from '@/components/forms/TransactionForm';
-import { balanceContribution, toHUF } from '@/lib/transaction-anchor';
-import { isSavingsType, matchesTypeFilter, parseTypeFilter, signedForType, typeGlyph, typeLabel, type TxType, type TxTypeFilter } from '@/lib/transaction-type';
+import { TransactionForm, type SerializedCategory, type SerializedRecurringRule } from '@/components/transactions/TransactionForm';
+import { balanceContribution, toHUF } from '@/lib/transactions/anchor';
+import { isSavingsType, matchesTypeFilter, parseTypeFilter, signedForType, typeGlyph, typeLabel, type TxType, type TxTypeFilter } from '@/lib/transactions/type';
 
 export interface SerializedTx {
   id: string;

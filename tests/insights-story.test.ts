@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import type { InsightSnapshot } from '@/lib/insights-data'
-import { findInventedFigures } from '@/lib/insights-figures'
-import { buildPromptFromSnapshot } from '@/lib/insights-prompt'
-import { pickStory, RENEWAL_WINDOW_DAYS } from '@/lib/insights-story'
+import type { InsightSnapshot } from '@/lib/insights/data'
+import { findInventedFigures } from '@/lib/insights/figures'
+import { buildPromptFromSnapshot } from '@/lib/insights/prompt'
+import { pickStory, RENEWAL_WINDOW_DAYS } from '@/lib/insights/story'
 import { august } from './fixtures/insight-august-2026'
 
 type Detail = InsightSnapshot['categoryDetail'][number]

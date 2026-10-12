@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 import { NotificationsBell } from '@/components/shell/NotificationsBell';
 import { ProfileMenu } from '@/components/shell/ProfileMenu';
 import { titleForPath, navIdForPath } from '@/components/shell/nav';
-import { ExportTransactionsButton } from '@/components/shell/ExportTransactionsDialog';
+import { ExportTransactionsButton } from '@/components/transactions/ExportTransactionsDialog';
 
 interface HeaderProps {
   displayName?: string;

@@ -9,7 +9,7 @@
 
 import { readFileSync, existsSync } from 'fs'
 import { resolve } from 'path'
-import { importTransactions } from '../lib/import-transactions'
+import { importTransactions } from '../lib/import/transactions'
 
 // Load .env.local for standalone usage
 try {

@@ -4,7 +4,7 @@ import { ChevronRight, PiggyBank } from 'lucide-react'
 import { CalmCard } from '@/components/finance/CalmCard'
 import { SavingsChart } from '@/components/savings/SavingsChart'
 import { fmtAnchor } from '@/lib/format'
-import type { SavingsSummary } from '@/lib/savings'
+import type { SavingsSummary } from '@/lib/savings/summary'
 import { cn } from '@/lib/utils'
 
 function signed(n: number, anchor: string) {

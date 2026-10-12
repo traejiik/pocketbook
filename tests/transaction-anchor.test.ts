@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { balanceContribution, toHUF } from '@/lib/transaction-anchor'
+import { balanceContribution, toHUF } from '@/lib/transactions/anchor'
 
 const rates = { USD: 360, EUR: 390, GBP: 460 }
 

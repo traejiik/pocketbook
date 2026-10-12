@@ -8,7 +8,7 @@ import {
   startOfUtcDay,
   isAfter,
   signedAmount,
-} from '@/lib/recurring-dates'
+} from '@/lib/recurring/dates'
 
 type Currency = 'HUF' | 'USD' | 'EUR' | 'GBP'
 

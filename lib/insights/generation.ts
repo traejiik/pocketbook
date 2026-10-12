@@ -1,9 +1,9 @@
-import { prisma } from './prisma'
-import { logger } from './logger'
-import { fmtHUF, monthKeyOf } from './format'
-import { collectInsightSnapshot } from './insights-data'
-import { findInventedFigures } from './insights-figures'
-import { buildPromptFromSnapshot, type PromptVariants } from './insights-prompt'
+import { prisma } from '../prisma'
+import { logger } from '../logger'
+import { fmtHUF, monthKeyOf } from '../format'
+import { collectInsightSnapshot } from './data'
+import { findInventedFigures } from './figures'
+import { buildPromptFromSnapshot, type PromptVariants } from './prompt'
 import { streamGenerate, stripThinkTags, type OllamaOptions } from './ollama'
 
 const log = logger('insights')

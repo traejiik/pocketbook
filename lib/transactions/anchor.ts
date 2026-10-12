@@ -1,4 +1,4 @@
-import { signForType, type TxType } from './transaction-type'
+import { signForType, type TxType } from './type'
 
 export type FxRates = { USD: number; EUR: number; GBP: number }
 

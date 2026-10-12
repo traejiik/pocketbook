@@ -8,7 +8,7 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock('@/lib/auth', () => ({ auth: mocks.auth }))
-vi.mock('@/lib/recurring-sync', () => ({
+vi.mock('@/lib/recurring/sync', () => ({
   syncDueRecurringRules: mocks.syncDueRecurringRules,
 }))
 vi.mock('next/cache', () => ({

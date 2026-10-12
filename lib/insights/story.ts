@@ -1,4 +1,4 @@
-import type { InsightSnapshot } from './insights-data'
+import type { InsightSnapshot } from './data'
 
 /**
  * Deciding what a monthly note is about, in code, so the model only has to say it.

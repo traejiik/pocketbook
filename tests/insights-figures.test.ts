@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { finaliseNote } from '@/lib/insights-generation'
-import { findInventedFigures } from '@/lib/insights-figures'
-import { buildPromptFromSnapshot, INSIGHT_SYSTEM_PROMPT } from '@/lib/insights-prompt'
+import { finaliseNote } from '@/lib/insights/generation'
+import { findInventedFigures } from '@/lib/insights/figures'
+import { buildPromptFromSnapshot, INSIGHT_SYSTEM_PROMPT } from '@/lib/insights/prompt'
 import { august } from './fixtures/insight-august-2026'
 
 // The full data prompt: these tests are about the checker, so they give it every

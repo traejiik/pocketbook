@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { classifyMonth, type InsightKpis, type InsightSnapshot } from '@/lib/insights-data'
+import { classifyMonth, type InsightKpis, type InsightSnapshot } from '@/lib/insights/data'
 import {
   buildPromptFromSnapshot as buildPrompt,
   INSIGHT_SYSTEM_PROMPT,
   type PromptVariants,
-} from '@/lib/insights-prompt'
+} from '@/lib/insights/prompt'
 
 // This file covers the full data prompt — what sparse months and months with
 // nothing to compare against get, and the control for probe runs. Production

@@ -262,7 +262,7 @@ describe('tablet breakpoint contract', () => {
   });
 
   test('transaction form keeps touch-sized toggles but uniform-height inputs', () => {
-    const form = source('components/forms/TransactionForm.tsx');
+    const form = source('components/transactions/TransactionForm.tsx');
 
     expect(form).toContain("useIsMobile('(max-width: 1024px)'");
     expect(form).toContain("side={useBottomSheet ? 'bottom' : 'right'}");

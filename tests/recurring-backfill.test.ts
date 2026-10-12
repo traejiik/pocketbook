@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { planRecurringCatchUp, resumeNextDue } from '@/lib/recurring-backfill'
+import { planRecurringCatchUp, resumeNextDue } from '@/lib/recurring/backfill'
 
 // UTC so the assertions hold regardless of the machine's local timezone.
 const today = new Date(Date.UTC(2026, 4, 29))

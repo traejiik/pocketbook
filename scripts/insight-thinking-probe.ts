@@ -53,9 +53,9 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 
-import type { NoteDefects } from '../lib/insights-generation';
-import type { PromptVariants } from '../lib/insights-prompt';
-import type { OllamaGenerateStats, OllamaStreamChunk, OllamaThink } from '../lib/ollama';
+import type { NoteDefects } from '../lib/insights/generation';
+import type { PromptVariants } from '../lib/insights/prompt';
+import type { OllamaGenerateStats, OllamaStreamChunk, OllamaThink } from '../lib/insights/ollama';
 
 // Load .env.local then .env so PB_DATABASE_URL is available when run on a dev
 // machine. Earlier files win; a real environment variable wins over both.
@@ -264,7 +264,7 @@ async function buildPromptFile(
 ): Promise<PromptFile> {
   const { prisma } = await import('../lib/prisma');
   const { getLatestTransactionMonth } = await import('../lib/aggregations');
-  const { buildInsightPrompt } = await import('../lib/insights-generation');
+  const { buildInsightPrompt } = await import('../lib/insights/generation');
   const { monthKeyOf } = await import('../lib/format');
 
   const settings = await prisma.appSettings.findUnique({ where: { id: 'singleton' } });
@@ -514,8 +514,8 @@ async function main(): Promise<void> {
     if (!baseUrl) throw new Error('No Ollama URL: pass --ollama, or run against a database with an AppSettings row');
     if (!model) throw new Error('No model: pass --model, or run against a database with an AppSettings row');
 
-    const { INSIGHT_MODEL_OPTIONS, finaliseNote } = await import('../lib/insights-generation');
-    const { streamGenerate } = await import('../lib/ollama');
+    const { INSIGHT_MODEL_OPTIONS, finaliseNote } = await import('../lib/insights/generation');
+    const { streamGenerate } = await import('../lib/insights/ollama');
     const numCtx = positiveInt(args['num-ctx'], 'num-ctx', INSIGHT_MODEL_OPTIONS.numCtx ?? 4096);
     const ctx: Context = {
       baseUrl,
