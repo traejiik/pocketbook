@@ -7,9 +7,9 @@ import {
   signForType,
   signedForType,
   typeGlyph,
-} from '@/lib/transaction-type'
-import { buildSavingsSummary, nextMonthKey, type SavingsGroup } from '@/lib/savings'
-import { balanceContribution, toHUF } from '@/lib/transaction-anchor'
+} from '@/lib/transactions/type'
+import { buildSavingsSummary, nextMonthKey, type SavingsGroup } from '@/lib/savings/summary'
+import { balanceContribution, toHUF } from '@/lib/transactions/anchor'
 
 describe('transaction types', () => {
   it('signs income and withdrawals positive, expenses and deposits negative', () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { finaliseNote } from '@/lib/insights-generation'
+import { finaliseNote } from '@/lib/insights/generation'
 
 // A regenerated July note came back with "forty thousand four hundred fifty-five
 // Ft", "eleven hundreds Ft", "fifteen zero K forint", "seventy percent", and every

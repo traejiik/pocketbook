@@ -1,6 +1,6 @@
-import { prisma } from './prisma'
-import { shiftMonthKey } from './format'
-import { toAnchor } from './fx'
+import { prisma } from '../prisma'
+import { shiftMonthKey } from '../format'
+import { toAnchor } from '../fx'
 import {
   getAnchorCurrency,
   getMonthKpis,
@@ -13,13 +13,13 @@ import {
   getOpeningBalance,
   getBalanceMonthNet,
   type RecurringBudgetSummary,
-} from './aggregations'
+} from '../aggregations'
 
 /**
  * How the month went, decided in TypeScript rather than left to the model to
  * notice. A small model handed a table of numbers reaches for reassuring prose by
  * default, so the tone is picked here and the matching directive is injected into
- * the prompt (see `lib/insights-prompt.ts`).
+ * the prompt (see `lib/insights/prompt.ts`).
  */
 export type MonthVerdict = 'sparse' | 'deficit' | 'tight' | 'strong' | 'steady'
 

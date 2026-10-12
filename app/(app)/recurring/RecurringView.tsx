@@ -11,9 +11,9 @@ import {
   DEFAULT_BACKFILL_MONTHS,
   MAX_BACKFILL_MONTHS,
   planRecurringCatchUp,
-} from '@/lib/recurring-backfill'
+} from '@/lib/recurring/backfill'
 import type { RecurringBudgetSummary } from '@/lib/aggregations'
-import { RecurringRuleCard } from '@/components/finance/RecurringRuleCard'
+import { RecurringRuleCard } from '@/components/recurring/RecurringRuleCard'
 import { AmountDisplay } from '@/components/finance/AmountDisplay'
 import { CalmCard } from '@/components/finance/CalmCard'
 import { RecurringBudget, CommitmentsLane } from './RecurringBudget'
@@ -35,10 +35,10 @@ import { upsertRecurringRule, archiveRecurringRule, unarchiveRecurringRule, dele
 // The type comes straight from the library: a 'use server' file must export only
 // async functions, and re-exporting a type from one becomes a runtime value
 // export in the actions loader, which throws when the module is evaluated.
-import type { RecurringRuleInput } from '@/lib/recurring-create'
-import { useFabContext } from '@/contexts/fab-context'
-import { useIsMobile } from '@/hooks/use-is-mobile'
-import type { CardRule } from '@/components/finance/RecurringRuleCard'
+import type { RecurringRuleInput } from '@/lib/recurring/create'
+import { useFabContext } from '@/components/providers/fab-context'
+import { useIsMobile } from '@/lib/hooks/use-is-mobile'
+import type { CardRule } from '@/components/recurring/RecurringRuleCard'
 import { fmtAnchor, fmtCur, fmtDate, todayIso } from '@/lib/format'
 import { hexToRgba } from '@/lib/colors'
 

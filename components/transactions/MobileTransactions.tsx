@@ -7,12 +7,12 @@ import { CalmCard } from '@/components/finance/CalmCard';
 import { CategoryAvatar } from '@/components/finance/CategoryAvatar';
 import { Segmented } from '@/components/ui/segmented';
 import { PaginationControls } from '@/components/ui/pagination';
-import { ExportTransactionsButton } from '@/components/shell/ExportTransactionsDialog';
+import { ExportTransactionsButton } from '@/components/transactions/ExportTransactionsDialog';
 import { MonthNetStrip } from './MonthNetStrip';
 import { fmtCur, fmtDate, fmtAnchor, dayOfWeek } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import type { SerializedTx } from './TransactionsView';
-import { isSavingsType, typeGlyph, typeLabel, type TxTypeFilter } from '@/lib/transaction-type';
+import { isSavingsType, typeGlyph, typeLabel, type TxTypeFilter } from '@/lib/transactions/type';
 
 type TypeFilter = TxTypeFilter;
 export interface TxGroup {

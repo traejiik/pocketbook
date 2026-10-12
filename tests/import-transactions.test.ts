@@ -20,7 +20,7 @@ vi.mock('@/lib/prisma', () => ({
 }))
 vi.mock('@/lib/fx', () => ({ lockRate: lockRateMock }))
 
-const { parseTransactionRows, classifyImportRows, commitImportRows, importTransactions } = await import('@/lib/import-transactions')
+const { parseTransactionRows, classifyImportRows, commitImportRows, importTransactions } = await import('@/lib/import/transactions')
 
 const HEADER = 'date,description,amount,currency,type,category,category_id,recurring_rule_name'
 const csv = (...lines: string[]) => [HEADER, ...lines].join('\n')

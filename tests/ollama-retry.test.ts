@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { streamGenerate } from '@/lib/ollama'
+import { streamGenerate } from '@/lib/insights/ollama'
 
 function okResponse() {
   return {

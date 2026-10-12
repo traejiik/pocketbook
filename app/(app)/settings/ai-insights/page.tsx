@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { prisma } from '@/lib/prisma';
-import { pingOllama, listOllamaModels } from '@/lib/ollama';
+import { pingOllama, listOllamaModels } from '@/lib/insights/ollama';
 import { AiSettings } from '../AiSettings';
 
 // Shown only when Ollama is unreachable, so these are suggestions rather than

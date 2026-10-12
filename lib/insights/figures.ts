@@ -1,4 +1,4 @@
-import { PRIOR_OPENINGS_HEADING } from './insights-prompt'
+import { PRIOR_OPENINGS_HEADING } from './prompt'
 
 /**
  * Digit grouping as a model may write it: the ledger's own space, a comma, or the

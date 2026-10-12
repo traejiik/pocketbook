@@ -18,15 +18,15 @@ import {
   getSavingsSummary,
 } from '@/lib/aggregations'
 import { prisma } from '@/lib/prisma'
-import { pingOllama } from '@/lib/ollama'
+import { pingOllama } from '@/lib/insights/ollama'
 import { fmtAnchor, fmtCur, fmtDate } from '@/lib/format'
 import { KpiBig } from '@/components/finance/KpiBig'
-import { BalanceHero } from '@/components/finance/BalanceHero'
+import { BalanceHero } from '@/components/dashboard/BalanceHero'
 import { GaugeMeter } from '@/components/finance/GaugeMeter'
 import { CalmCard, CalmCardHead } from '@/components/finance/CalmCard'
 import { CategoryAvatar } from '@/components/finance/CategoryAvatar'
-import { SavingsCard } from '@/components/finance/SavingsCard'
-import { isSavingsType, typeGlyph } from '@/lib/transaction-type'
+import { SavingsCard } from '@/components/dashboard/SavingsCard'
+import { isSavingsType, typeGlyph } from '@/lib/transactions/type'
 import { DashboardChartSection } from './DashboardChartSection'
 
 export default async function DashboardPage() {

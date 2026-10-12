@@ -109,7 +109,7 @@ async function main() {
     // and disconnecting it afterwards keeps the seed from holding a second pool
     // open (and the process alive) on every normal boot.
     const [{ importTransactions }, { prisma: appPrisma }] = await Promise.all([
-      import('../lib/import-transactions'),
+      import('../lib/import/transactions'),
       import('../lib/prisma'),
     ]);
     try {
