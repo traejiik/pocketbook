@@ -120,7 +120,7 @@ export function DashboardChartSection({
   return (
     <>
       {/* Mobile + tablet — horizontal category bars, no Net-trend toggle (matches v5 mobile/tablet prototype) */}
-      <CalmCard className="col-span-12 md:col-span-6 lg:hidden p-6" style={barBase}>
+      <CalmCard className="col-span-12 md:col-span-6 lg:hidden order-2 md:order-1 p-6" style={barBase}>
         <CalmCardHead
           title="Expenses by category"
           sub={sub}
