@@ -139,16 +139,20 @@ describe('tablet breakpoint contract', () => {
     expect(chart).toContain('byCategory.slice(0, 4)');
     expect(chart).toContain('`Top ${topCats.length} of ${catCount}`');
 
-    // Tablet pairs: Expenses|Gauge, Renewals|Recent, Reminder|AI.
-    // md:order-* sequences the cards into those rows; lg:order-none restores DOM order for the desktop spans.
-    // The gauge also gets order-first so it sits right under the KPIs on mobile.
-    expect(dashboard).toContain('col-span-12 md:col-span-6 lg:col-span-4 order-first md:order-2 lg:order-none');
-    expect(dashboard).toContain('col-span-12 md:col-span-6 lg:col-span-5 md:order-3 lg:order-none');
-    expect(dashboard).toContain('col-span-12 md:col-span-6 lg:col-span-5 md:order-4 lg:order-none');
+    // Grid DOM order is the desktop order (Expenses 7 | Gauge 5, Renewals 5 | Recent 4 | AI 3).
+    // Mobile: Renewals first (order-1), then Expenses, Gauge, Recent, Savings, AI.
+    // Tablet pairs: Expenses|Gauge, Renewals|Recent, then AI and Savings as full-width rows.
+    // lg:order-none restores DOM order for the desktop spans.
+    expect(chart).toContain('lg:hidden order-2 md:order-1');
+    expect(dashboard).toContain('col-span-12 md:col-span-6 lg:col-span-5 order-3 md:order-2 lg:order-none');
+    expect(dashboard).toContain('col-span-12 md:col-span-6 lg:col-span-5 order-1 md:order-3 lg:order-none');
+    expect(dashboard).toContain('col-span-12 md:col-span-6 lg:col-span-4 order-4 lg:order-none');
 
-    // Reminder/AI: full-width 2-up grid on tablet, stacked 3-col rail on desktop
-    expect(dashboard).toContain('col-span-12 lg:col-span-3 md:order-5 lg:order-none');
-    expect(dashboard).toContain('md:grid md:grid-cols-2 lg:flex lg:flex-col');
+    // AI: slim full-width row on tablet, its own 3-col card on desktop. The Reminder card
+    // is gone — it repeated the first Upcoming renewals row.
+    expect(dashboard).toContain('col-span-12 lg:col-span-3 order-6 md:order-5 lg:order-none');
+    expect(dashboard).toContain('md:flex-row md:items-center');
+    expect(dashboard).not.toContain('Next renewal');
 
     // AI card shows an adaptation of its real state — never the prototype's hardcoded sentence
     expect(dashboard).toContain('Generate fresh commentary on where the money went');
