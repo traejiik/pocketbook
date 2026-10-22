@@ -112,7 +112,18 @@ export function TransactionsView({
     [currentMonthISO, router, searchParams],
   );
 
-  const [search, setSearch] = useState(() => searchParams.get('q') ?? '');
+  const urlQuery = searchParams.get('q') ?? '';
+  const [search, setSearch] = useState(urlQuery);
+
+  // Closing the mobile/tablet search drops `?q=`, so searching the same term again
+  // from the header is a new URL and reopens the results.
+  const clearUrlQuery = useCallback(() => {
+    if (!searchParams.has('q')) return;
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete('q');
+    const rest = params.toString();
+    router.replace(rest ? `/transactions?${rest}` : '/transactions', { scroll: false });
+  }, [router, searchParams]);
   const [typeFilter, setTypeFilter] = useState<TypeFilter>(() => {
     return parseTypeFilter(searchParams.get('type'));
   });
@@ -310,6 +321,8 @@ export function TransactionsView({
           filter={typeFilter}
           setTypeFilter={setTypeFilter}
           monthLabel={monthLabel}
+          urlQuery={urlQuery}
+          onSearchClosed={clearUrlQuery}
           onPrev={() => navigateMonth('prev')}
           onNext={() => navigateMonth('next')}
           isCurrentMonth={isCurrentMonth}
@@ -333,6 +346,8 @@ export function TransactionsView({
           toHuf={toHuf}
           anchorCurrency={anchorCurrency}
           monthLabel={monthLabel}
+          urlQuery={urlQuery}
+          onSearchClosed={clearUrlQuery}
           onRowClick={handleRowClick}
           closedControls={(searchButton) => (
             <div className="flex h-full items-center gap-2">
