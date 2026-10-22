@@ -16,6 +16,8 @@ export const metadata: Metadata = {
   // standalone install (apple-touch-icon + apple-mobile-web-app meta tags).
   appleWebApp: { capable: true, title: 'Pocketbook', statusBarStyle: 'default' },
   icons: {
+    // app/favicon.ico stays the fallback; this SVG switches blues with the OS theme.
+    icon: [{ url: '/icons/favicon.svg', type: 'image/svg+xml' }],
     apple: [{ url: '/icons/apple-touch-icon.png', sizes: '180x180' }],
   },
 };
