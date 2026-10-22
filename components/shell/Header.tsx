@@ -63,7 +63,7 @@ export function Header({ displayName = 'User', className }: HeaderProps) {
           <input
             ref={searchRef}
             className="flex-1 bg-transparent outline-none text-[12.5px] placeholder:text-muted-foreground min-w-0"
-            placeholder="Search transactions, subs, categories…"
+            placeholder="Search this month’s transactions…"
             value={searchValue}
             onChange={(e) => setSearchValue(e.target.value)}
             onKeyDown={handleSearchKey}

@@ -36,8 +36,9 @@ function usePrefersReducedMotion(): boolean {
   return reduced;
 }
 
-function hufLabel(huf: number): string {
-  return Math.round(Math.abs(huf)).toLocaleString('hu-HU').replace(/,/g, ' ');
+/** Search runs over the loaded month only, matching description or category name. */
+export function searchHint(monthLabel: string): string {
+  return `Type to search ${monthLabel} by description or category`;
 }
 
 // ── Single row (tap to edit) ────────────────────────────────────────────────
@@ -90,7 +91,7 @@ function MobileTxDetailRow({
           {sign}{fmtCur(Math.abs(Number(tx.amount)), tx.currency as 'HUF' | 'USD' | 'EUR' | 'GBP').replace('−', '')}
         </div>
         {isFx && (
-          <div className="tabular text-[10.5px] text-muted-foreground mt-0.5">≈ {hufLabel(huf)} Ft</div>
+          <div className="tabular text-[10.5px] text-muted-foreground mt-0.5">≈ {fmtAnchor(Math.abs(huf), anchorCurrency)}</div>
         )}
       </div>
     </button>
@@ -156,6 +157,7 @@ function TxSearchOverlay({
   reduced,
   toHuf,
   anchorCurrency,
+  monthLabel,
   onRowClick,
 }: {
   q: string;
@@ -165,6 +167,7 @@ function TxSearchOverlay({
   reduced: boolean;
   toHuf: (tx: SerializedTx) => number;
   anchorCurrency: string;
+  monthLabel: string;
   onRowClick: (tx: SerializedTx) => void;
 }) {
   const [vis, setVis] = useState(false);
@@ -204,7 +207,7 @@ function TxSearchOverlay({
           )}
         </>
       ) : (
-        <div className="pt-8 text-center text-[12px] text-muted-foreground">Type to search all transactions</div>
+        <div className="pt-8 text-center text-[12px] text-muted-foreground">{searchHint(monthLabel)}</div>
       )}
     </div>
   );
@@ -217,6 +220,8 @@ interface TransactionSearchFrameProps {
   searchCount: number;
   toHuf: (tx: SerializedTx) => number;
   anchorCurrency: string;
+  /** The month the search runs over — search only covers the loaded month. */
+  monthLabel: string;
   onRowClick: (tx: SerializedTx) => void;
   closedControls: (searchButton: ReactNode) => ReactNode;
   ledger: ReactNode;
@@ -231,6 +236,7 @@ export function TransactionSearchFrame({
   searchCount,
   toHuf,
   anchorCurrency,
+  monthLabel,
   onRowClick,
   closedControls,
   ledger,
@@ -359,6 +365,7 @@ export function TransactionSearchFrame({
             reduced={reduced}
             toHuf={toHuf}
             anchorCurrency={anchorCurrency}
+            monthLabel={monthLabel}
             onRowClick={onRowClick}
           />
         )}
@@ -419,6 +426,7 @@ export function MobileTransactions({
       searchCount={searchCount}
       toHuf={toHuf}
       anchorCurrency={anchorCurrency}
+      monthLabel={monthLabel}
       onRowClick={onRowClick}
       closedControls={(searchButton) => (
         <div className="flex h-full items-center gap-2">

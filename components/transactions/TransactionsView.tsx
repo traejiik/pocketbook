@@ -77,10 +77,6 @@ function amountSign(type: SerializedTx['type']): string {
   return typeGlyph(type);
 }
 
-function spaceFt(n: number): string {
-  return `${Math.round(Math.abs(n)).toLocaleString('hu-HU').replace(/,/g, ' ')} Ft`;
-}
-
 function rowLabelFor(tx: SerializedTx): string {
   const isOptimistic = tx.id.startsWith('optimistic-');
   return `${isOptimistic ? 'Saving ' : 'Edit '}transaction: ${fmtDate(tx.date)}, ${tx.description}, ${tx.category.name}, ${typeLabel(tx.type)} ${fmtAnchor(Math.abs(tx.amount), tx.currency)}`;
@@ -336,6 +332,7 @@ export function TransactionsView({
           searchCount={mobileSearchList.length}
           toHuf={toHuf}
           anchorCurrency={anchorCurrency}
+          monthLabel={monthLabel}
           onRowClick={handleRowClick}
           closedControls={(searchButton) => (
             <div className="flex h-full items-center gap-2">
@@ -412,7 +409,7 @@ export function TransactionsView({
                               {amountSign(tx.type)}{fmtCur(Math.abs(Number(tx.amount)), tx.currency as 'HUF' | 'USD' | 'EUR' | 'GBP').replace('−', '')}
                             </span>
                             {isFx && (
-                              <span className="block tabular text-[10.5px] text-muted-foreground mt-0.5">≈ {spaceFt(toHUF(tx, fxRates))}</span>
+                              <span className="block tabular text-[10.5px] text-muted-foreground mt-0.5">≈ {fmtAnchor(Math.abs(toHUF(tx, fxRates)), anchorCurrency)}</span>
                             )}
                           </span>
                         </button>
@@ -442,6 +439,7 @@ export function TransactionsView({
           searchCount={mobileSearchList.length}
           toHuf={toHuf}
           anchorCurrency={anchorCurrency}
+          monthLabel={monthLabel}
           onRowClick={handleRowClick}
           closedControls={(searchButton) => (
             <div className="flex h-full items-center gap-3 flex-nowrap">
@@ -498,7 +496,7 @@ export function TransactionsView({
                   <span>Description</span>
                   <span>Category</span>
                   <span className="text-right">Amount</span>
-                  <span className="text-right">In HUF</span>
+                  <span className="text-right">In {anchorCurrency}</span>
                   <span />
                 </div>
 
@@ -544,7 +542,7 @@ export function TransactionsView({
                             {amountSign(tx.type)}{fmtCur(Math.abs(Number(tx.amount)), tx.currency as 'HUF' | 'USD' | 'EUR' | 'GBP').replace('−', '')}
                           </span>
 
-                          <span className="text-right tabular text-[12px] text-muted-foreground">{spaceFt(toHUF(tx, fxRates))}</span>
+                          <span className="text-right tabular text-[12px] text-muted-foreground">{fmtAnchor(Math.abs(toHUF(tx, fxRates)), anchorCurrency)}</span>
 
                           <span className="flex justify-end text-muted-foreground/60">
                             <ChevronRightIcon className="w-3.5 h-3.5" />
