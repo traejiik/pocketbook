@@ -199,7 +199,7 @@ describe('tablet breakpoint contract', () => {
     // Mobile tier: 36px avatar rows + animated floating search overlay
     const mobile = source('components/transactions/MobileTransactions.tsx');
     expect(mobile).toContain('color={tx.category.color} size={36}');
-    expect(mobile).toContain('Type to search all transactions');
+    expect(mobile).toContain('Type to search ${monthLabel} by description or category');
     expect(mobile).toContain('aria-label="Search transactions"');
 
     // Tablet borrows the mobile animated search affordance so the type strip
