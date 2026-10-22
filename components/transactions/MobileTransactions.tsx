@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, type ReactNode } from 'react';
+import { flushSync } from 'react-dom';
 import { SearchIcon, XIcon, RepeatIcon } from 'lucide-react';
 
 import { CalmCard } from '@/components/finance/CalmCard';
@@ -153,7 +154,7 @@ function TxSearchOverlay({
   q,
   groups,
   count,
-  closing,
+  shown,
   reduced,
   toHuf,
   anchorCurrency,
@@ -163,24 +164,15 @@ function TxSearchOverlay({
   q: string;
   groups: TxGroup[];
   count: number;
-  closing: boolean;
+  /** Driven by the frame in both directions; reopening during the exit retargets. */
+  shown: boolean;
   reduced: boolean;
   toHuf: (tx: SerializedTx) => number;
   anchorCurrency: string;
   monthLabel: string;
   onRowClick: (tx: SerializedTx) => void;
 }) {
-  const [vis, setVis] = useState(false);
-
-  useEffect(() => {
-    const id = requestAnimationFrame(() => requestAnimationFrame(() => setVis(true)));
-    return () => cancelAnimationFrame(id);
-  }, []);
-
-  useEffect(() => {
-    if (closing) setVis(false);
-  }, [closing]);
-
+  const vis = shown;
   const style: React.CSSProperties = reduced
     ? { opacity: vis ? 1 : 0, transition: `opacity 0.15s ${EASE}` }
     : {
@@ -190,7 +182,7 @@ function TxSearchOverlay({
       };
 
   return (
-    <div className="absolute inset-x-0 top-0 z-10" style={style}>
+    <div className="absolute inset-x-0 top-0 z-10" style={style} inert={!shown}>
       {q ? (
         <>
           <CalmCard className="overflow-hidden shadow-pb-2">
@@ -222,6 +214,14 @@ interface TransactionSearchFrameProps {
   anchorCurrency: string;
   /** The month the search runs over — search only covers the loaded month. */
   monthLabel: string;
+  /**
+   * The `?q=` from the URL. Tiers whose ledger ignores the query (mobile, tablet) pass it,
+   * so arriving with a search — e.g. from the header — shows the results instead of an
+   * unfiltered ledger. Only a new value reopens; dismissing clears the input, not the URL.
+   */
+  urlQuery?: string;
+  /** Called once the search has closed, so the owner can drop `?q=` from the URL. */
+  onSearchClosed?: () => void;
   onRowClick: (tx: SerializedTx) => void;
   closedControls: (searchButton: ReactNode) => ReactNode;
   ledger: ReactNode;
@@ -237,20 +237,32 @@ export function TransactionSearchFrame({
   toHuf,
   anchorCurrency,
   monthLabel,
+  urlQuery,
+  onSearchClosed,
   onRowClick,
   closedControls,
   ledger,
   afterControls,
   className,
 }: TransactionSearchFrameProps) {
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [searchAnim, setSearchAnim] = useState(false);
+  // Arriving with a query opens already settled (no entrance), so first paint shows results.
+  const startOpen = !!urlQuery;
+  const [searchOpen, setSearchOpen] = useState(startOpen);
+  const [searchAnim, setSearchAnim] = useState(startOpen);
   const inputRef = useRef<HTMLInputElement>(null);
+  const searchButtonRef = useRef<HTMLButtonElement>(null);
+  const frameRef = useRef<HTMLDivElement>(null);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastUrlQuery = useRef(urlQuery);
   const reduced = usePrefersReducedMotion();
 
-  const openSearch = () => {
+  const cancelClose = () => {
     if (closeTimer.current) clearTimeout(closeTimer.current);
+    closeTimer.current = null;
+  };
+
+  const openSearch = () => {
+    cancelClose();
     setSearchOpen(true);
     requestAnimationFrame(() =>
       requestAnimationFrame(() => {
@@ -261,20 +273,38 @@ export function TransactionSearchFrame({
   };
 
   const closeSearch = () => {
-    setSearchAnim(false);
+    cancelClose();
+    // Only pull focus back when it was inside the search; never steal it from elsewhere.
+    const hadFocus = !!frameRef.current?.contains(document.activeElement);
+    // Commit now so the controls row is no longer inert, then move focus in the same task:
+    // making the search row inert blurs the input, and waiting a frame leaves focus on <body>.
+    flushSync(() => setSearchAnim(false));
+    if (hadFocus) searchButtonRef.current?.focus();
     closeTimer.current = setTimeout(() => {
+      closeTimer.current = null;
       setSearchOpen(false);
       setSearch('');
+      onSearchClosed?.();
     }, reduced ? 0 : 220);
   };
 
-  useEffect(() => () => {
-    if (closeTimer.current) clearTimeout(closeTimer.current);
-  }, []);
+  // A new query arriving from outside (header search while already on this page).
+  useEffect(() => {
+    if (urlQuery === lastUrlQuery.current) return;
+    lastUrlQuery.current = urlQuery;
+    if (urlQuery) {
+      cancelClose();
+      setSearchOpen(true);
+      setSearchAnim(true);
+    }
+  }, [urlQuery]);
+
+  useEffect(() => () => cancelClose(), []);
 
   const rowTrans = reduced ? `opacity 0.15s ${EASE}` : `opacity 0.18s ${EASE}, transform 0.18s ${EASE}`;
   const searchButton = (
     <button
+      ref={searchButtonRef}
       type="button"
       onClick={openSearch}
       aria-label="Search transactions"
@@ -285,7 +315,7 @@ export function TransactionSearchFrame({
   );
 
   return (
-    <div className={cn('space-y-3', className)}>
+    <div ref={frameRef} className={cn('space-y-3', className)}>
       <div className="relative" style={{ height: 40 }}>
         <div
           className="absolute inset-0"
@@ -295,6 +325,7 @@ export function TransactionSearchFrame({
             transition: rowTrans,
             pointerEvents: searchAnim ? 'none' : 'auto',
           }}
+          inert={searchAnim}
         >
           {closedControls(searchButton)}
         </div>
@@ -308,6 +339,13 @@ export function TransactionSearchFrame({
               transition: rowTrans,
               pointerEvents: searchAnim ? 'auto' : 'none',
             }}
+            inert={!searchAnim}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                e.preventDefault();
+                closeSearch();
+              }
+            }}
           >
             <label className="flex-1 flex items-center gap-2.5 h-10 px-3.5 rounded-[12px] bg-card border border-ring/60 cursor-text">
               <SearchIcon className="w-[15px] h-[15px] text-muted-foreground shrink-0" />
@@ -315,6 +353,7 @@ export function TransactionSearchFrame({
                 ref={inputRef}
                 value={q}
                 onChange={(e) => setSearch(e.target.value)}
+                aria-label={`Search ${monthLabel} by description or category`}
                 className="flex-1 bg-transparent outline-none text-[13px] placeholder:text-muted-foreground min-w-0"
                 placeholder="Search transactions…"
               />
@@ -351,6 +390,7 @@ export function TransactionSearchFrame({
             userSelect: searchAnim ? 'none' : 'auto',
             transition: `filter 0.22s ${EASE}, opacity 0.22s ${EASE}`,
           }}
+          inert={searchAnim}
         >
           {ledger}
         </div>
@@ -361,7 +401,7 @@ export function TransactionSearchFrame({
             q={q}
             groups={searchGroups}
             count={searchCount}
-            closing={!searchAnim}
+            shown={searchAnim}
             reduced={reduced}
             toHuf={toHuf}
             anchorCurrency={anchorCurrency}
@@ -386,6 +426,8 @@ interface MobileTransactionsProps {
   filter: TypeFilter;
   setTypeFilter: (v: TypeFilter) => void;
   monthLabel: string;
+  urlQuery?: string;
+  onSearchClosed?: () => void;
   onPrev: () => void;
   onNext: () => void;
   isCurrentMonth: boolean;
@@ -408,6 +450,8 @@ export function MobileTransactions({
   filter,
   setTypeFilter,
   monthLabel,
+  urlQuery,
+  onSearchClosed,
   onPrev,
   onNext,
   isCurrentMonth,
@@ -427,6 +471,8 @@ export function MobileTransactions({
       toHuf={toHuf}
       anchorCurrency={anchorCurrency}
       monthLabel={monthLabel}
+      urlQuery={urlQuery}
+      onSearchClosed={onSearchClosed}
       onRowClick={onRowClick}
       closedControls={(searchButton) => (
         <div className="flex h-full items-center gap-2">
