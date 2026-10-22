@@ -40,12 +40,17 @@ describe('tablet breakpoint contract', () => {
     expect(tabletRail).not.toContain('pb-rail-collapsed');
     expect(tabletRail).toContain('aria-label="Close navigation"');
     expect(tabletRail).toContain("useEffect(() => { setCollapsed(true); }, [pathname]);");
-    expect(tabletRail).toContain("collapsed ? 'w-[76px]' : 'w-[232px] shadow-lg'");
-    expect(tabletRail).toContain("collapsed ? 'justify-center' : 'gap-2.5 px-3'");
+    // The rail never changes width: the 232px drawer is a separate layer revealed
+    // by opacity + transform, inert while closed, with icons aligned to the rail.
+    expect(tabletRail).toContain("className={cn('w-[76px]', className)} inert={!collapsed}");
+    expect(tabletRail).toContain("'w-[232px] shadow-lg transition-[opacity,transform] duration-200");
+    expect(tabletRail).toContain("collapsed ? 'opacity-0 -translate-x-2 pointer-events-none' : 'opacity-100 translate-x-0'");
+    expect(tabletRail).not.toContain('transition-[width]');
+    expect(tabletRail).toContain("collapsed ? 'justify-center' : 'gap-2.5 pl-[17px] pr-3'");
     expect(tabletRail).toContain('aria-label={collapsed ? \'Expand sidebar\' : \'Collapse sidebar\'}');
     expect(tabletRail).toContain('absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-warning');
 
-    expect(tabletRail).toContain("'absolute inset-y-0 left-0 z-40 flex-col pt-5 pb-4 px-3 bg-card border-r border-border/55 transition-[width] duration-200'");
+    expect(tabletRail).toContain("'absolute inset-y-0 left-0 z-40 flex-col pt-5 pb-4 px-3 bg-card border-r border-border/55'");
     expect(sidebar).toContain("'w-[224px] shrink-0 flex-col pt-5 pb-4 px-3 bg-card border-r border-border/55'");
     expect(sidebar).toContain("import { LogoMark } from '@/components/shell/LogoMark';");
     expect(sidebar).toContain('text-[15px] font-semibold tracking-tight');
