@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import Link from 'next/link'
-import { ChevronRight, Sparkles, ArrowRight, CalendarDays, TriangleAlert } from 'lucide-react'
+import { ChevronRight, Sparkles, ArrowRight, TriangleAlert } from 'lucide-react'
 import {
   getCurrentMonthKpis,
   getLastMonthKpis,
@@ -84,7 +84,6 @@ export default async function DashboardPage() {
   const monthLabel = now.toLocaleDateString('en-GB', { month: 'short' })
   const monthLong = now.toLocaleDateString('en-GB', { month: 'long' })
   const upcomingTotalHUF = upcoming.reduce((s, r) => s + (r.hufEquivalent ?? 0), 0)
-  const nextRenewal = upcoming[0] ?? null
   const lastInsightDate = lastInsight
     ? lastInsight.generatedAt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })
     : null
@@ -131,8 +130,44 @@ export default async function DashboardPage() {
           anchorCurrency={anchor}
         />
 
-        {/* Upcoming renewals */}
-        <CalmCard className="col-span-12 md:col-span-6 lg:col-span-5 md:order-3 lg:order-none p-6">
+        {/* Grid order is the desktop order: this month's spending (Expenses 7 | Income used 5),
+            then what's next (Renewals 5 | Recent 4 | AI 3), then Savings. Mobile pulls Renewals
+            to the top (order-*); tablet keeps the v5 pairs (md:order-*). */}
+
+        {/* Income used — gauge */}
+        <CalmCard className="col-span-12 md:col-span-6 lg:col-span-5 order-3 md:order-2 lg:order-none p-6 flex flex-col">
+          <CalmCardHead
+            title="Income used"
+            sub={`${fmtAnchor(kpis.expense + kpis.savings, anchor)} of ${fmtAnchor(kpis.income, anchor)}`}
+            right={
+              <span className="mono text-[10px] uppercase tracking-[0.1em] text-muted-foreground bg-secondary/80 rounded-full px-2.5 py-1">
+                {monthLabel}
+              </span>
+            }
+          />
+          <div className="flex-1 flex items-center justify-center">
+            <GaugeMeter percent={kpis.incomeUsedPct} />
+          </div>
+          <div className="flex items-center justify-center gap-5">
+            <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
+              <span className="w-2 h-2 rounded-full bg-income" />
+              Used
+            </span>
+            <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
+              <span
+                className="w-3 h-2.5 rounded-sm"
+                style={{
+                  background: 'repeating-linear-gradient(45deg, hsl(var(--muted-foreground) / 0.35) 0 2px, transparent 2px 5px)',
+                  border: '1px solid hsl(var(--border))',
+                }}
+              />
+              Remaining
+            </span>
+          </div>
+        </CalmCard>
+
+        {/* Upcoming renewals — first card on mobile; its first row is the next renewal */}
+        <CalmCard className="col-span-12 md:col-span-6 lg:col-span-5 order-1 md:order-3 lg:order-none p-6">
           <CalmCardHead
             title="Upcoming renewals"
             sub={`Next 30 days · ${fmtAnchor(upcomingTotalHUF, anchor)}`}
@@ -189,7 +224,7 @@ export default async function DashboardPage() {
         </CalmCard>
 
         {/* Recent activity */}
-        <CalmCard className="col-span-12 md:col-span-6 lg:col-span-5 md:order-4 lg:order-none p-6">
+        <CalmCard className="col-span-12 md:col-span-6 lg:col-span-4 order-4 lg:order-none p-6">
           <CalmCardHead
             title="Recent activity"
             sub={`Last ${recentTx.length} transactions`}
@@ -244,101 +279,41 @@ export default async function DashboardPage() {
           </div>
         </CalmCard>
 
-        {/* Income used — gauge (mobile: right under the KPIs; tablet/desktop keep their slots) */}
-        <CalmCard className="col-span-12 md:col-span-6 lg:col-span-4 order-first md:order-2 lg:order-none p-6 flex flex-col">
-          <CalmCardHead
-            title="Income used"
-            sub={`${fmtAnchor(kpis.expense + kpis.savings, anchor)} of ${fmtAnchor(kpis.income, anchor)}`}
-            right={
-              <span className="mono text-[10px] uppercase tracking-[0.1em] text-muted-foreground bg-secondary/80 rounded-full px-2.5 py-1">
-                {monthLabel}
-              </span>
-            }
-          />
-          <div className="flex-1 flex items-center justify-center">
-            <GaugeMeter percent={kpis.incomeUsedPct} />
+        {/* AI Insights — model beside the title; body adapts the real insight state (no fake
+            commentary). One slim row on tablet, a column card in the desktop 3-col slot. */}
+        <CalmCard className="col-span-12 lg:col-span-3 order-6 md:order-5 lg:order-none p-5 md:px-6 md:py-4 lg:p-6 flex flex-col md:flex-row md:items-center md:gap-6 lg:flex-col lg:items-stretch lg:gap-0">
+          <div className="flex items-center gap-2 md:shrink-0">
+            <span className="text-primary"><Sparkles className="w-[18px] h-[18px]" /></span>
+            <span className="text-[14.5px] font-semibold tracking-tight whitespace-nowrap">AI Insights</span>
+            <span className="mono text-[10.5px] text-muted-foreground ml-auto md:ml-2 lg:ml-auto min-w-0 truncate">{settings?.ollamaModel ?? 'No model picked'}</span>
           </div>
-          <div className="flex items-center justify-center gap-5">
-            <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
-              <span className="w-2 h-2 rounded-full bg-income" />
-              Used
-            </span>
-            <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
-              <span
-                className="w-3 h-2.5 rounded-sm"
-                style={{
-                  background: 'repeating-linear-gradient(45deg, hsl(var(--muted-foreground) / 0.35) 0 2px, transparent 2px 5px)',
-                  border: '1px solid hsl(var(--border))',
-                }}
-              />
-              Remaining
-            </span>
+          <div className="text-[12.5px] text-muted-foreground mt-2.5 md:mt-0 lg:mt-3 leading-relaxed flex-1 min-w-0 line-clamp-2 lg:line-clamp-none">
+            {!ollamaReachable
+              ? 'The Ollama endpoint is unreachable. Configure it in Settings to start generating insights.'
+              : insightCount > 0
+              ? `${insightCount} insight${insightCount === 1 ? '' : 's'} generated so far${lastInsightDate ? ` · last on ${lastInsightDate}` : ''}. Generate fresh commentary on where the money went.`
+              : 'No insights generated yet. Generate fresh commentary on where the money went.'}
           </div>
-        </CalmCard>
-
-        {/* Reminder + AI Insights — side-by-side pair on tablet, stacked rail on desktop */}
-        <div className="col-span-12 lg:col-span-3 md:order-5 lg:order-none flex flex-col gap-4 md:grid md:grid-cols-2 lg:flex lg:flex-col">
-          {nextRenewal ? (
-            <CalmCard className="p-6 flex flex-col">
-              <div className="md:hidden text-[11.5px] text-muted-foreground">Reminder · Next renewal</div>
-              <div className="hidden md:block text-[11.5px] text-muted-foreground">Reminder</div>
-              <div className="hidden md:block text-[14.5px] font-semibold tracking-tight mt-1">Next renewal</div>
-              <div className="mt-2 md:mt-4 text-[14px] font-semibold tracking-tight text-primary leading-snug">
-                {nextRenewal.rule.name}
-              </div>
-              <div className="text-[11.5px] text-muted-foreground mt-1.5 tabular">
-                {fmtDate(nextRenewal.rule.nextDue.toISOString().split('T')[0], { short: true })} · in {nextRenewal.daysAway}d · {fmtCur(Number(nextRenewal.rule.amount), nextRenewal.rule.currency as 'HUF' | 'USD' | 'EUR' | 'GBP')}
-              </div>
-              <Link
-                href="/renewals"
-                className="mt-5 w-full inline-flex items-center justify-center gap-2 h-11 lg:h-9 rounded-[12px] lg:rounded-[10px] bg-primary text-primary-foreground font-medium text-[13px] lg:text-[12px] hover:opacity-90 motion-press focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-              >
-                <CalendarDays className="w-3.5 h-3.5" /> View renewals
-              </Link>
-            </CalmCard>
+          {ollamaReachable ? (
+            <Link
+              href="/insights?generate=1"
+              className="mt-4 md:mt-0 lg:mt-4 w-full md:w-auto md:px-5 lg:w-full lg:px-0 md:shrink-0 inline-flex items-center justify-center gap-2 h-11 md:h-10 lg:h-9 rounded-[12px] lg:rounded-[10px] bg-secondary/90 hover:bg-secondary text-foreground font-medium text-[13px] lg:text-[12px] motion-press focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+            >
+              Generate <ArrowRight className="w-4 h-4 lg:w-3.5 lg:h-3.5" />
+            </Link>
           ) : (
-            <CalmCard className="p-6 flex flex-col">
-              <div className="text-[11.5px] text-muted-foreground">Reminder</div>
-              <div className="text-[14px] font-semibold mt-2">No upcoming renewals</div>
-              <div className="text-[11.5px] text-muted-foreground mt-1">Nothing due in the next 30 days.</div>
-            </CalmCard>
+            <Link
+              href="/settings/ai-insights"
+              className="mt-4 md:mt-0 lg:mt-4 w-full md:w-auto md:px-5 lg:w-full lg:px-0 md:shrink-0 inline-flex items-center justify-center gap-2 h-11 md:h-10 lg:h-9 rounded-[12px] lg:rounded-[10px] border border-border font-medium text-[13px] lg:text-[12px] hover:bg-accent motion-press focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+            >
+              Configure Ollama
+            </Link>
           )}
-
-          {/* AI Insights card — model top-right; body adapts the real insight state (no fake commentary) */}
-          <CalmCard className="p-6 flex flex-col flex-1">
-            <div className="flex items-center gap-2">
-              <span className="text-primary"><Sparkles className="w-[18px] h-[18px]" /></span>
-              <span className="text-[14.5px] font-semibold tracking-tight">AI Insights</span>
-              <span className="mono text-[10.5px] text-muted-foreground ml-auto">{settings?.ollamaModel ?? 'No model picked'}</span>
-            </div>
-            <div className="text-[12.5px] text-muted-foreground mt-3 leading-relaxed flex-1">
-              {!ollamaReachable
-                ? 'The Ollama endpoint is unreachable. Configure it in Settings to start generating insights.'
-                : insightCount > 0
-                ? `${insightCount} insight${insightCount === 1 ? '' : 's'} generated so far${lastInsightDate ? ` · last on ${lastInsightDate}` : ''}. Generate fresh commentary on where the money went.`
-                : 'No insights generated yet. Generate fresh commentary on where the money went.'}
-            </div>
-            {ollamaReachable ? (
-              <Link
-                href="/insights?generate=1"
-                className="mt-4 w-full inline-flex items-center justify-center gap-2 h-11 lg:h-9 rounded-[12px] lg:rounded-[10px] bg-secondary/90 hover:bg-secondary text-foreground font-medium text-[13px] lg:text-[12px] motion-press focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-              >
-                Generate <ArrowRight className="w-4 h-4 lg:w-3.5 lg:h-3.5" />
-              </Link>
-            ) : (
-              <Link
-                href="/settings/ai-insights"
-                className="mt-4 w-full inline-flex items-center justify-center gap-2 h-11 lg:h-9 rounded-[12px] lg:rounded-[10px] border border-border font-medium text-[13px] lg:text-[12px] hover:bg-accent motion-press focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-              >
-                Configure Ollama
-              </Link>
-            )}
-          </CalmCard>
-        </div>
+        </CalmCard>
 
         {/* All-time savings: last on every tier; details on /savings */}
         {savings.pots.length > 0 && (
-          <SavingsCard summary={savings} anchor={anchor} className="col-span-12 md:order-6 lg:order-none" />
+          <SavingsCard summary={savings} anchor={anchor} className="col-span-12 order-5 md:order-6 lg:order-none" />
         )}
       </div>
     </div>
