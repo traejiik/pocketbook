@@ -149,7 +149,7 @@ export function SavingsView({
   )
 
   return (
-    <div className="motion-stagger px-4 lg:px-7 pb-9 pt-1 space-y-4 max-w-[1320px] mx-auto">
+    <div className="motion-rise px-4 lg:px-7 pb-9 pt-1 space-y-4 max-w-[1320px] mx-auto">
       <div className="hidden md:flex items-center justify-end gap-2">{actions}</div>
 
       {summary.unconvertibleCount > 0 && (

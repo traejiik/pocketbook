@@ -70,7 +70,7 @@ export function TimelineStrip({ events, horizon, anchorCurrency = 'HUF' }: Timel
                 setDismissedId(e.id)
               }}
               className="motion-bar-label absolute left-0 top-0 -translate-x-1/2 group pointer-events-auto rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 after:absolute after:-inset-x-2 after:-inset-y-1"
-              style={{ '--bar-base': '240ms', '--i': Math.round(pct / 10) } as CSSProperties}
+              style={{ '--i': Math.round(pct / 10) } as CSSProperties}
             >
               <span className="block w-0.5 bg-border h-3 mx-auto" />
               <span

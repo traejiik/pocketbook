@@ -74,7 +74,7 @@ export function DataSettings({ backupStatus, nextBackupRun, dbSize, version }: P
 
   return (
     <>
-      <div className="motion-stagger space-y-7">
+      <div className="motion-rise space-y-7">
         {/* ── Database backups ─────────────────────────────────────── */}
         <BackupSettings status={backupStatus} nextRun={nextBackupRun} />
 

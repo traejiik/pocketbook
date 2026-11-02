@@ -202,7 +202,7 @@ export function GeneralSettings({
 
   return (
     <>
-      <div className="motion-stagger space-y-7">
+      <div className="motion-rise space-y-7">
         {/* ── Currencies & FX rates ──────────────────────────────────── */}
         <section id="currencies">
           <div className="flex items-center gap-2 mb-3">

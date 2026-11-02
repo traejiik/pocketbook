@@ -8,7 +8,7 @@ import { navIdForPath } from '@/components/shell/nav';
  * Hand-off between top-level pages. Keyed by the nav section, so only a real
  * page change swaps it — month steps, search and optimistic writes keep the
  * key and stay still. The old page fades out quickly; the new one needs no
- * enter animation because its own `.motion-*` entrance already plays.
+ * enter animation because its own `.motion-rise` settle already plays.
  */
 export function PageTransition({ children }: { children: React.ReactNode }) {
   const section = navIdForPath(usePathname());
