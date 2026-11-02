@@ -89,10 +89,10 @@ export default async function DashboardPage() {
     : null
 
   return (
-    <div className="px-4 lg:px-7 pb-9 pt-1 space-y-4 max-w-[1320px] mx-auto">
+    <div className="motion-rise px-4 lg:px-7 pb-9 pt-1 space-y-4 max-w-[1320px] mx-auto">
       {/* Unconvertible-currency notice — totals exclude rows with no FX path */}
       {excludedCount > 0 && (
-        <div className="motion-rise calm-card px-4 py-3 text-[12.5px] flex items-start gap-2.5">
+        <div className="calm-card px-4 py-3 text-[12.5px] flex items-start gap-2.5">
           <TriangleAlert className="w-4 h-4 shrink-0 text-expense mt-0.5" />
           <span className="text-muted-foreground">
             <span className="text-foreground font-medium">
@@ -108,19 +108,19 @@ export default async function DashboardPage() {
 
       {/* Balance hero — month-to-month carry-over (an addition to the v5 dashboard) */}
       {balance !== null && (
-        <BalanceHero balance={balance} monthNet={balanceNet} trend={balanceTrend} currency={anchor} className="motion-rise" />
+        <BalanceHero balance={balance} monthNet={balanceNet} trend={balanceTrend} currency={anchor} />
       )}
 
       {/* KPI row — 2-up on mobile, four-up from tablet (matches v5 tablet prototype) */}
-      <div className="motion-stagger grid grid-cols-2 md:grid-cols-4 gap-4 [--stagger-base:60ms]">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <KpiBig label="Income" value={kpis.income} tone="income" deltaPct={incomeDelta?.label ?? '—'} footnote={deltaFootnote(incomeDelta)} currency={anchor} />
         <KpiBig label="Expenses" value={kpis.expense} tone="expense" deltaPct={expenseDelta?.label ?? '—'} footnote={deltaFootnote(expenseDelta)} currency={anchor} />
         <KpiBig label="Net" value={kpis.net} tone="income" deltaPct={netDelta?.label ?? '—'} footnote={deltaFootnote(netDelta)} currency={anchor} />
         <KpiBig label="Savings" value={kpis.savings} tone="savings" deltaPct={savingsDelta?.label ?? '—'} footnote={deltaFootnote(savingsDelta)} currency={anchor} />
       </div>
 
-      {/* 12-col grid — cards settle in after the KPI strip */}
-      <div className="motion-stagger grid grid-cols-12 gap-4 [--stagger-base:240ms]">
+      {/* 12-col grid */}
+      <div className="grid grid-cols-12 gap-4">
         {/* Expenses by category (client island) */}
         <DashboardChartSection
           byCategory={byCategory}

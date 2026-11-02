@@ -3,6 +3,7 @@ import { AppShell } from '@/components/shell/AppShell';
 import { TransactionSheetProvider } from '@/components/providers/sheet-context';
 import { NotificationsProvider } from '@/components/providers/notifications-context';
 import { getPotBalances, getUpcomingRenewals } from '@/lib/aggregations';
+import { DRAW_ONCE_SCRIPT } from '@/lib/draw-once';
 import { prisma } from '@/lib/prisma';
 import type { SerializedCategory, SerializedRecurringRule } from '@/components/transactions/TransactionForm';
 
@@ -36,6 +37,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <SessionProvider>
+      {/* Before the page paints, so a repeat visit never starts a draw. */}
+      <script dangerouslySetInnerHTML={{ __html: DRAW_ONCE_SCRIPT }} />
       <NotificationsProvider renewalsCount={renewalsSoon.length}>
         <TransactionSheetProvider potBalances={potBalances}>
           <AppShell
