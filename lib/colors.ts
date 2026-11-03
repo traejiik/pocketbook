@@ -15,15 +15,19 @@ export function hexToRgba(hex: string, alpha: number): string {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
-/** First letters of up to `max` words, uppercased (e.g. "Emergency Fund" → "EF"). */
+/**
+ * First letter (or digit) of up to `max` words, uppercased: "Emergency Fund" → "EF".
+ * Punctuation never counts as an initial — "Food & Groceries" → "FG",
+ * "Allowance (Home)" → "AH" — and a word with no letter or digit is skipped.
+ * A name with no letters at all (an emoji, say) falls back to its first character.
+ */
 export function initials(name: string, max = 2): string {
-  return name
+  const letters = name
     .split(/\s+/)
-    .filter(Boolean)
-    .map((w) => w[0])
-    .slice(0, max)
-    .join('')
-    .toUpperCase();
+    .map((word) => word.match(/[\p{L}\p{N}]/u)?.[0])
+    .filter((ch): ch is string => !!ch);
+  if (letters.length === 0) return Array.from(name.trim())[0] ?? '';
+  return letters.slice(0, max).join('').toUpperCase();
 }
 
 /**

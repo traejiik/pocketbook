@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState, type RefObject } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Plus, ChevronLeft } from 'lucide-react';
@@ -25,12 +25,18 @@ interface TabletRailProps {
  * it closes on navigation, on Escape, and when the scrim is clicked, and its
  * state is deliberately not remembered — a remembered open drawer would scrim
  * the app on every load.
+ *
+ * The rail never changes width. The drawer is a second, fixed-width layer above
+ * it that is revealed with opacity + transform only, so opening it does no layout
+ * work and labels never appear before there is room for them. Drawer rows are
+ * padded so every icon sits exactly where it sits on the rail.
  */
 export function TabletRail({ upcomingRenewalsCount = 0, onQuickAdd, className }: TabletRailProps) {
   const pathname = usePathname();
-  const activeId = navIdForPath(pathname);
-  const activeChildId = subNavIdForPath(pathname);
   const [collapsed, setCollapsed] = useState(true);
+  const railToggleRef = useRef<HTMLButtonElement>(null);
+  const drawerToggleRef = useRef<HTMLButtonElement>(null);
+  const firstRender = useRef(true);
 
   // Close on navigation: the drawer covers the page it just navigated to.
   useEffect(() => { setCollapsed(true); }, [pathname]);
@@ -42,9 +48,20 @@ export function TabletRail({ upcomingRenewalsCount = 0, onQuickAdd, className }:
     return () => window.removeEventListener('keydown', onKey);
   }, [collapsed]);
 
-  function toggle() {
-    setCollapsed((c) => !c);
-  }
+  // Opening makes the rail inert and closing makes the drawer inert, which drops
+  // focus on <body>. Hand it to the toggle on the layer that is now live — but only
+  // when focus was in the rail/drawer (or already lost), never from elsewhere.
+  useEffect(() => {
+    if (firstRender.current) {
+      firstRender.current = false;
+      return;
+    }
+    const active = document.activeElement;
+    const inRail = !active || active === document.body || !!active.closest('[data-rail-panel]');
+    if (inRail) (collapsed ? railToggleRef : drawerToggleRef).current?.focus();
+  }, [collapsed]);
+
+  const shared = { pathname, upcomingRenewalsCount, onQuickAdd, onToggle: () => setCollapsed((c) => !c) };
 
   return (
     <>
@@ -56,15 +73,49 @@ export function TabletRail({ upcomingRenewalsCount = 0, onQuickAdd, className }:
           className="fixed inset-0 z-30 bg-background/60 backdrop-blur-[2px] min-[1025px]:hidden"
         />
       )}
-      <aside
+      <RailPanel {...shared} collapsed toggleRef={railToggleRef} className={cn('w-[76px]', className)} inert={!collapsed} />
+      <RailPanel
+        {...shared}
+        collapsed={false}
+        toggleRef={drawerToggleRef}
+        inert={collapsed}
+        className={cn(
+          'w-[232px] shadow-lg transition-[opacity,transform] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)]',
+          collapsed ? 'opacity-0 -translate-x-2 pointer-events-none' : 'opacity-100 translate-x-0',
+          className,
+        )}
+      />
+    </>
+  );
+}
+
+interface RailPanelProps {
+  collapsed: boolean;
+  inert: boolean;
+  pathname: string;
+  upcomingRenewalsCount: number;
+  onQuickAdd?: () => void;
+  onToggle: () => void;
+  toggleRef: RefObject<HTMLButtonElement | null>;
+  className?: string;
+}
+
+function RailPanel({ collapsed, inert, pathname, upcomingRenewalsCount, onQuickAdd, onToggle, toggleRef, className }: RailPanelProps) {
+  const activeId = navIdForPath(pathname);
+  const activeChildId = subNavIdForPath(pathname);
+
+  return (
+    <aside
+      data-rail-panel
+      inert={inert}
+      aria-hidden={inert || undefined}
       className={cn(
-        'absolute inset-y-0 left-0 z-40 flex-col pt-5 pb-4 px-3 bg-card border-r border-border/55 transition-[width] duration-200',
-        collapsed ? 'w-[76px]' : 'w-[232px] shadow-lg',
+        'absolute inset-y-0 left-0 z-40 flex-col pt-5 pb-4 px-3 bg-card border-r border-border/55',
         className,
       )}
     >
       {/* Brand */}
-      <div className={cn('flex items-center gap-2.5 px-1.5', collapsed && 'justify-center px-0')}>
+      <div className={cn('flex items-center gap-2.5', collapsed ? 'justify-center' : 'pl-[15px]')}>
         <LogoMark size={24} className="text-primary h-[22px] w-[22px]" />
         {!collapsed && <span className="text-[15px] font-semibold tracking-tight">Pocketbook</span>}
       </div>
@@ -84,7 +135,7 @@ export function TabletRail({ upcomingRenewalsCount = 0, onQuickAdd, className }:
                 item={item}
                 active={active}
                 activeChildId={activeChildId}
-                rowClassName="min-h-11 px-3 rounded-[12px] text-[13px]"
+                rowClassName="min-h-11 pl-[17px] pr-3 rounded-[12px] text-[13px]"
               />
             );
           }
@@ -97,7 +148,7 @@ export function TabletRail({ upcomingRenewalsCount = 0, onQuickAdd, className }:
               title={collapsed ? item.label : undefined}
               className={cn(
                 'group relative flex items-center rounded-[12px] text-[13px] transition-colors min-h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
-                collapsed ? 'justify-center' : 'gap-2.5 px-3',
+                collapsed ? 'justify-center' : 'gap-2.5 pl-[17px] pr-3',
                 active
                   ? 'bg-primary/15 text-foreground font-medium'
                   : 'text-muted-foreground hover:text-foreground hover:bg-accent/70',
@@ -127,12 +178,14 @@ export function TabletRail({ upcomingRenewalsCount = 0, onQuickAdd, className }:
 
       {/* Collapse toggle */}
       <button
+        ref={toggleRef}
         type="button"
-        onClick={toggle}
+        onClick={onToggle}
         aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        aria-expanded={!collapsed}
         className={cn(
           'flex items-center gap-2 h-9 rounded-[10px] text-[12px] text-muted-foreground hover:text-foreground hover:bg-accent/70 transition-colors mb-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
-          collapsed ? 'justify-center' : 'px-3',
+          collapsed ? 'justify-center' : 'pl-[18px] pr-3',
         )}
       >
         <ChevronLeft className={cn('w-4 h-4 transition-transform', collapsed && 'rotate-180')} />
@@ -153,6 +206,5 @@ export function TabletRail({ upcomingRenewalsCount = 0, onQuickAdd, className }:
         {!collapsed && <span>Add transaction</span>}
       </button>
     </aside>
-    </>
   );
 }

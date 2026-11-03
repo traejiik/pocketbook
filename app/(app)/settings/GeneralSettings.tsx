@@ -202,7 +202,7 @@ export function GeneralSettings({
 
   return (
     <>
-      <div className="motion-stagger space-y-7">
+      <div className="motion-rise space-y-7">
         {/* ── Currencies & FX rates ──────────────────────────────────── */}
         <section id="currencies">
           <div className="flex items-center gap-2 mb-3">
@@ -375,9 +375,9 @@ export function GeneralSettings({
                         </div>
                       ) : (
                         <div className="h-9 rounded-md border border-border bg-secondary/40 px-3 flex items-center justify-between">
-                          <span className="inline-flex items-center gap-1.5 text-[11.5px] text-income">
-                            <span className="w-1.5 h-1.5 rounded-full bg-income animate-pulse" />
-                            Live
+                          <span className="inline-flex items-center gap-1.5 text-[11.5px] text-muted-foreground">
+                            <Repeat className="w-3 h-3" aria-hidden />
+                            Auto-updated
                           </span>
                           <span className="text-[10.5px] text-muted-foreground mono truncate ml-2">{r.provider ?? 'auto'}</span>
                         </div>
@@ -421,9 +421,9 @@ export function GeneralSettings({
                         </div>
                       ) : (
                         <div className="h-9 rounded-md border border-border bg-secondary/40 px-3 flex items-center justify-between">
-                          <span className="inline-flex items-center gap-1.5 text-[11.5px] text-income">
-                            <span className="w-1.5 h-1.5 rounded-full bg-income animate-pulse" />
-                            Live
+                          <span className="inline-flex items-center gap-1.5 text-[11.5px] text-muted-foreground">
+                            <Repeat className="w-3 h-3" aria-hidden />
+                            Auto-updated
                           </span>
                           <span className="text-[10.5px] text-muted-foreground mono truncate ml-2">{r.provider ?? 'auto'}</span>
                         </div>

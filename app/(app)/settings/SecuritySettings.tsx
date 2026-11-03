@@ -43,7 +43,7 @@ export function SecuritySettings() {
   const barColours = ['bg-border', 'bg-destructive', 'bg-warning', 'bg-income', 'bg-income'];
 
   return (
-    <div className="motion-stagger space-y-7">
+    <div className="motion-rise space-y-7">
       {/* ── Security ──────────────────────────────────────────────── */}
       <section id="security">
         <div className="flex items-center gap-2 mb-3">

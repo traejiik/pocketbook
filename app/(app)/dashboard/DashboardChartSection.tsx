@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, type CSSProperties } from 'react'
+import { markDrawn } from '@/lib/draw-once'
 import Link from 'next/link'
 import { ChevronRight, Plus } from 'lucide-react'
 import { Segmented } from '@/components/ui/segmented'
@@ -83,10 +84,6 @@ export function DashboardChartSection({
   anchorCurrency = 'HUF',
 }: Props) {
   const [view, setView] = useState<'cat' | 'trend'>('cat')
-  // Bars grow in once the card has settled on page load; after a toggle there is
-  // no card entrance to wait for, so the swapped chart grows immediately.
-  const [switched, setSwitched] = useState(false)
-  const barBase = { '--bar-base': switched ? '0ms' : '420ms' } as CSSProperties
   const { openNew } = useTransactionSheet()
 
   const topCats = byCategory.slice(0, 4)
@@ -120,7 +117,7 @@ export function DashboardChartSection({
   return (
     <>
       {/* Mobile + tablet — horizontal category bars, no Net-trend toggle (matches v5 mobile/tablet prototype) */}
-      <CalmCard className="col-span-12 md:col-span-6 lg:hidden order-2 md:order-1 p-6" style={barBase}>
+      <CalmCard className="col-span-12 md:col-span-6 lg:hidden order-2 md:order-1 p-6">
         <CalmCardHead
           title="Expenses by category"
           sub={sub}
@@ -190,7 +187,7 @@ export function DashboardChartSection({
       </CalmCard>
 
       {/* Desktop — vertical pill bars with Categories / Net-trend toggle */}
-      <CalmCard className="hidden lg:block col-span-12 lg:col-span-7 p-6" style={barBase}>
+      <CalmCard className="hidden lg:block col-span-12 lg:col-span-7 p-6">
         <CalmCardHead
           title="Expenses by category"
           sub={sub}
@@ -202,7 +199,8 @@ export function DashboardChartSection({
               ]}
               value={view}
               onChange={(v) => {
-                setSwitched(true)
+                // The swap is instant: the incoming chart must not replay its bars.
+                markDrawn()
                 setView(v)
               }}
             />

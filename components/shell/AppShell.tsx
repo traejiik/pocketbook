@@ -13,6 +13,7 @@ import { useTransactionSheet } from '@/components/providers/sheet-context';
 import { FabProvider } from '@/components/providers/fab-context';
 import { notify } from '@/lib/ui-notify';
 import { useGlobalKeys } from '@/lib/hooks/use-global-keys';
+import { useDrawOnce } from '@/lib/hooks/use-draw-once';
 import { TransactionForm, type SerializedCategory, type SerializedRecurringRule } from '@/components/transactions/TransactionForm';
 import { upsertTransaction, type TxInput } from '@/server-actions/transactions';
 import { syncDueRecurringRulesAction } from '@/server-actions/recurring-sync';
@@ -41,6 +42,7 @@ export function AppShell({
 
   const keyHandlers = useMemo(() => ({ n: openNew, N: openNew }), [openNew]);
   useGlobalKeys(keyHandlers);
+  useDrawOnce(pathname);
 
   // On mobile the document scrolls; on desktop <main> scrolls. Reset both.
   useEffect(() => {

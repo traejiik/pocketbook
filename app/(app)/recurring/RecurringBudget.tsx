@@ -117,7 +117,7 @@ function CommittedCard({
 
       {/* committed / free bar */}
       <div className="mt-4 h-2.5 rounded-full overflow-hidden flex bg-secondary">
-        <div className="motion-bar-x" style={{ width: `${Math.min(100, pct)}%`, background: 'hsl(var(--income))', '--bar-base': '200ms' } as CSSProperties} />
+        <div className="motion-bar-x" style={{ width: `${Math.min(100, pct)}%`, background: 'hsl(var(--income))' } as CSSProperties} />
       </div>
       <div className="flex items-center justify-between mt-2 text-[10.5px] text-muted-foreground">
         <span className="inline-flex items-center gap-1.5">
@@ -131,8 +131,8 @@ function CommittedCard({
         <div className="mt-5 pt-4 pb-3 border-t border-border/50">
           <div className="text-[11px] mono uppercase tracking-[0.12em] text-muted-foreground mb-2.5">Where it goes</div>
           <div className="h-2.5 rounded-full overflow-hidden bg-secondary">
-            {/* The composition sweeps in as one strip, after the committed bar. */}
-            <div className="motion-bar-x flex gap-px h-full" style={{ '--bar-base': '320ms' } as CSSProperties}>
+            {/* The composition sweeps in as one strip. */}
+            <div className="motion-bar-x flex gap-px h-full">
               {segs.map((s) => (
                 <div key={s.key} title={`${s.name} · ${huf(s.v)} Ft`} style={{ width: `${(s.v / expTotal) * 100}%`, background: s.color }} />
               ))}
@@ -280,14 +280,14 @@ export function CommitmentsLane({ rules, anchorCurrency }: { rules: BudgetRule[]
               {out > 0 && (
                 <div className="absolute left-1/2 -translate-x-1/2 w-[9px] rounded-[3px] overflow-hidden" style={{ bottom: 0, height: barH }}>
                   {/* Bars rise in date order, so the lane reads left to right as time. */}
-                  <div className="motion-bar-y h-full flex flex-col-reverse" style={{ '--bar-base': '240ms', '--i': Math.round(d / 3) } as CSSProperties}>
+                  <div className="motion-bar-y h-full flex flex-col-reverse" style={{ '--i': Math.round(d / 3) } as CSSProperties}>
                     <div style={{ height: `${(exp / out) * 100}%`, background: 'hsl(var(--expense))' }} />
                     <div style={{ height: `${(sav / out) * 100}%`, background: 'hsl(var(--savings))' }} />
                   </div>
                 </div>
               )}
               {hasIncome && (
-                <div className="motion-bar-label absolute left-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-income" style={{ bottom: -5, boxShadow: '0 0 0 3px hsl(var(--card))', '--bar-base': '240ms', '--i': Math.round(d / 3) } as CSSProperties} />
+                <div className="motion-bar-label absolute left-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-income" style={{ bottom: -5, boxShadow: '0 0 0 3px hsl(var(--card))', '--i': Math.round(d / 3) } as CSSProperties} />
               )}
               <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute left-1/2 -translate-x-1/2 -top-1 bg-card border border-border rounded-[8px] px-2.5 py-1.5 text-[11px] whitespace-nowrap shadow-pb-2 z-20">
                 <span className="font-medium">{recFmtShort(list[0].nextDue)}</span> · <span className="tabular text-muted-foreground">{huf(out || list[0].h)} Ft</span>
