@@ -13,7 +13,8 @@ const ruleUpdate = vi.fn()
 const transactionMock = vi.fn()
 
 const transactionClient = {
-  transaction: { create: txCreate, update: txUpdate, delete: txDelete, count: txCount, findUnique: txFindUnique },
+  $queryRaw: vi.fn().mockResolvedValue([{ id: 'rule-phone' }, { id: 'rule-rent' }, { id: 'rule-old' }, { id: 'rule-new' }]),
+  transaction: { create: txCreate, update: txUpdate, delete: txDelete, count: txCount, findUnique: txFindUnique, findFirst: vi.fn().mockResolvedValue(null) },
   recurringRule: { findUnique: ruleFindUnique, update: ruleUpdate },
 }
 
@@ -102,6 +103,19 @@ describe('transaction installment reconciliation', () => {
       where: { id: 'rule-phone' },
       data: { installmentPaid: 15, archived: true },
     })
+  })
+
+  it('rejects a linked edit when the transaction moved to a rule outside the held locks', async () => {
+    txFindUnique.mockResolvedValueOnce({ recurringRuleId: 'rule-old' })
+      .mockResolvedValueOnce({ recurringRuleId: 'rule-other' })
+    const { upsertTransaction } = await import('@/server-actions/transactions')
+
+    expect(await upsertTransaction({
+      id: 'tx-9', date: '2026-05-20', description: 'Moved payment', amount: 6500,
+      currency: 'HUF', type: 'EXPENSE', categoryId: 'cat_phone', recurringRuleId: 'rule-new',
+    })).toEqual({ error: expect.stringMatching(/reload/i) })
+    expect(txUpdate).not.toHaveBeenCalled()
+    expect(ruleUpdate).not.toHaveBeenCalled()
   })
 
   it('reconciles both the old and new rule when an edit moves the link', async () => {

@@ -13,7 +13,7 @@ import { useTransactionSheet } from '@/components/providers/sheet-context';
 import { useIsMobile } from '@/lib/hooks/use-is-mobile';
 import { cn } from '@/lib/utils';
 import { fmtAnchor, fmtDate, todayIso } from '@/lib/format';
-import { nextOccurrence, parseDateOnly, formatDateOnly } from '@/lib/recurring/dates';
+import { addCycles, parseDateOnly, formatDateOnly, type Cadence } from '@/lib/recurring/dates';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -70,7 +70,8 @@ export interface SerializedCategory {
 export interface SerializedRecurringRule {
   id: string;
   name: string;
-  cycle: 'MONTHLY' | 'ANNUAL';
+  cycle: Cadence['cycle'];
+  cycleInterval: number;
   kind: 'INCOME' | 'EXPENSE' | 'SAVINGS';
   /** `YYYY-MM-DD` — the occurrence an early log would settle. */
   nextDue: string;
@@ -209,12 +210,15 @@ export function TransactionForm({
   const pickedRule = recurringRuleId ? eligibleRules.find(r => r.id === recurringRuleId) ?? null : null;
   const earlyNote = (() => {
     if (!logEarly) return null;
+    if (settledOn && dateVal > settledOn && dateVal !== editingTx?.date) {
+      return { tone: 'warning' as const, text: `Choose a payment date on or before ${fmtDate(settledOn)}.` };
+    }
     if (settledOn) return { tone: 'muted' as const, text: `Settles the ${fmtDate(settledOn)} ${editingTx?.recurringRuleName ?? ''} payment. Turn off to hand it back to the rule.` };
     if (!pickedRule) return null;
     const due = parseDateOnly(pickedRule.nextDue);
-    const after = formatDateOnly(nextOccurrence(pickedRule.cycle, due, pickedRule.anchorDay));
+    const after = formatDateOnly(addCycles(pickedRule, due, 1));
     if (dateVal > pickedRule.nextDue) {
-      return { tone: 'warning' as const, text: `This payment was due ${fmtDate(pickedRule.nextDue)} — the scheduled entry may already exist.` };
+      return { tone: 'warning' as const, text: `Choose a payment date on or before ${fmtDate(pickedRule.nextDue)}.` };
     }
     return { tone: 'muted' as const, text: `Settles the ${fmtDate(pickedRule.nextDue)} payment · next due becomes ${fmtDate(after)}.` };
   })();
@@ -276,6 +280,13 @@ export function TransactionForm({
       return;
     }
     const withdrawing = values.type === 'WITHDRAWAL';
+    const previewedRule = eligibleRules.find(rule => rule.id === values.recurringRuleId);
+    const coveredDate = settledOn ?? previewedRule?.nextDue;
+    if (!withdrawing && values.logEarly && coveredDate && values.date > coveredDate
+      && (!settledOn || values.date !== editingTx?.date)) {
+      toast.error(`Choose a payment date on or before ${fmtDate(coveredDate)}.`);
+      return;
+    }
 
     onFormSubmit(
       {
@@ -288,6 +299,8 @@ export function TransactionForm({
         categoryId: values.categoryId,
         recurringRuleId: !withdrawing && (values.logEarly || plainLink) ? values.recurringRuleId || null : null,
         logEarly: !withdrawing && values.logEarly,
+        expectedDueDate: !withdrawing && values.logEarly && !settledOn
+          ? previewedRule?.nextDue : undefined,
       },
       category,
     );

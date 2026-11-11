@@ -91,6 +91,7 @@ export default async function TransactionsPage({
     id: r.id,
     name: r.name,
     cycle: r.cycle,
+    cycleInterval: r.cycleInterval,
     kind: r.kind,
     nextDue: r.nextDue.toISOString().slice(0, 10),
     anchorDay: r.anchorDay,

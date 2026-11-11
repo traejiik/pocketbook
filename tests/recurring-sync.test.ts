@@ -2,14 +2,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
   findDueRules: vi.fn(),
+  findRule: vi.fn(),
   createMany: vi.fn(),
   updateRule: vi.fn(),
   transaction: vi.fn(),
 }))
 
 const txClient = {
-  transaction: { createMany: mocks.createMany },
-  recurringRule: { update: mocks.updateRule },
+  transaction: { createManyAndReturn: mocks.createMany },
+  recurringRule: { findUnique: mocks.findRule, update: mocks.updateRule },
+  $queryRaw: vi.fn().mockResolvedValue([{ id: 'rule-rent' }]),
 }
 
 vi.mock('@/lib/prisma', () => ({
@@ -44,6 +46,7 @@ function rule(overrides = {}) {
     amount: 210000,
     currency: 'HUF',
     cycle: 'MONTHLY',
+    cycleInterval: 1,
     nextDue: new Date(Date.UTC(2026, 2, 5)),
     anchorDay: null as number | null,
     kind: 'EXPENSE',
@@ -112,6 +115,19 @@ describe('planDueRecurringRule', () => {
     expect(plan.nextDue).toBe('2026-06-20')
   })
 
+  it('logs only the remaining fortnightly installments across year end', async () => {
+    const { planDueRecurringRule } = await import('@/lib/recurring/sync')
+    const plan = planDueRecurringRule(rule({
+      cycle: 'WEEKLY', cycleInterval: 2, anchorDay: null,
+      nextDue: new Date('2025-12-22'), installmentTotal: 3, installmentPaid: 1,
+    }), new Date('2026-02-02'))
+
+    expect(plan.transactions.map((tx) => tx.date)).toEqual(['2025-12-22', '2026-01-05'])
+    expect(plan.nextDue).toBe('2026-02-16')
+    expect(plan.installmentPaid).toBe(3)
+    expect(plan.archived).toBe(true)
+  })
+
   it('logs annual income as positive and advances by year', async () => {
     const { planDueRecurringRule } = await import('@/lib/recurring/sync')
     const plan = planDueRecurringRule(rule({
@@ -134,8 +150,9 @@ describe('syncDueRecurringRules', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date(Date.UTC(2026, 4, 29, 9)))
     vi.resetModules()
-    mocks.findDueRules.mockResolvedValue([rule()])
-    mocks.createMany.mockResolvedValue({ count: 3 })
+    mocks.findDueRules.mockResolvedValue([{ id: 'rule-rent' }])
+    mocks.findRule.mockResolvedValue(rule())
+    mocks.createMany.mockImplementation(async ({ data }: { data: { date: Date }[] }) => data.map(({ date }) => ({ date })))
     mocks.updateRule.mockResolvedValue({})
     mocks.transaction.mockImplementation(async (callback) => callback(txClient))
   })
@@ -158,6 +175,7 @@ describe('syncDueRecurringRules', () => {
           recurringRuleId: 'rule-rent',
         }),
       ]),
+      select: { date: true },
       skipDuplicates: true,
     })
     const [{ data }] = mocks.createMany.mock.calls[0]
@@ -181,13 +199,13 @@ describe('syncDueRecurringRules', () => {
   it.each([
     ['MONTHLY', 31, ['2026-01-31', '2026-02-28', '2026-03-31', '2026-04-30', '2026-05-31', '2026-06-30']],
     ['ANNUAL', 29, ['2024-02-29', '2025-02-28', '2026-02-28', '2027-02-28', '2028-02-29', '2029-02-28']],
+    ['WEEKLY', null, ['2026-12-18', '2027-01-01', '2027-01-15', '2027-01-29']],
   ] as const)('keeps the %s billing day across independent sync runs', async (cycle, anchorDay, occurrences) => {
     const { syncDueRecurringRules } = await import('@/lib/recurring/sync')
     const day = (iso: string) => new Date(`${iso}T00:00:00Z`)
-    let stored = rule({ cycle, anchorDay, nextDue: day(occurrences[0]) })
-    mocks.findDueRules.mockImplementation(async () => [stored])
+    let stored = rule({ cycle, cycleInterval: cycle === 'WEEKLY' ? 2 : 1, anchorDay, nextDue: day(occurrences[0]) })
+    mocks.findRule.mockImplementation(async () => stored)
     mocks.updateRule.mockImplementation(async ({ data }) => { stored = { ...stored, ...data } })
-    mocks.createMany.mockResolvedValue({ count: 1 })
 
     for (const [i, occurrence] of occurrences.slice(0, -1).entries()) {
       const result = await syncDueRecurringRules(day(occurrence))

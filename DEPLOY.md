@@ -117,6 +117,12 @@ ORDER BY "archived", "name";
 
 Check active rules against the original billing schedule. Use **Billing day** in the recurring rule editor for future occurrences and edit **Next due** if the upcoming occurrence also needs correcting. Paused rules can be checked and corrected when you restore them.
 
+### Upgrading to the recurring-cadence beta
+
+Take a verified database backup before deploying. The migration adds weekly schedules and sets the interval to 1 on existing monthly and annual rules, preserving the next due date, billing day, and ledger history. After a candidate upgrade, compare owner IDs, due dates, ledger counts, frozen FX values, and balances before testing scheduler jobs.
+
+To roll back, restore the pre-upgrade database backup and use its matching stable image and deployment configuration. A 3.4.2 image uses environment-seeded credentials and expects the original cadence values. See [the restore drill](#restore-drill).
+
 ## Scheduled operations
 
 The worker evaluates fixed UTC schedules once per minute and runs due work serially:

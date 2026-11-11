@@ -164,3 +164,88 @@ describe('resumeNextDue', () => {
     expect(resumeNextDue({ cycle: 'ANNUAL', nextDue: new Date(Date.UTC(2026, 0, 15)), anchorDay: 15 }, today)).toBe('2027-01-15')
   })
 })
+
+describe('catch-up by cadence', () => {
+  it('includes the most recent fortnightly charge when due today', () => {
+    const plan = planRecurringCatchUp(baseInput({
+      cycle: 'WEEKLY',
+      cycleInterval: 2,
+      nextDue: '2026-06-01',
+      today: new Date(Date.UTC(2026, 5, 29)),
+      backfillMonths: 4,
+    }))
+
+    expect(plan.anchorDay).toBeNull()
+    expect(plan.nextDue).toBe('2026-07-13')
+    expect(plan.transactions).toHaveLength(9)
+    expect(plan.transactions.at(0)?.date).toBe('2026-03-09')
+    expect(plan.transactions.at(-1)?.date).toBe('2026-06-29')
+  })
+
+  it('includes the weekly occurrence exactly on the start of a clamped window', () => {
+    const plan = planRecurringCatchUp(baseInput({
+      cycle: 'WEEKLY',
+      nextDue: '2027-03-28',
+      today: new Date(Date.UTC(2027, 2, 31)),
+      backfillMonths: 1,
+    }))
+    expect(plan.transactions.at(0)?.date).toBe('2027-02-28')
+  })
+
+  it('caps weekly backfill at 105 occurrences across two years', () => {
+    const plan = planRecurringCatchUp(baseInput({
+      cycle: 'WEEKLY',
+      nextDue: '2024-03-01',
+      today: new Date(Date.UTC(2026, 2, 1)),
+      backfillMonths: 99,
+    }))
+    expect(plan.transactions).toHaveLength(105)
+  })
+
+  it('keeps the entered occurrence even when its day differs from the billing day', () => {
+    const plan = planRecurringCatchUp(baseInput({
+      cycleInterval: 3,
+      anchorDay: 31,
+      nextDue: '2027-04-10',
+      today: new Date(Date.UTC(2027, 5, 29)),
+      backfillMonths: 5,
+    }))
+    expect(plan.transactions.map((tx) => tx.date)).toEqual(['2027-01-31', '2027-04-10'])
+    expect(plan.nextDue).toBe('2027-07-31')
+  })
+
+  it('skips an older charge outside the catch-up window on an every-two-years rule', () => {
+    const plan = planRecurringCatchUp(baseInput({
+      cycle: 'ANNUAL',
+      cycleInterval: 2,
+      anchorDay: 29,
+      nextDue: '2028-02-29',
+      today: new Date(Date.UTC(2027, 1, 28)),
+      backfillMonths: 11,
+    }))
+    expect(plan.transactions).toEqual([])
+    expect(plan.nextDue).toBe('2028-02-29')
+  })
+
+  it('uses the paid count for a fortnightly installment with catch-up disabled', () => {
+    const plan = planRecurringCatchUp(baseInput({
+      cycle: 'WEEKLY',
+      cycleInterval: 2,
+      nextDue: '2026-06-01',
+      installmentPaid: 2,
+      installmentTotal: 2,
+      backfill: false,
+    }))
+    expect(plan.transactions.map((tx) => tx.date)).toEqual(['2026-05-04', '2026-05-18'])
+    expect(plan.archived).toBe(true)
+  })
+
+  it('resumes a quarterly rule on its original month phase', () => {
+    expect(resumeNextDue({
+      cycle: 'MONTHLY',
+      cycleInterval: 3,
+      nextDue: new Date(Date.UTC(2027, 0, 31)),
+      anchorDay: 31,
+    }, new Date(Date.UTC(2027, 3, 30)))).toBe('2027-07-31')
+  })
+})

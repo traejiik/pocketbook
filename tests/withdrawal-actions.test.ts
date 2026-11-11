@@ -8,6 +8,7 @@ const txUpdate = vi.fn()
 const txFindUnique = vi.fn()
 
 const client = {
+  $queryRaw: vi.fn().mockResolvedValue([{ id: 'tx-1' }]),
   transaction: { create: txCreate, update: txUpdate, findUnique: txFindUnique },
   recurringRule: { findUnique: vi.fn(), update: vi.fn() },
 }

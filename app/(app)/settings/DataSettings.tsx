@@ -2,10 +2,12 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { Trash2, Database, Upload } from 'lucide-react';
+import { Trash2, Database, Download, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { notify } from '@/lib/ui-notify';
+import { downloadCsv } from '@/lib/download-csv';
+import { exportRecurringCsv } from '@/server-actions/export';
 import { clearAllData } from '@/server-actions/settings';
 import { previewTransactionImport, previewRecurringImport, type TransactionImportPreview, type RecurringImportPreview } from '@/server-actions/import';
 import { RecurringImportReview } from '@/components/import/RecurringImportReview';
@@ -21,12 +23,26 @@ type Props = {
   version: string;
 };
 
-function ImportSection() {
+function CsvSection() {
+  const [isExporting, startExport] = useTransition();
+
+  function exportRules() {
+    startExport(async () => {
+      try {
+        const { filename, csv, count } = await exportRecurringCsv();
+        downloadCsv(filename, csv);
+        notify.success(`Exported ${count} recurring rule${count === 1 ? '' : 's'}.`);
+      } catch {
+        notify.error('Could not export recurring rules. Please try again.');
+      }
+    });
+  }
+
   return (
     <section id="import">
       <div className="flex items-center gap-2 mb-3">
         <Upload className="w-4 h-4 text-muted-foreground" />
-        <h2 className="text-[14px] font-semibold tracking-tight">Import data</h2>
+        <h2 className="text-[14px] font-semibold tracking-tight">Import and export</h2>
       </div>
       <div className="calm-card p-6 space-y-5">
         <CsvImportRow<Extract<TransactionImportPreview, { ok: true }>>
@@ -49,7 +65,7 @@ function ImportSection() {
         <CsvImportRow<Extract<RecurringImportPreview, { ok: true }>>
           title="Import recurring rules from CSV"
           noun="rule"
-          hint={<>Columns: <span className="mono">name, amount, currency, cycle, next_due, kind, category</span> (or <span className="mono">category_id</span>), optional <span className="mono">installment_paid, installment_total, installment_ends_on</span>. The review shows any past charges each rule will log.</>}
+          hint={<>Required columns are <span className="mono">name, amount, currency, cycle, next_due, kind</span>. Use the recurring CSV export as a template for interval, billing day, category, and installment fields. The review shows any past charges each rule will log.</>}
           preview={previewRecurringImport}
           renderReview={(p, { open, onOpenChange, done }) => (
             <RecurringImportReview
@@ -62,6 +78,19 @@ function ImportSection() {
             />
           )}
         />
+        <div className="h-px bg-border/60" />
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <div className="text-[13px] font-medium">Export recurring rules to CSV</div>
+            <div className="text-[11.5px] text-muted-foreground mt-0.5">
+              Download active rules as editable settings for import into Pocketbook.
+            </div>
+          </div>
+          <Button variant="outline" size="sm" onClick={exportRules} disabled={isExporting}>
+            <Download className="w-3.5 h-3.5 mr-1.5" />
+            {isExporting ? 'Preparing' : 'Download CSV'}
+          </Button>
+        </div>
       </div>
     </section>
   );
@@ -78,8 +107,7 @@ export function DataSettings({ backupStatus, nextBackupRun, dbSize, version }: P
         {/* ── Database backups ─────────────────────────────────────── */}
         <BackupSettings status={backupStatus} nextRun={nextBackupRun} />
 
-        {/* ── Import Data ───────────────────────────────────────────── */}
-        <ImportSection />
+        <CsvSection />
 
         {/* ── About ─────────────────────────────────────────────────── */}
         <section id="about">

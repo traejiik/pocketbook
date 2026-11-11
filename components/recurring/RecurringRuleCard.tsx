@@ -2,13 +2,14 @@ import { Calendar, Repeat, MoreHorizontal, AlertTriangle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { fmtAnchor, fmtCur, fmtDate } from '@/lib/format'
 import { hexToRgba } from '@/lib/colors'
+import { cadenceLabel } from '@/lib/recurring/cadence'
+import { monthlyEquivalent, type Cadence } from '@/lib/recurring/dates'
 
-export interface CardRule {
+export interface CardRule extends Pick<Cadence, 'cycle' | 'cycleInterval'> {
   id: string
   name: string
   amount: number
   currency: string
-  cycle: string
   nextDue: string          // YYYY-MM-DD
   kind: string
   installmentPaid: number | null
@@ -56,12 +57,12 @@ export function RecurringRuleCard({ rule, hufEquivalent, daysAway, onEdit, ancho
               className="w-9 h-9 rounded-[10px] flex items-center justify-center shrink-0"
               style={{ background: hexToRgba(rule.category.color, 0.14), color: rule.category.color }}
             >
-              {rule.cycle === 'ANNUAL' ? <Calendar className="w-4 h-4" /> : <Repeat className="w-4 h-4" />}
+              {monthlyEquivalent(1, rule) <= 1 / 3 ? <Calendar className="w-4 h-4" /> : <Repeat className="w-4 h-4" />}
             </div>
             <div className="min-w-0">
               <div className="text-[13.5px] font-medium truncate">{rule.name}</div>
               <div className="text-[11px] text-muted-foreground capitalize mt-0.5">
-                {rule.cycle.toLowerCase()} · {rule.category.name}
+                {cadenceLabel(rule)} · {rule.category.name}
               </div>
             </div>
           </div>

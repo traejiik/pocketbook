@@ -8,6 +8,7 @@ import { requireAuthenticatedUser } from '@/lib/require-auth';
 import { Prisma } from '@prisma/client';
 import { logger } from '@/lib/logger';
 import { randomCategoryColor } from '@/lib/colors';
+import { lockRecurringRules } from '@/lib/recurring/locking';
 
 const log = logger('categories');
 
@@ -104,18 +105,23 @@ export async function deleteCategory(id: string, replacementId?: string) {
       throw new Error('Replacement category required');
     }
 
-    // Atomically reassign transactions and delete the category
-    await prisma.$transaction([
-      prisma.transaction.updateMany({
+    await prisma.$transaction(async (tx) => {
+      const rules = await tx.recurringRule.findMany({
+        where: { OR: [{ categoryId: id }, { transactions: { some: { categoryId: id } } }] },
+        select: { id: true },
+      });
+      // Use the same rule-before-ledger order as linked payment writes.
+      await lockRecurringRules(tx, rules.map(({ id: ruleId }) => ruleId));
+      await tx.recurringRule.updateMany({
         where: { categoryId: id },
-        data:  { categoryId: replacementId },
-      }),
-      prisma.recurringRule.updateMany({
+        data: { categoryId: replacementId },
+      });
+      await tx.transaction.updateMany({
         where: { categoryId: id },
-        data:  { categoryId: replacementId },
-      }),
-      prisma.category.delete({ where: { id } }),
-    ]);
+        data: { categoryId: replacementId },
+      });
+      await tx.category.delete({ where: { id } });
+    });
   } else {
     await prisma.category.delete({ where: { id } });
   }

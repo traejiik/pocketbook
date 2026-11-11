@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Segmented } from '@/components/ui/segmented'
 import { DatePicker } from '@/components/ui/date-picker'
 import { exportTransactionsCsv, type ExportRange } from '@/server-actions/export'
+import { downloadCsv } from '@/lib/download-csv'
 import { monthKeyOf, todayIso } from '@/lib/format'
 
 type Scope = 'month' | 'range' | 'all'
@@ -24,17 +25,6 @@ function monthBounds(monthKey: string): { from: string; to: string } {
 function viewedMonth(): string {
   const param = typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('month')
   return param && /^\d{4}-\d{2}$/.test(param) ? param : monthKeyOf(new Date())
-}
-
-function download(filename: string, csv: string) {
-  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }))
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  document.body.appendChild(a)
-  a.click()
-  a.remove()
-  URL.revokeObjectURL(url)
 }
 
 export function ExportTransactionsButton({ className }: { className?: string }) {
@@ -70,7 +60,7 @@ export function ExportTransactionsButton({ className }: { className?: string }) 
         toast.message('No transactions in that range.')
         return
       }
-      download(result.filename, result.csv)
+      downloadCsv(result.filename, result.csv)
       toast.success(`Exported ${result.count} transaction${result.count === 1 ? '' : 's'}.`)
       setOpen(false)
     })

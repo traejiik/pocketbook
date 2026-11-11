@@ -72,6 +72,11 @@ jobs:
           PB_OWNER_TEST_DATABASE_URL: postgresql://pocketbook:pocketbook@localhost:5432/pocketbook
         run: pnpm exec vitest run tests/owner-setup.test.ts
 
+      - name: Recurring concurrency integration tests
+        env:
+          PB_RECURRING_TEST_DATABASE_URL: postgresql://pocketbook:pocketbook@localhost:5432/pocketbook
+        run: pnpm exec vitest run tests/recurring-concurrency.test.ts
+
       - name: Check schema/migration drift
         env:
           PB_DATABASE_URL: postgresql://pocketbook:pocketbook@localhost:5432/pocketbook

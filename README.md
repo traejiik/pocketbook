@@ -69,7 +69,7 @@ Press `N` to log a transaction without leaving the page. Type, amount, currency,
 
 ### Recurring rules — subscriptions & installments
 
-Every subscription, rent payment, and installment plan in one place — with monthly/annual outflow totals and progress on multi-payment plans.
+Every subscription, rent payment, and installment plan in one place — with monthly estimates and progress on multi-payment plans. Choose weekly, fortnightly, monthly, quarterly, yearly, or a custom interval in weeks, months, or years. Renewals counts the charges due within the selected horizon while keeping one row per rule.
 
 ![Recurring rules](docs/screenshots/recurring.png)
 
@@ -233,19 +233,20 @@ date,description,amount,currency,type,category,recurring_rule_name
 
 Duplicates are matched on day, description (case-insensitive), amount magnitude, currency and type.
 
-**Recurring rules (Settings → Import data).** The same review flow imports rules:
+**Recurring rules (Settings → Data → Import and export).** Import reviewed rules or download active rule configuration as CSV.
 
 ```csv
-name,amount,currency,cycle,next_due,kind,category,installment_paid,installment_total
-Rent,210000,HUF,MONTHLY,2026-10-05,EXPENSE,Housing,,
-Phone,15000,HUF,MONTHLY,2026-10-10,EXPENSE,Phone,2,12
+name,amount,currency,cycle,interval,next_due,anchor_day,kind,category,category_id,installment_paid,installment_total,installment_ends_on
+Internet,5990,HUF,MONTHLY,3,2027-04-30,31,EXPENSE,Utilities,,,,
+Cleaning,8000,HUF,WEEKLY,2,2026-11-16,,EXPENSE,Household,,,,
 ```
 
-`cycle` is `MONTHLY` or `ANNUAL` (`monthly`, `yearly` and similar are accepted), `amount` is one charge (sign ignored), `kind` may also be headed `type`, and a row with any `installment_*` column is an installment plan (`installment_ends_on` optional). A rule whose name matches an active rule is skipped. Creating a rule can log its recent past charges. The review sheet has a **Log past charges** switch and a months input covering the whole file (default: on, 4 months), lists what each rule would add, and totals it before you confirm. Installment plans ignore the controls — they log exactly the payments they record as paid. Catch-up charges lock today's FX rate.
+- `cycle` is `WEEKLY`, `MONTHLY`, or `ANNUAL`. Omitted `interval` defaults to 1. Aliases such as `fortnightly` and `quarterly` imply their interval. Weekly intervals range from 1 to 52, monthly from 1 to 12, and annual from 1 to 5.
+- Weekly rules use the weekday in `next_due`. Month and year rules take their billing day from that date unless `anchor_day` is present. An explicit 31 preserves billing intent when `next_due` is in a shorter month. A billing-day edit applies after the saved next due date.
+- Amount is per charge. The importer skips names matching active rules and resolves categories by ID or by name and kind. The CSV describes active rule configuration. Use a database backup for a complete restore.
+- The review previews catch-up before importing. The default is four months. Monthly interval-1 rules log up to the selected number of monthly charges, yearly interval-1 rules can log their latest due charge, and other cadences log occurrences within the selected calendar window. Installments log the explicit paid count. Catch-up charges lock the current FX rate.
 
-A CSV `recurring_rule_name` is a plain link: it never settles an occurrence or moves a rule's next due date. To pay a bill before it is due, use **Log recurring early** in the transaction form instead.
-
-The day in a new rule’s first due date (`next_due` in CSV) becomes its billing day. A rule billed on the 31st can fall on February 28 and return to March 31. An annual February 29 rule returns to February 29 in leap years. For an older rule that already drifted, open **Recurring → Edit** and correct **Billing day**. That field applies after the saved **Next due** date, which you can also edit if needed.
+A CSV `recurring_rule_name` is a plain link. Use **Log recurring early** in the transaction form to settle a specific upcoming occurrence.
 
 **Export (Transactions → Export CSV).** On tablet and desktop the button is in the header; on phones it is a full-width muted button under the transaction list. Download this month (the month you are viewing), a date range, or all time. The export uses the import columns plus `category_id`, `fx_rate` and `fx_anchor`, so it opens in a spreadsheet and re-imports entirely as duplicates.
 

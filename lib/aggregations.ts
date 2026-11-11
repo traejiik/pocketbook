@@ -2,6 +2,7 @@ import { cache } from 'react';
 import { prisma } from './prisma';
 import { toAnchor, frozenToAnchor } from './fx';
 import { CACHE_TAGS, cachedAggregation } from './cache';
+import { monthlyEquivalent } from './recurring/dates';
 import { isTxType, signForType } from './transactions/type';
 import { buildSavingsSummary, type SavingsGroup, type SavingsSummary } from './savings/summary';
 
@@ -230,7 +231,7 @@ async function upcomingRenewalsFrom(
 
 // Recurring converts live (rules carry no frozen rate), so this depends on FX too.
 const cachedUpcomingRenewals = cachedAggregation(
-  ['upcoming-renewals'],
+  ['upcoming-renewals-v2'],
   [CACHE_TAGS.recurring, CACHE_TAGS.categories, CACHE_TAGS.fx],
   upcomingRenewalsFrom,
 );
@@ -722,7 +723,7 @@ export type RecurringBudgetSummary = {
   monthlySavings: number
   netUsable: number
   expenseRatio: number           // monthlyExpenses / monthlyIncome, clamped 0–1
-  hasNormalisedAnnuals: boolean
+  hasNormalisedCadences: boolean
   expensesByCategory: { categoryId: string; name: string; color: string; amount: number }[]
 }
 
@@ -733,15 +734,14 @@ async function recurringBudgetSummary(): Promise<RecurringBudgetSummary> {
   })
 
   let monthlyIncome = 0, monthlyExpenses = 0, monthlySavings = 0
-  let hasNormalisedAnnuals = false
+  let hasNormalisedCadences = false
   const expenseCatMap = new Map<string, { name: string; color: string; amount: number }>()
 
   for (const rule of rules) {
-    const rawAmt = Number(rule.amount)
-    const normalised = rule.cycle === 'ANNUAL' ? rawAmt / 12 : rawAmt
+    const normalised = monthlyEquivalent(Number(rule.amount), rule)
     const amt = await toAnchor(normalised, rule.currency as 'HUF' | 'USD' | 'EUR' | 'GBP')
     if (amt === null) continue
-    if (rule.cycle === 'ANNUAL') hasNormalisedAnnuals = true
+    if (rule.cycle !== 'MONTHLY' || rule.cycleInterval !== 1) hasNormalisedCadences = true
     if (rule.category.kind === 'INCOME') {
       monthlyIncome += amt
     } else if (rule.category.kind === 'EXPENSE') {
@@ -758,23 +758,23 @@ async function recurringBudgetSummary(): Promise<RecurringBudgetSummary> {
   const expenseRatio = monthlyIncome > 0 ? Math.min(monthlyExpenses / monthlyIncome, 1) : 0
 
   const expensesByCategory = [...expenseCatMap.entries()]
-    .map(([categoryId, d]) => ({ categoryId, ...d, amount: Math.round(d.amount) }))
+    .map(([categoryId, details]) => ({ categoryId, ...details }))
     .sort((a, b) => b.amount - a.amount)
 
   return {
-    monthlyIncome:   Math.round(monthlyIncome),
-    monthlyExpenses: Math.round(monthlyExpenses),
-    monthlySavings:  Math.round(monthlySavings),
-    netUsable:       Math.round(netUsable),
+    monthlyIncome,
+    monthlyExpenses,
+    monthlySavings,
+    netUsable,
     expenseRatio,
-    hasNormalisedAnnuals,
+    hasNormalisedCadences,
     expensesByCategory,
   }
 }
 
 // Recurring rules convert at the live rate (no frozen lock), so FX moves this.
 const cachedRecurringBudgetSummary = cachedAggregation(
-  ['recurring-budget-summary'],
+  ['recurring-budget-summary-v2'],
   [CACHE_TAGS.recurring, CACHE_TAGS.categories, CACHE_TAGS.fx],
   recurringBudgetSummary,
 )

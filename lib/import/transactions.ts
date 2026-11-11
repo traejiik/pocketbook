@@ -4,6 +4,7 @@ import { lockRate, type FxLock } from '../fx'
 import { TX_TYPES, kindForType, signedForType, type TxType } from '../transactions/type'
 import { parseCsvRecords } from '../csv'
 import { reconcileInstallmentRule } from '../recurring/installments'
+import { lockRecurringRules } from '../recurring/locking'
 
 // CSV import runs in three steps so the Settings flow can show a review before
 // anything is written:
@@ -132,13 +133,16 @@ type Client = Pick<typeof prisma, 'transaction' | 'category' | 'recurringRule'>
 async function existingKeys(client: Client, dates: string[]): Promise<{ keys: Set<string>; ruleDays: Set<string> }> {
   if (dates.length === 0) return { keys: new Set(), ruleDays: new Set() }
   const sorted = [...dates].sort()
+  const window = { gte: new Date(sorted[0] + 'T00:00:00Z'), lte: new Date(sorted.at(-1)! + 'T00:00:00Z') }
   const rows = await client.transaction.findMany({
-    where: { date: { gte: new Date(sorted[0] + 'T00:00:00Z'), lte: new Date(sorted.at(-1)! + 'T00:00:00Z') } },
-    select: { date: true, description: true, amount: true, currency: true, type: true, recurringRuleId: true },
+    where: { OR: [{ date: window }, { coversDueDate: window }] },
+    select: { date: true, coversDueDate: true, description: true, amount: true, currency: true, type: true, recurringRuleId: true },
   })
   return {
     keys: new Set(rows.map(dupKeyOf)),
-    ruleDays: new Set(rows.filter((r) => r.recurringRuleId).map((r) => `${r.recurringRuleId}|${r.date.toISOString().slice(0, 10)}`)),
+    ruleDays: new Set(rows.flatMap((r) => r.recurringRuleId
+      ? [r.date, ...(r.coversDueDate ? [r.coversDueDate] : [])].map((day) => `${r.recurringRuleId}|${day.toISOString().slice(0, 10)}`)
+      : [])),
   }
 }
 
@@ -250,13 +254,12 @@ export async function commitImportRows(input: unknown[]): Promise<ImportResult> 
   for (const currency of new Set(rows.map((r) => r.currency))) locks.set(currency, await lockRate(currency))
 
   const result = await prisma.$transaction(async (tx) => {
-    const [categories, rules, existing] = await Promise.all([
+    const ruleIds = await lockRecurringRules(tx, rows.map((row) => row.recurringRuleId))
+    const [categories, existing] = await Promise.all([
       tx.category.findMany({ select: { id: true, kind: true } }),
-      tx.recurringRule.findMany({ select: { id: true } }),
       existingKeys(tx, rows.map((r) => r.date)),
     ])
     const kindOf = new Map(categories.map((c) => [c.id, c.kind]))
-    const ruleIds = new Set(rules.map((r) => r.id))
 
     let skipped = 0
     const data = []

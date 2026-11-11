@@ -11,7 +11,8 @@ const createBackfillTransactions = vi.fn()
 const transactionMock = vi.fn()
 
 const transactionClient = {
-  recurringRule: { create: createRule },
+  recurringRule: { create: createRule, findUnique: findRule, update: updateRule },
+  $queryRaw: vi.fn().mockResolvedValue([{ id: 'rule-1' }]),
   transaction: { createMany: createBackfillTransactions },
 }
 
@@ -70,7 +71,9 @@ describe('upsertRecurringRule', () => {
     vi.setSystemTime(new Date(Date.UTC(2026, 4, 29, 9)))
     authMock.mockResolvedValue({ user: { id: 'user-1' } })
     findDuplicateRule.mockResolvedValue(null)
-    findRule.mockResolvedValue(null)
+    findRule.mockResolvedValue({
+      cycle: 'MONTHLY', cycleInterval: 1, nextDue: new Date('2026-06-05'), anchorDay: 5, installmentTotal: null,
+    })
     createRule.mockResolvedValue({ id: 'rule-1' })
     updateRule.mockResolvedValue({ id: 'rule-1' })
     createBackfillTransactions.mockResolvedValue({ count: 4 })
@@ -145,7 +148,7 @@ describe('upsertRecurringRule', () => {
       where: { id: 'rule-1' },
       data: expect.objectContaining({ name: 'Rent corrected' }),
     })
-    expect(transactionMock).not.toHaveBeenCalled()
+    expect(transactionMock).toHaveBeenCalledOnce()
     expect(createBackfillTransactions).not.toHaveBeenCalled()
   })
 
@@ -153,16 +156,113 @@ describe('upsertRecurringRule', () => {
     const { upsertRecurringRule } = await import('@/server-actions/recurring')
     const nextDue = new Date(Date.UTC(2026, 1, 28))
     const input = validRule({ id: 'rule-1', nextDue: '2026-02-28' })
-    findRule.mockResolvedValue({ nextDue, anchorDay: 30 })
+    findRule.mockResolvedValue({ cycle: 'MONTHLY', cycleInterval: 1, nextDue, anchorDay: 30, installmentTotal: null })
 
     await upsertRecurringRule(input)
-    expect(updateRule).toHaveBeenLastCalledWith({ where: { id: 'rule-1' }, data: expect.objectContaining({ nextDue, anchorDay: 30 }) })
+    expect(updateRule.mock.lastCall?.[0].data).not.toHaveProperty('anchorDay')
+    expect(updateRule.mock.lastCall?.[0].data).not.toHaveProperty('nextDue')
 
     await upsertRecurringRule({ ...input, anchorDay: 31 })
     expect(updateRule).toHaveBeenLastCalledWith({ where: { id: 'rule-1' }, data: expect.objectContaining({ nextDue, anchorDay: 31 }) })
 
     await upsertRecurringRule({ ...input, nextDue: '2026-03-25' })
     expect(updateRule).toHaveBeenLastCalledWith({ where: { id: 'rule-1' }, data: expect.objectContaining({ anchorDay: 25 }) })
+  })
+
+  it.each([
+    ['MONTHLY', 31, 31],
+    ['ANNUAL', undefined, 5],
+  ] as const)('honours the billing day when switching weekly to %s', async (cycle, anchorDay, expectedDay) => {
+    const { upsertRecurringRule } = await import('@/server-actions/recurring')
+    const scheduleSnapshot = { cycle: 'WEEKLY', cycleInterval: 1, anchorDay: null, nextDue: '2026-06-05' } as const
+    const nextDue = new Date(scheduleSnapshot.nextDue)
+    findRule.mockResolvedValue({ ...scheduleSnapshot, nextDue, installmentTotal: null })
+
+    expect(await upsertRecurringRule({
+      ...validRule({ id: 'rule-1' }), cycle, anchorDay, scheduleSnapshot,
+    })).toEqual({ ok: true })
+
+    expect(updateRule).toHaveBeenCalledWith({
+      where: { id: 'rule-1' },
+      data: expect.objectContaining({ cycle, nextDue, anchorDay: expectedDay }),
+    })
+  })
+
+  it('clears the billing day when switching to weekly', async () => {
+    const { upsertRecurringRule } = await import('@/server-actions/recurring')
+    const scheduleSnapshot = { cycle: 'MONTHLY', cycleInterval: 1, anchorDay: 5, nextDue: '2026-06-05' } as const
+    const nextDue = new Date(scheduleSnapshot.nextDue)
+
+    expect(await upsertRecurringRule({
+      ...validRule({ id: 'rule-1' }), cycle: 'WEEKLY', scheduleSnapshot,
+    })).toEqual({ ok: true })
+    expect(updateRule).toHaveBeenCalledWith({
+      where: { id: 'rule-1' },
+      data: expect.objectContaining({ cycle: 'WEEKLY', nextDue, anchorDay: null }),
+    })
+  })
+
+  it('rejects a scheduling change made from a stale editor snapshot', async () => {
+    const { upsertRecurringRule } = await import('@/server-actions/recurring')
+    findRule.mockResolvedValue({
+      cycle: 'MONTHLY', cycleInterval: 1, anchorDay: 5, nextDue: new Date('2026-07-05'),
+    })
+
+    const result = await upsertRecurringRule({
+      ...validRule({ id: 'rule-1' }),
+      anchorDay: 10,
+      scheduleSnapshot: { cycle: 'MONTHLY', cycleInterval: 1, anchorDay: 5, nextDue: '2026-06-05' },
+    })
+
+    expect(result).toEqual({ error: expect.stringMatching(/reload/i) })
+    expect(updateRule).not.toHaveBeenCalled()
+  })
+
+  it('preserves a newer schedule when saving metadata from a stale editor', async () => {
+    const { upsertRecurringRule } = await import('@/server-actions/recurring')
+    findRule.mockResolvedValue({
+      cycle: 'MONTHLY', cycleInterval: 3, anchorDay: 12, nextDue: new Date('2026-09-12'), installmentTotal: null,
+    })
+
+    expect(await upsertRecurringRule({
+      ...validRule({ id: 'rule-1', name: 'Rent corrected' }),
+      anchorDay: 5,
+      scheduleSnapshot: { cycle: 'MONTHLY', cycleInterval: 1, anchorDay: 5, nextDue: '2026-06-05' },
+    })).toEqual({ ok: true })
+    expect(updateRule).toHaveBeenCalledWith({
+      where: { id: 'rule-1' },
+      data: expect.objectContaining({ name: 'Rent corrected' }),
+    })
+    const [request] = updateRule.mock.calls[0]
+    expect(request.data).not.toHaveProperty('nextDue')
+    expect(request.data).not.toHaveProperty('cycle')
+    expect(request.data).not.toHaveProperty('cycleInterval')
+    expect(request.data).not.toHaveProperty('anchorDay')
+  })
+
+  it.each([false, true])('protects a reconciled installment count during a stale edit = %s', async (editPaid) => {
+    const { upsertRecurringRule } = await import('@/server-actions/recurring')
+    const scheduleSnapshot = { cycle: 'MONTHLY', cycleInterval: 1, anchorDay: 5, nextDue: '2026-06-05' } as const
+    findRule.mockResolvedValue({
+      ...scheduleSnapshot, nextDue: new Date(scheduleSnapshot.nextDue),
+      installmentPaid: 3, installmentTotal: 5, installmentEndsOn: null,
+    })
+
+    const result = await upsertRecurringRule({
+      ...validRule({ id: 'rule-1', name: 'Rent corrected' }),
+      hasInstallment: true, installmentPaid: editPaid ? 1 : 2, installmentTotal: 5,
+      installmentSnapshot: { installmentPaid: 2, installmentTotal: 5, installmentEndsOn: null },
+      scheduleSnapshot,
+    })
+
+    if (editPaid) {
+      expect(result).toEqual({ error: expect.stringMatching(/reload/i) })
+      expect(updateRule).not.toHaveBeenCalled()
+    } else {
+      expect(result).toEqual({ ok: true })
+      expect(updateRule.mock.lastCall?.[0].data).not.toHaveProperty('installmentPaid')
+      expect(updateRule.mock.lastCall?.[0].data).not.toHaveProperty('installmentTotal')
+    }
   })
 
   it('signs income positive and savings negative in generated transactions', async () => {

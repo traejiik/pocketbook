@@ -9,7 +9,8 @@ interface TimelineEvent {
   name: string
   daysAway: number
   categoryColor: string
-  hufEquivalent: number
+  hufEquivalent: number | null
+  repeatCount?: number
 }
 
 interface TimelineStripProps {
@@ -21,7 +22,9 @@ interface TimelineStripProps {
 /** What a marker says to a screen reader, and what its tooltip shows. */
 export function timelineMarkerLabel(e: TimelineEvent, anchorCurrency: string): string {
   const when = e.daysAway === 0 ? 'today' : e.daysAway === 1 ? 'in 1 day' : `in ${e.daysAway} days`
-  return `${e.name}, ${when}, ${fmtAnchor(e.hufEquivalent, anchorCurrency)}`
+  const amount = e.hufEquivalent === null ? 'no exchange rate' : fmtAnchor(e.hufEquivalent, anchorCurrency)
+  const repeat = e.repeatCount && e.repeatCount > 1 ? `, ${e.repeatCount} charges in this window` : ''
+  return `${e.name}, ${when}, ${amount}${repeat}`
 }
 
 export function TimelineStrip({ events, horizon, anchorCurrency = 'HUF' }: TimelineStripProps) {
@@ -96,7 +99,8 @@ export function TimelineStrip({ events, horizon, anchorCurrency = 'HUF' }: Timel
                   dismissed ? 'opacity-0' : open ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100',
                 )}
               >
-                {e.name} · {fmtAnchor(e.hufEquivalent, anchorCurrency)}
+                {e.name} · {e.hufEquivalent === null ? 'no exchange rate' : fmtAnchor(e.hufEquivalent, anchorCurrency)}
+                {e.repeatCount && e.repeatCount > 1 ? ` · ×${e.repeatCount} in ${horizon}d` : ''}
               </span>
             </button>
             </div>

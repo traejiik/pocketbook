@@ -48,7 +48,7 @@ function snapshot(over: SnapshotOverride = {}): InsightSnapshot {
     expenseCount: 42,
     upcoming: [{ name: 'Netflix', category: 'Subscriptions', daysAway: 6, amount: 4_990 }],
     installments: [
-      { name: 'Phone', paid: 10, total: 12, endsOn: '2026-10-01T00:00:00.000Z', monthlyAmount: 25_000 },
+      { name: 'Phone', paid: 10, total: 12, endsOn: '2026-10-01T00:00:00.000Z', cadence: 'fortnightly', perChargeAmount: 25_000 },
     ],
     committed: {
       monthlyIncome: 800_000,
@@ -56,7 +56,7 @@ function snapshot(over: SnapshotOverride = {}): InsightSnapshot {
       monthlySavings: 100_000,
       netUsable: 500_000,
       expenseRatio: 0.25,
-      hasNormalisedAnnuals: false,
+      hasNormalisedCadences: false,
       expensesByCategory: [],
     },
     priorNotes: [{ monthName: 'July 2026', opening: 'Spending held steady across the board.' }],

@@ -39,17 +39,54 @@ describe('parseRecurringRows', () => {
       'Rent,-210000,HUF,monthly,2026-10-05,expense,Housing,,',
       'Phone,15000,HUF,Monthly,2026-10-10,EXPENSE,Housing,3,12',
     ))
-    expect(rent.value).toMatchObject({ amount: 210000, cycle: 'MONTHLY', kind: 'EXPENSE', hasInstallment: false, installmentPaid: null })
+    expect(rent.value).toMatchObject({ amount: 210000, cycle: 'MONTHLY', cycleInterval: 1, anchorDay: 5, kind: 'EXPENSE', hasInstallment: false, installmentPaid: null })
     expect(phone.value).toMatchObject({ hasInstallment: true, installmentPaid: 3, installmentTotal: 12 })
   })
 
   it('reports bad rows without aborting the file', () => {
     const rows = parseRecurringRows(csv(
-      'Gym,9000,HUF,weekly,2026-10-01,EXPENSE,Housing,,',
+      'Gym,9000,HUF,daily,2026-10-01,EXPENSE,Housing,,',
       'Loan,5000,HUF,MONTHLY,2026-10-01,EXPENSE,Housing,13,12',
     ))
-    expect(rows[0].errors).toEqual(['Invalid cycle "weekly" (expected MONTHLY or ANNUAL)'])
+    expect(rows[0].errors).toEqual(['Invalid cycle "daily" (expected WEEKLY, MONTHLY or ANNUAL)'])
     expect(rows[1].errors).toEqual(['Installment paid count cannot exceed total installments.'])
+  })
+
+  it.each([
+    ['week', '', 'WEEKLY', 1],
+    ['fortnightly', '', 'WEEKLY', 2],
+    ['biweekly', '2', 'WEEKLY', 2],
+    ['quarterly', '3', 'MONTHLY', 3],
+    ['semiannual', '', 'MONTHLY', 6],
+    ['half-yearly', '6', 'MONTHLY', 6],
+    ['yearly', '', 'ANNUAL', 1],
+    ['weekly', '4', 'WEEKLY', 4],
+    ['annual', '5', 'ANNUAL', 5],
+  ])('reads %s with interval "%s"', (cycle, interval, expectedCycle, cycleInterval) => {
+    const [row] = parseRecurringRows([
+      'name,amount,currency,cycle,interval,next_due,kind',
+      `Rule,5000,HUF,${cycle},${interval},2026-11-16,EXPENSE`,
+    ].join('\n'))
+    expect(row.value).toMatchObject({ cycle: expectedCycle, cycleInterval })
+    expect(row.value?.anchorDay).toBe(expectedCycle === 'WEEKLY' ? undefined : 16)
+  })
+
+  it.each([
+    ['fortnightly', '1', '', /conflicts/],
+    ['quarterly', '4', '', /conflicts/],
+    ['weekly', '53', '', /interval/],
+    ['monthly', '13', '', /interval/],
+    ['annual', '6', '', /interval/],
+    ['weekly', '1.5', '', /interval/],
+    ['weekly', '2', '16', /anchor_day/],
+    ['monthly', '3', '32', /anchor_day/],
+  ])('rejects cycle %s, interval %s, anchor %s', (cycle, interval, anchorDay, error) => {
+    const [row] = parseRecurringRows([
+      'name,amount,currency,cycle,interval,next_due,anchor_day,kind',
+      `Rule,5000,HUF,${cycle},${interval},2026-11-16,${anchorDay},EXPENSE`,
+    ].join('\n'))
+    expect(row.value).toBeNull()
+    expect(row.errors[0]).toMatch(error)
   })
 })
 
@@ -106,6 +143,20 @@ describe('commitRecurringRows', () => {
     expect(await commitRecurringRows([rows[0].rule], now)).toMatchObject({ imported: 1 })
     expect(ruleCreate).toHaveBeenCalledWith({ data: expect.objectContaining({
       nextDue: new Date(Date.UTC(2026, 1, 28)), anchorDay: 31,
+    }) })
+  })
+
+  it('stores an explicit billing day from a clamped quarterly installment', async () => {
+    const now = new Date(Date.UTC(2027, 3, 29))
+    const [row] = await classifyRecurringRows(parseRecurringRows([
+      'name,amount,currency,cycle,interval,next_due,anchor_day,kind,category,installment_paid,installment_total,installment_ends_on',
+      'Loan,5990,HUF,MONTHLY,3,2027-04-30,31,EXPENSE,Housing,2,4,2027-07-31',
+    ].join('\n')), undefined, now)
+    expect(row.backfill).toEqual({ count: 2, from: '2026-10-31', to: '2027-01-31', nextDue: '2027-04-30' })
+    expect(await commitRecurringRows([row.rule], now)).toMatchObject({ imported: 1, backfilled: 2 })
+    expect(ruleCreate).toHaveBeenCalledWith({ data: expect.objectContaining({
+      cycle: 'MONTHLY', cycleInterval: 3, nextDue: new Date('2027-04-30'), anchorDay: 31,
+      installmentPaid: 2, installmentTotal: 4, installmentEndsOn: new Date('2027-07-31'),
     }) })
   })
 

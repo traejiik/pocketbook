@@ -11,10 +11,12 @@ vi.mock('next/cache', () => ({
   revalidatePath: revalidatePathMock,
   revalidateTag: revalidateTagMock,
 }))
+const tx = {
+  recurringRule: { findUnique: ruleFindUnique, update: ruleUpdate },
+  $queryRaw: vi.fn().mockResolvedValue([]),
+}
 vi.mock('@/lib/prisma', () => ({
-  prisma: {
-    recurringRule: { findUnique: ruleFindUnique, update: ruleUpdate },
-  },
+  prisma: { $transaction: async (callback: (client: typeof tx) => unknown) => callback(tx) },
 }))
 
 describe('unarchiveRecurringRule', () => {
@@ -33,6 +35,7 @@ describe('unarchiveRecurringRule', () => {
   it('restores a paused rule and advances a stale due date to the next future occurrence', async () => {
     ruleFindUnique.mockResolvedValue({
       cycle: 'MONTHLY',
+      cycleInterval: 1,
       nextDue: new Date(Date.UTC(2026, 1, 28)),
       anchorDay: 31,
       installmentTotal: null,
@@ -49,9 +52,24 @@ describe('unarchiveRecurringRule', () => {
     })
   })
 
+  it('restores a quarterly rule on its original phase without catching up missed charges', async () => {
+    ruleFindUnique.mockResolvedValue({
+      cycle: 'MONTHLY', cycleInterval: 3, anchorDay: 31, nextDue: new Date('2026-01-31'),
+      installmentTotal: null, installmentPaid: null,
+    })
+    const { unarchiveRecurringRule } = await import('@/server-actions/recurring')
+
+    expect(await unarchiveRecurringRule('rule-quarterly')).toEqual({ ok: true })
+    expect(ruleUpdate).toHaveBeenCalledWith({
+      where: { id: 'rule-quarterly' },
+      data: { archived: false, nextDue: new Date('2026-07-31') },
+    })
+  })
+
   it('keeps a still-future due date as-is when restoring', async () => {
     ruleFindUnique.mockResolvedValue({
       cycle: 'MONTHLY',
+      cycleInterval: 1,
       nextDue: new Date(Date.UTC(2026, 7, 1)), // 2026-08-01, future
       installmentTotal: null,
       installmentPaid: null,
@@ -69,6 +87,7 @@ describe('unarchiveRecurringRule', () => {
   it('refuses to restore a completed installment plan', async () => {
     ruleFindUnique.mockResolvedValue({
       cycle: 'MONTHLY',
+      cycleInterval: 1,
       nextDue: new Date(Date.UTC(2026, 1, 10)),
       installmentTotal: 12,
       installmentPaid: 12,

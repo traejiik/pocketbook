@@ -3,14 +3,16 @@ import { lockRate, type FxLock } from '@/lib/fx'
 import { sendInstanceNotification } from '@/lib/notifications/instance'
 import { logger } from '@/lib/logger'
 import {
+  type Cadence,
   type RecurringCycle,
   type RuleKind,
   parseDateOnly,
   formatDateOnly,
   startOfUtcDay,
   signedAmount,
-  nextOccurrence,
+  addCycles,
 } from '@/lib/recurring/dates'
+import { lockRecurringRules } from '@/lib/recurring/locking'
 
 type Currency = 'HUF' | 'USD' | 'EUR' | 'GBP'
 
@@ -20,6 +22,7 @@ type DueRule = {
   amount: number | { toString(): string }
   currency: string
   cycle: string
+  cycleInterval: number
   nextDue: Date
   anchorDay: number | null
   kind: string
@@ -55,11 +58,14 @@ export type RecurringSyncResult = {
 
 export function planDueRecurringRule(rule: DueRule, todayInput: Date = new Date()): PlannedRecurringRuleSync {
   const today = startOfUtcDay(todayInput)
-  const cycle = rule.cycle as RecurringCycle
   const kind = rule.kind as RuleKind
   const currency = rule.currency as Currency
   const nextDue = startOfUtcDay(rule.nextDue)
-  const anchorDay = rule.anchorDay ?? nextDue.getUTCDate()
+  const cadence: Cadence = {
+    cycle: rule.cycle as RecurringCycle,
+    cycleInterval: rule.cycleInterval,
+    anchorDay: rule.anchorDay,
+  }
   // An occurrence is taken when a linked row sits on its date (generated) or
   // settled it early (`coversDueDate`, from "Log recurring early").
   const existingDates = new Set(rule.transactions.flatMap((tx) => [
@@ -71,7 +77,7 @@ export function planDueRecurringRule(rule: DueRule, todayInput: Date = new Date(
   let cursor = nextDue
   while (cursor.getTime() <= today.getTime()) {
     dueDates.push(cursor)
-    cursor = nextOccurrence(cycle, cursor, anchorDay)
+    cursor = addCycles(cadence, nextDue, dueDates.length)
   }
 
   const remainingInstallments = rule.installmentTotal == null
@@ -113,12 +119,7 @@ export async function syncDueRecurringRules(today: Date = new Date()): Promise<R
       archived: false,
       nextDue: { lte: todayDate },
     },
-    include: {
-      transactions: {
-        where: { OR: [{ date: { lte: todayDate } }, { coversDueDate: { lte: todayDate } }] },
-        select: { date: true, coversDueDate: true },
-      },
-    },
+    select: { id: true },
     orderBy: { nextDue: 'asc' },
   })
 
@@ -126,74 +127,78 @@ export async function syncDueRecurringRules(today: Date = new Date()): Promise<R
     return { rulesProcessed: 0, transactionsCreated: 0, created: [] }
   }
 
-  const plans = dueRules.map((rule) => planDueRecurringRule(rule, todayDate))
-
-  // Once a recurring charge materialises into a ledger row it freezes the rate at
-  // generation time, exactly like a manual transaction. Lock per distinct currency.
+  // The currency can change while sync waits for a rule lock. Preload the
+  // supported rates before entering the write transaction so the FX lookups
+  // never need a second connection while holding those locks.
   const lockByCurrency = new Map<Currency, FxLock>()
-  for (const currency of new Set(plans.flatMap((plan) => plan.transactions.map((t) => t.currency)))) {
+  for (const currency of ['HUF', 'USD', 'EUR', 'GBP'] as const) {
     lockByCurrency.set(currency, await lockRate(currency))
   }
 
-  let transactionsCreated = 0
+  const result = await prisma.$transaction(async (tx): Promise<RecurringSyncResult> => {
+    const lockedIds = await lockRecurringRules(tx, dueRules.map(({ id }) => id))
+    const created: PlannedRecurringSyncTransaction[] = []
+    let rulesProcessed = 0
 
-  await prisma.$transaction(async (tx) => {
-    for (const plan of plans) {
+    for (const { id } of dueRules) {
+      if (!lockedIds.has(id)) continue
+      const rule = await tx.recurringRule.findUnique({
+        where: { id },
+        include: {
+          transactions: {
+            where: { OR: [{ date: { lte: todayDate } }, { coversDueDate: { lte: todayDate } }] },
+            select: { date: true, coversDueDate: true },
+          },
+        },
+      })
+      if (!rule || rule.archived || rule.nextDue > todayDate) continue
+
+      const plan = planDueRecurringRule(rule, todayDate)
+      let insertedCount = 0
       if (plan.transactions.length > 0) {
-        const created = await tx.transaction.createMany({
+        const inserted = await tx.transaction.createManyAndReturn({
           data: plan.transactions.map((transaction) => {
             const lock = lockByCurrency.get(transaction.currency)
             return {
+              ...transaction,
               date: parseDateOnly(transaction.date),
-              description: transaction.description,
-              amount: transaction.amount,
-              currency: transaction.currency,
-              type: transaction.type,
-              categoryId: transaction.categoryId,
-              recurringRuleId: transaction.recurringRuleId,
               fxRate: lock?.fxRate ?? null,
               fxAnchor: lock?.fxAnchor ?? null,
             }
           }),
+          select: { date: true },
           skipDuplicates: true,
         })
-        transactionsCreated += created.count
+        insertedCount = inserted.length
+        const insertedDates = new Set(inserted.map(({ date }) => formatDateOnly(date)))
+        created.push(...plan.transactions.filter(({ date }) => insertedDates.has(date)))
       }
 
+      const installmentPaid = rule.installmentTotal == null ? null
+        : Math.min((rule.installmentPaid ?? 0) + insertedCount, rule.installmentTotal)
       await tx.recurringRule.update({
-        where: { id: plan.ruleId },
+        where: { id },
         data: {
           nextDue: parseDateOnly(plan.nextDue),
-          archived: plan.archived,
-          installmentPaid: plan.installmentPaid,
+          archived: rule.installmentTotal != null && (installmentPaid ?? 0) >= rule.installmentTotal,
+          installmentPaid,
         },
       })
+      rulesProcessed++
     }
+
+    return { rulesProcessed, transactionsCreated: created.length, created }
   })
 
-  const created = plans.flatMap((plan) => plan.transactions)
-
-  // A generated charge is a write nobody asked for interactively, so each one is
-  // named here: this is the only place the ledger changes without a user action.
-  // `createMany` skips rows that already exist (the `[recurringRuleId, date]`
-  // uniqueness that makes generation idempotent), so the planned list can be
-  // longer than what was actually written — say so rather than over-reporting.
-  if (created.length > 0) {
-    for (const transaction of created) {
-      log.info('recurring charge planned', {
-        description: transaction.description,
-        amount: transaction.amount,
-        currency: transaction.currency,
-        date: transaction.date,
-        ruleId: transaction.recurringRuleId,
-      })
-    }
-    if (transactionsCreated !== created.length) {
-      log.info('recurring charges skipped as duplicates', {
-        planned: created.length,
-        written: transactionsCreated,
-      })
-    }
+  const { transactionsCreated, created } = result
+  for (const transaction of created) {
+    log.info('recurring charge generated', {
+      description: transaction.description,
+      amount: transaction.amount,
+      currency: transaction.currency,
+      date: transaction.date,
+      ruleId: transaction.recurringRuleId,
+    })
   }
 
   // Notify after the transaction commits, never before — and never let a
@@ -210,11 +215,7 @@ export async function syncDueRecurringRules(today: Date = new Date()): Promise<R
     })
   }
 
-  return {
-    rulesProcessed: plans.length,
-    transactionsCreated,
-    created,
-  }
+  return result
 }
 
 // The minus sign is `−` (U+2212), matching the in-app display convention.

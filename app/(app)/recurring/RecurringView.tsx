@@ -13,7 +13,8 @@ import {
   planRecurringCatchUp,
 } from '@/lib/recurring/backfill'
 import type { RecurringBudgetSummary } from '@/lib/aggregations'
-import { parseDateOnly } from '@/lib/recurring/dates'
+import { monthlyEquivalent, parseDateOnly, type Cadence } from '@/lib/recurring/dates'
+import { cadenceLabel, cadenceLimits, isValidCadenceInterval, recurringCycleSchema } from '@/lib/recurring/cadence'
 import { RecurringRuleCard } from '@/components/recurring/RecurringRuleCard'
 import { AmountDisplay } from '@/components/finance/AmountDisplay'
 import { CalmCard } from '@/components/finance/CalmCard'
@@ -45,14 +46,12 @@ import { hexToRgba } from '@/lib/colors'
 
 type Category = { id: string; name: string; color: string; kind: string }
 
-export type SerialisedRule = {
+export type SerialisedRule = Cadence & {
   id: string
   name: string
   amount: number
   currency: string
-  cycle: string
   nextDue: string          // YYYY-MM-DD
-  anchorDay: number
   kind: string
   categoryId: string
   installmentPaid: number | null
@@ -80,7 +79,8 @@ const formSchema = z.object({
   name: z.string().min(1),
   amount: z.coerce.number().positive(),
   currency: z.enum(['HUF', 'USD', 'EUR', 'GBP']),
-  cycle: z.enum(['MONTHLY', 'ANNUAL']),
+  cycle: recurringCycleSchema,
+  cycleInterval: z.coerce.number().int().min(1),
   nextDue: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   anchorDay: z.coerce.number().int().min(1).max(31).optional(),
   kind: z.enum(['INCOME', 'EXPENSE', 'SAVINGS']),
@@ -91,10 +91,28 @@ const formSchema = z.object({
   installmentEndsOn: z.string().optional(),
   backfill: z.boolean(),
   backfillMonths: z.coerce.number().int().min(1).max(MAX_BACKFILL_MONTHS),
+}).refine(({ cycle, cycleInterval }) => isValidCadenceInterval(cycle, cycleInterval), {
+  path: ['cycleInterval'],
+  message: 'Enter a valid interval for this unit.',
 })
 
 type FormInput = z.input<typeof formSchema>
 type FormValues = z.output<typeof formSchema>
+
+const CADENCE_PRESETS = [
+  { label: 'Weekly', cycle: 'WEEKLY', cycleInterval: 1 },
+  { label: 'Fortnightly', cycle: 'WEEKLY', cycleInterval: 2 },
+  { label: 'Monthly', cycle: 'MONTHLY', cycleInterval: 1 },
+  { label: 'Quarterly', cycle: 'MONTHLY', cycleInterval: 3 },
+  { label: 'Yearly', cycle: 'ANNUAL', cycleInterval: 1 },
+] as const
+
+function cadencePreset(cycle: Cadence['cycle'], interval: number) {
+  return CADENCE_PRESETS.find(preset => preset.cycle === cycle && preset.cycleInterval === interval)
+}
+
+const cadenceUnits = { WEEKLY: 'Weeks', MONTHLY: 'Months', ANNUAL: 'Years' } as const
+const weekdayFormat = new Intl.DateTimeFormat('en-GB', { weekday: 'long', timeZone: 'UTC' })
 
 function daysUntil(dateStr: string) {
   const today = new Date()
@@ -118,12 +136,14 @@ function renderSegmentedField({
   value,
   options,
   onChange,
+  columns,
 }: {
   labelId: string
   label: string
   value: string
   options: Array<{ label: string; value: string }>
   onChange: (value: string) => void
+  columns?: number
 }) {
   return (
     <div className="space-y-1.5">
@@ -132,7 +152,7 @@ function renderSegmentedField({
         role="group"
         aria-labelledby={labelId}
         className="grid gap-1 bg-secondary/70 rounded-[10px] p-[3px]"
-        style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}
+        style={{ gridTemplateColumns: `repeat(${columns ?? options.length}, minmax(0, 1fr))` }}
       >
         {options.map((option) => (
           <button
@@ -164,7 +184,7 @@ function CompactRuleRow({
   anchorCurrency: string
   onEdit: (rule: SerialisedRule) => void
 }) {
-  const Icon = rule.cycle === 'ANNUAL' ? Calendar : RepeatIcon
+  const Icon = monthlyEquivalent(1, rule) <= 1 / 3 ? Calendar : RepeatIcon
   const daysAway = daysUntil(rule.nextDue)
   const urgent = daysAway >= 0 && daysAway <= 7
   const amountTone =
@@ -188,7 +208,7 @@ function CompactRuleRow({
       <span className="min-w-0 flex-1">
         <span className="block text-[14px] font-medium truncate">{rule.name}</span>
         <span className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11.5px] text-muted-foreground">
-          <span className="truncate">{rule.category.name}</span>
+          <span className="truncate">{cadenceLabel(rule)} · {rule.category.name}</span>
           <span>·</span>
           <span className={cn('tabular', urgent && 'text-warning')}>{dayText(daysAway)}</span>
           {rule.installmentTotal != null && (
@@ -227,7 +247,7 @@ function ArchivedCompactRow({
   onDelete?: (id: string, name: string) => void
 }) {
   const completed = isCompletedInstallment(rule)
-  const RowIcon = completed || rule.cycle === 'ANNUAL' ? Calendar : RepeatIcon
+  const RowIcon = completed || monthlyEquivalent(1, rule) <= 1 / 3 ? Calendar : RepeatIcon
   return (
     <div className={cn('flex items-center gap-3 px-4 py-3', top && 'border-t border-border/40')}>
       <span
@@ -239,7 +259,7 @@ function ArchivedCompactRow({
       <div className="min-w-0 flex-1">
         <div className="text-[13.5px] font-medium truncate text-foreground/80">{rule.name}</div>
         <div className="text-[11px] text-muted-foreground mt-0.5">
-          {rule.category.name} · {completed ? `${rule.installmentTotal}/${rule.installmentTotal} done` : 'paused'}
+          {cadenceLabel(rule)} · {rule.category.name} · {completed ? `${rule.installmentTotal}/${rule.installmentTotal} done` : 'paused'}
         </div>
       </div>
       {completed ? (
@@ -280,6 +300,7 @@ export function RecurringView({ rules, archivedRules, categories, budget, anchor
   const [sheetOpen, setSheetOpen] = useState(false)
   const [editing, setEditing] = useState<SerialisedRule | null>(null)
   const [showArchived, setShowArchived] = useState(false)
+  const [customCadence, setCustomCadence] = useState(false)
   const [isPending, startTransition] = useTransition()
   const useBottomSheet = useIsMobile('(max-width: 1024px)', true)
 
@@ -323,6 +344,7 @@ export function RecurringView({ rules, archivedRules, categories, budget, anchor
     defaultValues: {
       currency: 'HUF',
       cycle: 'MONTHLY',
+      cycleInterval: 1,
       kind: 'EXPENSE' as 'INCOME' | 'EXPENSE' | 'SAVINGS',
       hasInstallment: false,
       backfill: true,
@@ -335,6 +357,7 @@ export function RecurringView({ rules, archivedRules, categories, budget, anchor
   const watchInstallmentTotal = watch('installmentTotal')
   const currency      = watch('currency')
   const cycle         = watch('cycle')
+  const interval      = Number(watch('cycleInterval'))
   const kind          = watch('kind')
   const categoryId    = watch('categoryId')
   const nextDue       = watch('nextDue')
@@ -349,22 +372,27 @@ export function RecurringView({ rules, archivedRules, categories, budget, anchor
   const backfillPreview = useMemo(() => {
     if (editing || !nextDue || !/^\d{4}-\d{2}-\d{2}$/.test(nextDue)) return null
     const months = Number(backfillMonths)
-    if (backfill && cycle === 'MONTHLY' && (!Number.isFinite(months) || months < 1)) return null
+    if (!isValidCadenceInterval(cycle, interval)) return null
+    if (backfill && (!Number.isInteger(months) || months < 1 || months > MAX_BACKFILL_MONTHS)) return null
+    const paid = Number(watchInstallmentPaid) || 0
+    const installments = Number(watchInstallmentTotal) || null
+    if (hasInstallment && (!installments || paid > installments)) return null
     const plan = planRecurringCatchUp({
       name: ruleName || 'Rule',
       amount: Number(amountValue) || 0,
       currency: currency as 'HUF' | 'USD' | 'EUR' | 'GBP',
-      cycle: cycle as 'MONTHLY' | 'ANNUAL',
+      cycle,
+      cycleInterval: interval,
       nextDue,
       kind: kind as 'INCOME' | 'EXPENSE' | 'SAVINGS',
       categoryId: categoryId || 'preview',
-      installmentPaid: hasInstallment ? Number(watchInstallmentPaid) || 0 : null,
-      installmentTotal: hasInstallment ? Number(watchInstallmentTotal) || null : null,
+      installmentPaid: hasInstallment ? paid : null,
+      installmentTotal: hasInstallment ? installments : null,
       backfill,
       backfillMonths: months,
     })
     return { count: plan.transactions.length, from: plan.transactions[0]?.date ?? null, to: plan.transactions.at(-1)?.date ?? null, nextDue: plan.nextDue }
-  }, [editing, nextDue, backfill, backfillMonths, cycle, kind, currency, categoryId, ruleName, amountValue, hasInstallment, watchInstallmentPaid, watchInstallmentTotal])
+  }, [editing, nextDue, backfill, backfillMonths, cycle, interval, kind, currency, categoryId, ruleName, amountValue, hasInstallment, watchInstallmentPaid, watchInstallmentTotal])
   const eligibleRuleCategories = useMemo(
     () => categories.filter((c) => c.kind === kind),
     [categories, kind],
@@ -378,8 +406,9 @@ export function RecurringView({ rules, archivedRules, categories, budget, anchor
 
   const openNew = useCallback(() => {
     setEditing(null)
+    setCustomCadence(false)
     reset({
-      currency: 'HUF', cycle: 'MONTHLY', kind: tab as 'INCOME' | 'EXPENSE' | 'SAVINGS',
+      currency: 'HUF', cycle: 'MONTHLY', cycleInterval: 1, kind: tab as 'INCOME' | 'EXPENSE' | 'SAVINGS',
       hasInstallment: false, nextDue: todayIso(),
       backfill: true, backfillMonths: DEFAULT_BACKFILL_MONTHS,
     })
@@ -394,13 +423,15 @@ export function RecurringView({ rules, archivedRules, categories, budget, anchor
 
   function openEdit(rule: SerialisedRule) {
     setEditing(rule)
+    setCustomCadence(!cadencePreset(rule.cycle, rule.cycleInterval))
     reset({
       name: rule.name,
       amount: rule.amount,
       currency: rule.currency as 'HUF' | 'USD' | 'EUR' | 'GBP',
-      cycle: rule.cycle as 'MONTHLY' | 'ANNUAL',
+      cycle: rule.cycle,
+      cycleInterval: rule.cycleInterval,
       nextDue: rule.nextDue,
-      anchorDay: rule.anchorDay,
+      anchorDay: rule.cycle === 'WEEKLY' ? undefined : rule.anchorDay ?? parseDateOnly(rule.nextDue).getUTCDate(),
       kind: rule.kind as 'INCOME' | 'EXPENSE' | 'SAVINGS',
       categoryId: rule.categoryId,
       hasInstallment: rule.installmentTotal != null,
@@ -412,10 +443,34 @@ export function RecurringView({ rules, archivedRules, categories, budget, anchor
     setSheetOpen(true)
   }
 
+  function setCadence(newCycle: Cadence['cycle'], newInterval: number) {
+    if (newCycle === 'WEEKLY') setValue('anchorDay', undefined)
+    else if (editing && cycle === 'WEEKLY' && nextDue) {
+      const restoredDay = editing.cycle !== 'WEEKLY' && nextDue === editing.nextDue ? editing.anchorDay : null
+      setValue('anchorDay', restoredDay ?? parseDateOnly(nextDue).getUTCDate())
+    }
+    setValue('cycle', newCycle)
+    setValue('cycleInterval', newInterval)
+  }
+
   function onSubmit(values: FormValues) {
+    const unchangedDerivedAnchor = editing?.anchorDay === null && editing.cycle === values.cycle
+      && editing.nextDue === values.nextDue && values.anchorDay === parseDateOnly(values.nextDue).getUTCDate()
     const input: RecurringRuleInput = {
       ...values,
       id: editing?.id,
+      anchorDay: values.cycle === 'WEEKLY' || unchangedDerivedAnchor ? undefined : values.anchorDay,
+      scheduleSnapshot: editing ? {
+        cycle: editing.cycle,
+        cycleInterval: editing.cycleInterval,
+        nextDue: editing.nextDue,
+        anchorDay: editing.anchorDay,
+      } : undefined,
+      installmentSnapshot: editing ? {
+        installmentPaid: editing.installmentPaid,
+        installmentTotal: editing.installmentTotal,
+        installmentEndsOn: editing.installmentEndsOn,
+      } : undefined,
       installmentPaid: values.hasInstallment ? values.installmentPaid : null,
       installmentTotal: values.hasInstallment ? values.installmentTotal : null,
       installmentEndsOn: values.hasInstallment && values.installmentEndsOn ? values.installmentEndsOn : null,
@@ -695,41 +750,74 @@ export function RecurringView({ rules, archivedRules, categories, budget, anchor
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              {renderSegmentedField({
-                labelId: 'rule-cycle-label',
-                label: 'Cycle',
-                value: cycle,
-                options: [
-                  { label: 'Monthly', value: 'MONTHLY' },
-                  { label: 'Annual', value: 'ANNUAL' },
-                ],
-                onChange: (v) => setValue('cycle', v as 'MONTHLY' | 'ANNUAL'),
-              })}
-              {renderSegmentedField({
-                labelId: 'rule-kind-label',
-                label: 'Kind',
-                value: kind,
-                options: [
-                  { label: 'Expense', value: 'EXPENSE' },
-                  { label: 'Income', value: 'INCOME' },
-                  { label: 'Savings', value: 'SAVINGS' },
-                ],
-                onChange: (v) => setValue('kind', v as 'INCOME' | 'EXPENSE' | 'SAVINGS'),
-              })}
-            </div>
+            {renderSegmentedField({
+              labelId: 'rule-cycle-label',
+              label: 'Cadence',
+              value: customCadence ? 'Custom' : cadencePreset(cycle, interval)?.label ?? 'Custom',
+              options: [...CADENCE_PRESETS.map(({ label }) => ({ label, value: label })), { label: 'Custom', value: 'Custom' }],
+              columns: 3,
+              onChange: (label) => {
+                const preset = CADENCE_PRESETS.find(option => option.label === label)
+                setCustomCadence(!preset)
+                if (preset) setCadence(preset.cycle, preset.cycleInterval)
+              },
+            })}
+            {customCadence && (
+              <div className="space-y-1.5">
+                <div className="grid grid-cols-[auto_5rem_minmax(0,1fr)] items-center gap-2">
+                  <Label htmlFor="rule-interval">Every</Label>
+                  <Input id="rule-interval" type="number" min={1} max={cadenceLimits[cycle]} step={1}
+                    className="h-9! tabular" aria-invalid={!!errors.cycleInterval}
+                    aria-describedby={errors.cycleInterval ? 'rule-interval-error' : undefined}
+                    {...register('cycleInterval')} />
+                  <Select value={cycle} onValueChange={(unit) => {
+                    if (unit) setCadence(unit, isValidCadenceInterval(unit, interval) ? interval : 1)
+                  }}>
+                    <SelectTrigger aria-label="Interval unit" className="h-9! w-full"><SelectValue>{cadenceUnits[cycle]}</SelectValue></SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(cadenceUnits).map(([unit, label]) => (
+                        <SelectItem key={unit} value={unit}>{label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {errors.cycleInterval && (
+                  <p id="rule-interval-error" className="text-xs text-destructive">
+                    Enter a whole number from 1 to {cadenceLimits[cycle]}.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {renderSegmentedField({
+              labelId: 'rule-kind-label',
+              label: 'Kind',
+              value: kind,
+              options: [
+                { label: 'Expense', value: 'EXPENSE' },
+                { label: 'Income', value: 'INCOME' },
+                { label: 'Savings', value: 'SAVINGS' },
+              ],
+              onChange: (v) => setValue('kind', v as 'INCOME' | 'EXPENSE' | 'SAVINGS'),
+            })}
 
             <div className="space-y-1.5">
               <Label htmlFor="rule-nextdue">Next due</Label>
               <DatePicker id="rule-nextdue" value={nextDue} onChange={(v) => {
-                if (editing && v !== nextDue) {
-                  setValue('anchorDay', v === editing.nextDue ? editing.anchorDay : parseDateOnly(v).getUTCDate())
+                if (editing && cycle !== 'WEEKLY' && v && v !== nextDue) {
+                  const defaultDay = parseDateOnly(v).getUTCDate()
+                  setValue('anchorDay', v === editing.nextDue ? editing.anchorDay ?? defaultDay : defaultDay)
                 }
                 setValue('nextDue', v)
               }} />
+              {cycle === 'WEEKLY' && nextDue && (
+                <p className="text-xs text-muted-foreground">
+                  Charges land on {weekdayFormat.format(parseDateOnly(nextDue))}.
+                </p>
+              )}
             </div>
 
-            {editing && (
+            {editing && cycle !== 'WEEKLY' && (
               <div className="space-y-1.5">
                 <Label htmlFor="rule-anchor-day">Billing day</Label>
                 <Input id="rule-anchor-day" type="number" min={1} max={31} step={1}
@@ -774,7 +862,7 @@ export function RecurringView({ rules, archivedRules, categories, budget, anchor
                     onCheckedChange={(v) => setValue('backfill', v)}
                   />
                 </div>
-                {backfill && cycle === 'MONTHLY' && (
+                {backfill && (cycle !== 'ANNUAL' || interval !== 1) && (
                   <div className="flex items-center justify-between gap-4">
                     <Label htmlFor="rule-backfill-months" className="text-[12px] text-muted-foreground font-normal">
                       How many months back
@@ -890,12 +978,12 @@ function ArchivedGroup({
                     )}
                     style={{ background: hexToRgba(r.category.color, 0.12), color: r.category.color }}
                   >
-                    {r.cycle === 'ANNUAL' ? <Calendar className="w-4 h-4" /> : <RepeatIcon className="w-4 h-4" />}
+                    {monthlyEquivalent(1, r) <= 1 / 3 ? <Calendar className="w-4 h-4" /> : <RepeatIcon className="w-4 h-4" />}
                   </div>
                   <div className="min-w-0">
                     <div className="text-[13.5px] font-medium truncate text-foreground/80">{r.name}</div>
                     <div className="text-[11px] text-muted-foreground capitalize">
-                      {r.cycle.toLowerCase()} · {r.category.name}
+                      {cadenceLabel(r)} · {r.category.name}
                     </div>
                   </div>
                 </div>
