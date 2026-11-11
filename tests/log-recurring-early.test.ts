@@ -56,6 +56,21 @@ describe('Log recurring early', () => {
     expect(ruleUpdate).not.toHaveBeenCalled()
   })
 
+  it('settles a clamped February date, advances to the billing day, and restores February on delete', async () => {
+    const { upsertTransaction, deleteTransaction } = await import('@/server-actions/transactions')
+    const february = day('2026-02-28')
+    ruleFindUnique.mockResolvedValue({ ...RENT, anchorDay: 31, nextDue: february })
+
+    expect(await upsertTransaction({ ...input, date: '2026-02-25' })).toEqual({ ok: true })
+    expect(txCreate).toHaveBeenCalledWith({ data: expect.objectContaining({ coversDueDate: february }) })
+    expect(ruleUpdate).toHaveBeenCalledWith({ where: { id: 'rule-rent' }, data: { nextDue: day('2026-03-31') } })
+
+    ruleFindUnique.mockResolvedValue({ ...RENT, anchorDay: 31, nextDue: day('2026-03-31') })
+    txFindUnique.mockResolvedValue({ recurringRuleId: 'rule-rent', coversDueDate: february })
+    await deleteTransaction('tx-early')
+    expect(ruleUpdate).toHaveBeenLastCalledWith({ where: { id: 'rule-rent' }, data: { nextDue: february } })
+  })
+
   it('refuses an archived rule or one of another kind', async () => {
     const { upsertTransaction } = await import('@/server-actions/transactions')
     ruleFindUnique.mockResolvedValueOnce({ ...RENT, archived: true })

@@ -53,6 +53,11 @@ export async function upsertRecurringRule(input: RecurringRuleInput): Promise<Re
   }
 
   if (id) {
+    const nextDue = dateOnlyStringToDate(fields.nextDue);
+    const existing = fields.anchorDay == null
+      ? await prisma.recurringRule.findUnique({ where: { id }, select: { nextDue: true, anchorDay: true } })
+      : null;
+    const previousDay = existing?.nextDue.getTime() === nextDue.getTime() ? existing.anchorDay : null;
     await prisma.recurringRule.update({
       where: { id },
       data: {
@@ -60,7 +65,8 @@ export async function upsertRecurringRule(input: RecurringRuleInput): Promise<Re
         amount: fields.amount,
         currency: fields.currency,
         cycle: fields.cycle,
-        nextDue: dateOnlyStringToDate(fields.nextDue),
+        nextDue,
+        anchorDay: fields.anchorDay ?? previousDay ?? nextDue.getUTCDate(),
         kind: fields.kind,
         categoryId: fields.categoryId,
         ...installmentFields(fields),
@@ -163,7 +169,7 @@ export async function unarchiveRecurringRule(id: string): Promise<{ ok: true } |
 
   const rule = await prisma.recurringRule.findUnique({
     where: { id },
-    select: { cycle: true, nextDue: true, installmentTotal: true, installmentPaid: true },
+    select: { cycle: true, nextDue: true, anchorDay: true, installmentTotal: true, installmentPaid: true },
   });
   if (!rule) {
     log.warn('rule restore rejected', { id, reason: 'rule not found' });
@@ -178,7 +184,7 @@ export async function unarchiveRecurringRule(id: string): Promise<{ ok: true } |
   }
 
   // Resume going forward so a long-archived rule doesn’t backfill a gap of charges.
-  const nextDue = resumeNextDue(rule.cycle as 'MONTHLY' | 'ANNUAL', dateToDateOnly(rule.nextDue));
+  const nextDue = resumeNextDue(rule);
 
   await prisma.recurringRule.update({
     where: { id },
@@ -192,9 +198,4 @@ export async function unarchiveRecurringRule(id: string): Promise<{ ok: true } |
   revalidatePath('/dashboard');
   revalidatePath('/savings');
   return { ok: true };
-}
-
-function dateToDateOnly(value: Date) {
-  // `@db.Date` round-trips through UTC, so read the calendar day in UTC too.
-  return value.toISOString().split('T')[0];
 }

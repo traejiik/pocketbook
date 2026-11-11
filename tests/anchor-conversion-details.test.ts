@@ -48,6 +48,7 @@ describe('anchor conversion detail amounts', () => {
         currency: 'USD',
         cycle: 'MONTHLY',
         nextDue: new Date('2026-05-29T00:00:00.000Z'),
+        anchorDay: 31,
         kind: 'INCOME',
         categoryId: 'freelance',
         installmentPaid: null,
@@ -63,6 +64,7 @@ describe('anchor conversion detail amounts', () => {
         currency: 'HUF',
         cycle: 'MONTHLY',
         nextDue: new Date('2026-06-05T00:00:00.000Z'),
+        anchorDay: 5,
         kind: 'EXPENSE',
         categoryId: 'rent',
         installmentPaid: null,
@@ -77,6 +79,7 @@ describe('anchor conversion detail amounts', () => {
     const serialised = await buildRecurringRuleViewModels(rules, 'HUF')
 
     expect(serialised.find((rule) => rule.id === 'usd-rule')?.anchorEquivalent).toBe(358400)
+    expect(serialised.find((rule) => rule.id === 'usd-rule')).toMatchObject({ nextDue: '2026-05-29', anchorDay: 31 })
     expect(serialised.find((rule) => rule.id === 'huf-rule')?.anchorEquivalent).toBeNull()
   })
 

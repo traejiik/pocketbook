@@ -13,6 +13,7 @@ import {
   planRecurringCatchUp,
 } from '@/lib/recurring/backfill'
 import type { RecurringBudgetSummary } from '@/lib/aggregations'
+import { parseDateOnly } from '@/lib/recurring/dates'
 import { RecurringRuleCard } from '@/components/recurring/RecurringRuleCard'
 import { AmountDisplay } from '@/components/finance/AmountDisplay'
 import { CalmCard } from '@/components/finance/CalmCard'
@@ -51,6 +52,7 @@ export type SerialisedRule = {
   currency: string
   cycle: string
   nextDue: string          // YYYY-MM-DD
+  anchorDay: number
   kind: string
   categoryId: string
   installmentPaid: number | null
@@ -80,6 +82,7 @@ const formSchema = z.object({
   currency: z.enum(['HUF', 'USD', 'EUR', 'GBP']),
   cycle: z.enum(['MONTHLY', 'ANNUAL']),
   nextDue: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  anchorDay: z.coerce.number().int().min(1).max(31).optional(),
   kind: z.enum(['INCOME', 'EXPENSE', 'SAVINGS']),
   categoryId: z.string().min(1, 'Please select a category'),
   hasInstallment: z.boolean(),
@@ -397,6 +400,7 @@ export function RecurringView({ rules, archivedRules, categories, budget, anchor
       currency: rule.currency as 'HUF' | 'USD' | 'EUR' | 'GBP',
       cycle: rule.cycle as 'MONTHLY' | 'ANNUAL',
       nextDue: rule.nextDue,
+      anchorDay: rule.anchorDay,
       kind: rule.kind as 'INCOME' | 'EXPENSE' | 'SAVINGS',
       categoryId: rule.categoryId,
       hasInstallment: rule.installmentTotal != null,
@@ -717,8 +721,24 @@ export function RecurringView({ rules, archivedRules, categories, budget, anchor
 
             <div className="space-y-1.5">
               <Label htmlFor="rule-nextdue">Next due</Label>
-              <DatePicker id="rule-nextdue" value={nextDue} onChange={(v) => setValue('nextDue', v)} />
+              <DatePicker id="rule-nextdue" value={nextDue} onChange={(v) => {
+                if (editing && v !== nextDue) {
+                  setValue('anchorDay', v === editing.nextDue ? editing.anchorDay : parseDateOnly(v).getUTCDate())
+                }
+                setValue('nextDue', v)
+              }} />
             </div>
+
+            {editing && (
+              <div className="space-y-1.5">
+                <Label htmlFor="rule-anchor-day">Billing day</Label>
+                <Input id="rule-anchor-day" type="number" min={1} max={31} step={1}
+                  required aria-describedby="rule-anchor-day-help" aria-invalid={!!errors.anchorDay} {...register('anchorDay')} />
+                <p id="rule-anchor-day-help" className={cn('text-xs', errors.anchorDay ? 'text-destructive' : 'text-muted-foreground')}>
+                  {errors.anchorDay ? 'Enter a whole number from 1 to 31.' : 'Used after the next due date. Shorter months use their last day.'}
+                </p>
+              </div>
+            )}
 
             <div className="space-y-1.5">
               <Label id="rule-category-label">Category</Label>
