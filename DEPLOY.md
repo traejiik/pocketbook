@@ -80,13 +80,15 @@ After one successful boot, missing allowlisted configuration can be filled from 
 
 ### First-run owner setup
 
-These commands apply to the owner-setup beta and later images. Once a fresh instance has started, run:
+On an instance without an account, Pocketbook prints a one-time code in the `[setup]` block of the container startup logs. Open `/setup` at your instance URL, select **Get started**, and enter the code and your account details. Anyone with the code can create the owner account while setup is pending, so keep the startup logs private.
+
+The code expires after 30 minutes. Restarting during that window keeps the same code valid. If the code is missing or expired, issue a new one:
 
 ```sh
 docker compose exec --user 1001:1001 pocketbook-web /app/entrypoint.sh owner setup-code
 ```
 
-Open `/setup` at your instance URL and enter the code, account details, instance name, and theme. A code expires after 30 minutes. Re-running the command replaces any outstanding code, and the command refuses to issue one after setup. Sign in with the password you chose. For a local dev database, run `pnpm prisma db seed` followed by `pnpm owner setup-code`.
+Running the command replaces any outstanding code. After setup, the code is consumed and future startups skip code issuance. Sign in with the password you chose. For a local dev database, run `pnpm prisma db seed` followed by `pnpm owner setup-code`.
 
 ### Upgrading to the owner-setup beta
 

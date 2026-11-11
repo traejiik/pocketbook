@@ -3,7 +3,7 @@ import { parseEnv } from 'node:util';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
 import { OwnerRecoveryError, resetOwnerPassword } from '../lib/owner/password';
-import { issueSetupCode, OwnerSetupError } from '../lib/owner/setup';
+import { issueSetupCode, issueSetupCodeOnStartup, OwnerSetupError } from '../lib/owner/setup';
 
 const invocationPassword = process.env.PB_RESET_PASSWORD;
 delete process.env.PB_RESET_PASSWORD;
@@ -34,7 +34,7 @@ async function readPassword() {
 
 async function main() {
   const [command, ...extra] = process.argv.slice(2);
-  if (extra.length || (command !== 'setup-code' && command !== 'reset-password')) {
+  if (extra.length || (command !== 'setup-code' && command !== 'startup-setup-code' && command !== 'reset-password')) {
     throw new OwnerRecoveryError('Usage: owner setup-code | owner reset-password');
   }
   const connectionString = databaseUrl();
@@ -43,6 +43,23 @@ async function main() {
   try {
     if (command === 'setup-code') {
       process.stdout.write(`${await issueSetupCode(db)}\n`);
+    } else if (command === 'startup-setup-code') {
+      const code = await issueSetupCodeOnStartup(db);
+      if (code) {
+        process.stdout.write([
+          '',
+          '[setup] No account in database',
+          '===========================================',
+          'Use this setup code to create your account:',
+          '',
+          `\t${code}`,
+          '',
+          'This code expires after 30 minutes.',
+          '===========================================',
+          '',
+          '',
+        ].join('\n'));
+      }
     } else {
       await resetOwnerPassword(db, await readPassword());
       process.stdout.write('Password reset. All existing sessions have been revoked.\n');

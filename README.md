@@ -136,15 +136,15 @@ cp .env.example .env
 export PB_IMAGE_TAG=beta
 docker compose up -d
 
-# 4. On a fresh instance, generate a one-time setup code
-docker compose exec --user 1001:1001 pocketbook-web /app/entrypoint.sh owner setup-code
+# 4. On a fresh instance, find the [setup] block in the startup logs
+docker compose logs pocketbook-web
 
 # 5. Open /setup at PB_AUTH_URL, create the owner, then sign in
 ```
 
 On boot, the `pocketbook-web` container prepares `/data` and `/backups` as root, immediately re-execs as UID 1001, builds `PB_DATABASE_URL`, runs `prisma migrate deploy`, the idempotent seed, and the FX-lock backfill (each only when a quick startup check finds work for it; `PB_FORCE_BOOTSTRAP=1` runs all three), then starts a PID-1 supervisor. The supervisor generates a per-boot internal job token and runs Next.js plus a separate UTC scheduler process. If either child exits or the worker stops heartbeating, the container exits so Docker can restart it.
 
-The setup code expires after 30 minutes. Issuing another code invalidates the first. Existing owners keep their account, password, and data when upgrading and sign in again once. See the [deployment runbook](DEPLOY.md#owner-password-recovery) for recovery.
+The setup code expires after 30 minutes and can be used once. Keep the code private while setup is pending because anyone with the code can create the owner account. If the code is missing or expired, follow the [first-run setup instructions](DEPLOY.md#first-run-owner-setup) to issue a new one. Existing owners keep their account, password, and data when upgrading and sign in again once. See the [deployment runbook](DEPLOY.md#owner-password-recovery) for recovery.
 
 After every successful boot the validated environment configuration is persisted to `.env-cache` on the `/data` volume (`chmod 600`); if a later redeploy arrives without variables, the entrypoint restores only the missing values. Discord configuration is separate: enter the webhook in authenticated Settings. Production stores it in `/data/notifications.json`; a direct development run stores it in `.data/notifications.json`; and `PB_NOTIFICATION_CONFIG_PATH` can explicitly override either location. The file is written with mode `0600`, and the webhook is never imported from environment variables.
 

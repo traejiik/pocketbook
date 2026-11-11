@@ -1,11 +1,12 @@
 import type { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
+import { passwordIssue } from './password-policy';
 
-export const passwordSchema = z.string()
-  .refine(password => Array.from(password).length >= 12, 'Password must be at least 12 characters.')
-  .refine(password => !/[\r\n]/.test(password), 'Password must be on a single line.')
-  .refine(password => !bcrypt.truncates(password), 'Password must be at most 72 bytes in UTF-8.');
+export const passwordSchema = z.string().superRefine((password, context) => {
+  const message = passwordIssue(password);
+  if (message) context.addIssue({ code: 'custom', message });
+});
 
 export function hashPassword(password: string) {
   return bcrypt.hash(passwordSchema.parse(password), 12);

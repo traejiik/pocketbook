@@ -1,7 +1,7 @@
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
-import { claimOwner, issueSetupCode } from '@/lib/owner/setup';
+import { claimOwner, issueSetupCode, issueSetupCodeOnStartup } from '@/lib/owner/setup';
 
 const url = process.env.PB_OWNER_TEST_DATABASE_URL;
 
@@ -31,6 +31,27 @@ describe.skipIf(!url)('owner setup on PostgreSQL', () => {
     await Promise.all([first.$disconnect(), second.$disconnect()]);
   });
 
+  it('issues one startup code across concurrent boots and preserves it on restart', async () => {
+    const codes = await Promise.all([issueSetupCodeOnStartup(first), issueSetupCodeOnStartup(second)]);
+    const issued = codes.filter(code => code !== null);
+    expect(issued).toHaveLength(1);
+    expect(await issueSetupCodeOnStartup(first)).toBeNull();
+
+    await claimOwner(first, { ...input, code: issued[0] });
+    expect(await issueSetupCodeOnStartup(second)).toBeNull();
+  });
+
+  it('replaces an expired startup code', async () => {
+    const expired = await issueSetupCode(first, new Date(Date.now() - 31 * 60_000));
+    const fresh = await issueSetupCodeOnStartup(first);
+    expect(fresh).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    await expect(claimOwner(first, { ...input, code: expired })).rejects.toMatchObject({
+      field: 'code',
+      message: 'The setup code is invalid or expired.',
+    });
+    await expect(claimOwner(first, { ...input, code: fresh })).resolves.toBeUndefined();
+  });
+
   it('rejects invalid, expired and replaced codes', async () => {
     const expired = await issueSetupCode(first, new Date(Date.now() - 31 * 60_000));
     await expect(claimOwner(first, { ...input, code: expired })).rejects.toThrow('invalid or expired');
@@ -38,6 +59,7 @@ describe.skipIf(!url)('owner setup on PostgreSQL', () => {
     await issueSetupCode(first);
     await expect(claimOwner(first, { ...input, code: replaced })).rejects.toThrow('invalid or expired');
     await expect(claimOwner(first, { ...input, code: 'x'.repeat(43) })).rejects.toThrow('invalid or expired');
+    await expect(claimOwner(first, { ...input, code: 'too short' })).rejects.toMatchObject({ field: 'code' });
     expect(await first.user.count()).toBe(0);
   });
 
