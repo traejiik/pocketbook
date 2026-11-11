@@ -1,15 +1,19 @@
 import { mkdtemp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { DEFAULT_NOTIFICATION_CONFIG, writeNotificationConfig } from '@/lib/notifications/config'
+import { sendInstanceNotification } from '@/lib/notifications/instance'
 import {
   deliverNotificationWithConfig,
   DISCORD_TIMEOUT_MS,
   renderNotification,
   sendNotification,
 } from '@/lib/notifications/send'
+
+const { readSettings } = vi.hoisted(() => ({ readSettings: vi.fn() }))
+vi.mock('@/lib/prisma', () => ({ prisma: { appSettings: { findUnique: readSettings } } }))
 
 async function configuredPath(overrides: Partial<typeof DEFAULT_NOTIFICATION_CONFIG> = {}) {
   const dir = await mkdtemp(join(tmpdir(), 'pocketbook-notify-send-'))
@@ -196,5 +200,49 @@ describe('Discord delivery', () => {
       { type: 'test' },
       { configPath, fetchImpl, timeoutMs: 10 },
     )).resolves.toEqual({ delivered: false, reason: 'delivery-failed' })
+  })
+})
+
+describe('instance notification footer', () => {
+  const event = { type: 'systemAlerts', title: 'System alert', description: 'Something stopped' } as const
+
+  afterEach(() => {
+    readSettings.mockReset()
+    vi.unstubAllEnvs()
+    vi.unstubAllGlobals()
+  })
+
+  function mockTransport() {
+    const transport = vi.fn<typeof fetch>().mockResolvedValue(new Response('{}'))
+    vi.stubGlobal('fetch', transport)
+    return transport
+  }
+
+  it('only queries the saved instance name for an enabled delivery', async () => {
+    const transport = mockTransport()
+    vi.stubEnv('PB_INSTANCE_NAME', 'Legacy instance')
+    vi.stubEnv('PB_NOTIFICATION_CONFIG_PATH', await configuredPath({ enabled: false }))
+    await expect(sendInstanceNotification(event)).resolves.toMatchObject({ reason: 'disabled' })
+    expect(readSettings).not.toHaveBeenCalled()
+
+    vi.stubEnv('PB_NOTIFICATION_CONFIG_PATH', await configuredPath())
+    readSettings.mockResolvedValue({ instanceName: 'Saved instance' })
+    await expect(sendInstanceNotification(event)).resolves.toEqual({ delivered: true })
+    expect(JSON.parse(String(transport.mock.calls[0][1]?.body)).embeds[0].footer.text).toBe('Pocketbook · Saved instance')
+  })
+
+  it('delivers with the environment fallback while a database lookup is stalled', async () => {
+    const transport = mockTransport()
+    vi.stubEnv('PB_INSTANCE_NAME', 'Legacy instance')
+    vi.stubEnv('PB_NOTIFICATION_CONFIG_PATH', await configuredPath())
+    let finishLookup!: (value: null) => void
+    readSettings.mockReturnValue(new Promise<null>(resolve => { finishLookup = resolve }))
+
+    try {
+      await expect(sendInstanceNotification(event)).resolves.toEqual({ delivered: true })
+      expect(JSON.parse(String(transport.mock.calls[0][1]?.body)).embeds[0].footer.text).toBe('Pocketbook · Legacy instance')
+    } finally {
+      finishLookup(null)
+    }
   })
 })
