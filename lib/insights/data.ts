@@ -1,6 +1,7 @@
 import { prisma } from '../prisma'
 import { shiftMonthKey } from '../format'
 import { toAnchor } from '../fx'
+import { cadenceLabel } from '../recurring/cadence'
 import {
   getAnchorCurrency,
   getMonthKpis,
@@ -56,7 +57,7 @@ export type InsightSnapshot = {
   }[]
   expenseCount: number
   upcoming: { name: string; category: string; daysAway: number; amount: number | null }[]
-  installments: { name: string; paid: number; total: number; endsOn: string | null; monthlyAmount: number | null }[]
+  installments: { name: string; paid: number; total: number; endsOn: string | null; cadence: string; perChargeAmount: number | null }[]
   committed: RecurringBudgetSummary
   priorNotes: { monthName: string; opening: string }[]
   /**
@@ -180,8 +181,9 @@ export async function collectInsightSnapshot(monthKey: string): Promise<InsightS
       paid: r.installmentPaid as number,
       total: r.installmentTotal as number,
       endsOn: r.installmentEndsOn ? r.installmentEndsOn.toISOString() : null,
+      cadence: cadenceLabel(r),
       // Live conversion — recurring rules carry no frozen rate (AGENTS.md §9).
-      monthlyAmount: await toAnchor(
+      perChargeAmount: await toAnchor(
         Math.abs(Number(r.amount)),
         r.currency as 'HUF' | 'USD' | 'EUR' | 'GBP',
       ),

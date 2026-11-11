@@ -1,6 +1,7 @@
 import { prisma } from '../prisma'
 import { parseCsvRecords } from '../csv'
 import { DEFAULT_BACKFILL_MONTHS } from '../recurring/backfill'
+import { cadenceLimits, isValidCadenceInterval, recurringCycleSchema } from '../recurring/cadence'
 import {
   createRecurringRule,
   installmentError,
@@ -16,7 +17,6 @@ import {
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 const KINDS = ['INCOME', 'EXPENSE', 'SAVINGS'] as const
-const CYCLES = ['MONTHLY', 'ANNUAL'] as const
 const CURRENCIES = ['HUF', 'USD', 'EUR', 'GBP'] as const
 
 function isRealDate(iso: string): boolean {
@@ -32,8 +32,20 @@ export type RecurringImportValue = Omit<RecurringRuleFields, 'id' | 'categoryId'
 
 export type ParsedRecurringRow = { line: number; value: RecurringImportValue | null; errors: string[] }
 
-const CYCLE_ALIASES: Record<string, (typeof CYCLES)[number]> = {
-  MONTHLY: 'MONTHLY', MONTH: 'MONTHLY', ANNUAL: 'ANNUAL', ANNUALLY: 'ANNUAL', YEARLY: 'ANNUAL', YEAR: 'ANNUAL',
+type ImportedCadence = Pick<RecurringRuleFields, 'cycle' | 'cycleInterval'>
+
+const CYCLE_ALIASES: Partial<Record<string, ImportedCadence>> = {
+  WEEK: { cycle: 'WEEKLY', cycleInterval: 1 },
+  FORTNIGHTLY: { cycle: 'WEEKLY', cycleInterval: 2 },
+  BIWEEKLY: { cycle: 'WEEKLY', cycleInterval: 2 },
+  MONTH: { cycle: 'MONTHLY', cycleInterval: 1 },
+  QUARTERLY: { cycle: 'MONTHLY', cycleInterval: 3 },
+  SEMIANNUAL: { cycle: 'MONTHLY', cycleInterval: 6 },
+  'SEMI-ANNUAL': { cycle: 'MONTHLY', cycleInterval: 6 },
+  'HALF-YEARLY': { cycle: 'MONTHLY', cycleInterval: 6 },
+  ANNUALLY: { cycle: 'ANNUAL', cycleInterval: 1 },
+  YEARLY: { cycle: 'ANNUAL', cycleInterval: 1 },
+  YEAR: { cycle: 'ANNUAL', cycleInterval: 1 },
 }
 
 function optionalInt(raw: string, label: string, min: number, errors: string[]): number | null {
@@ -46,9 +58,29 @@ function optionalInt(raw: string, label: string, min: number, errors: string[]):
   return n
 }
 
+function parseCadence(rawCycle: string, rawInterval: string, errors: string[]): ImportedCadence | null {
+  const unit = rawCycle.toUpperCase()
+  const alias = CYCLE_ALIASES[unit]
+  const parsed = recurringCycleSchema.safeParse(alias?.cycle ?? unit)
+  if (!parsed.success) {
+    errors.push(`Invalid cycle "${rawCycle}" (expected WEEKLY, MONTHLY or ANNUAL)`)
+    return null
+  }
+  const cycle = parsed.data
+  const interval = optionalInt(rawInterval, 'interval', 1, errors)
+  if (interval != null && alias && interval !== alias.cycleInterval) {
+    errors.push(`The interval ${interval} conflicts with "${rawCycle}" (expected ${alias.cycleInterval})`)
+  }
+  const cycleInterval = interval ?? alias?.cycleInterval ?? 1
+  if (!isValidCadenceInterval(cycle, cycleInterval)) {
+    errors.push(`Invalid interval "${rawInterval}" for ${cycle} (expected 1–${cadenceLimits[cycle]})`)
+  }
+  return { cycle, cycleInterval }
+}
+
 /**
- * Columns: `name, amount, currency, cycle, next_due, kind` (or `type`), a
- * category as `category` (name) or `category_id`, and optional
+ * Required columns: `name, amount, currency, cycle, next_due, kind` (or `type`).
+ * Optional columns: `interval, anchor_day, category, category_id` and
  * `installment_paid, installment_total, installment_ends_on`. `amount` is the
  * size of one charge; its sign is ignored. A row with an installment column is
  * an installment plan.
@@ -69,9 +101,11 @@ export function parseRecurringRows(csv: string): ParsedRecurringRow[] {
     if (!v.amount || !Number.isFinite(amount) || amount === 0) errors.push(`Invalid amount "${v.amount}"`)
     const currency = v.currency.toUpperCase()
     if (!(CURRENCIES as readonly string[]).includes(currency)) errors.push(`Unsupported currency "${v.currency}"`)
-    const cycle = CYCLE_ALIASES[v.cycle.toUpperCase()]
-    if (!cycle) errors.push(`Invalid cycle "${v.cycle}" (expected MONTHLY or ANNUAL)`)
+    const cadence = parseCadence(v.cycle, v.interval ?? '', errors)
     if (!isRealDate(v.next_due)) errors.push(`Invalid next_due "${v.next_due}" (expected YYYY-MM-DD)`)
+    const anchorDay = optionalInt(v.anchor_day ?? '', 'anchor_day', 1, errors)
+    if (anchorDay != null && cadence?.cycle === 'WEEKLY') errors.push('Leave anchor_day blank for weekly rules')
+    else if (anchorDay != null && anchorDay > 31) errors.push(`Invalid anchor_day "${v.anchor_day}" (expected 1–31)`)
     const kind = (v.kind || v.type || '').toUpperCase()
     if (!(KINDS as readonly string[]).includes(kind)) errors.push(`Invalid kind "${v.kind || v.type}" (expected INCOME, EXPENSE or SAVINGS)`)
 
@@ -81,13 +115,14 @@ export function parseRecurringRows(csv: string): ParsedRecurringRow[] {
     if (endsOn && !isRealDate(endsOn)) errors.push(`Invalid installment_ends_on "${endsOn}"`)
     const hasInstallment = installmentPaid !== null || installmentTotal !== null || !!endsOn
 
-    if (errors.length > 0) return { line, value: null, errors }
+    if (!cadence || errors.length > 0) return { line, value: null, errors }
     const value: RecurringImportValue = {
       name: v.name,
       amount,
       currency: currency as (typeof CURRENCIES)[number],
-      cycle,
+      ...cadence,
       nextDue: v.next_due,
+      anchorDay: cadence.cycle === 'WEEKLY' ? undefined : anchorDay ?? Number(v.next_due.slice(-2)),
       kind: kind as (typeof KINDS)[number],
       categoryId: v.category_id || undefined,
       categoryName: v.category || undefined,
@@ -140,11 +175,10 @@ export async function classifyRecurringRows(
     const messages: string[] = []
     let categoryId: string | null = null
     let unmatchedCategory: string | null = null
-    if (fileCategoryId) {
-      const cat = catById.get(fileCategoryId)
-      if (!cat) messages.push(`Category id "${fileCategoryId}" not found — pick one`)
-      else if (cat.kind !== value.kind) messages.push(`"${cat.name}" is not a ${value.kind.toLowerCase()} category — pick one`)
-      else categoryId = cat.id
+    const storedCategory = fileCategoryId ? catById.get(fileCategoryId) : undefined
+    if (storedCategory) {
+      if (storedCategory.kind !== value.kind) messages.push(`"${storedCategory.name}" is not a ${value.kind.toLowerCase()} category — pick one`)
+      else categoryId = storedCategory.id
     } else if (categoryName) {
       const cat = catByName.get(`${value.kind}|${categoryName.trim().toLowerCase()}`)
       if (cat) categoryId = cat.id
@@ -152,6 +186,8 @@ export async function classifyRecurringRows(
         unmatchedCategory = categoryName
         messages.push(`No ${value.kind.toLowerCase()} category named "${categoryName}" — pick one or create it`)
       }
+    } else if (fileCategoryId) {
+      messages.push(`Category id "${fileCategoryId}" not found — pick one`)
     } else {
       messages.push('No category in the file — pick one')
     }

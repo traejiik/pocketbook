@@ -1,6 +1,8 @@
 import { z } from 'zod'
 import type { Prisma } from '@prisma/client'
 import { lockRate, type FxLock } from '../fx'
+import { recurringCadenceSchema } from './cadence'
+import { parseDateOnly } from './dates'
 import {
   DEFAULT_BACKFILL_MONTHS,
   MAX_BACKFILL_MONTHS,
@@ -14,15 +16,27 @@ import {
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/
 
-export const recurringRuleSchema = z.object({
+const billingDaySchema = z.number().int().min(1).max(31)
+const scheduleSnapshotSchema = recurringCadenceSchema.safeExtend({
+  cycleInterval: z.number(),
+  anchorDay: billingDaySchema.nullable(),
+  nextDue: z.string().regex(DAY),
+})
+
+export const recurringRuleSchema = recurringCadenceSchema.safeExtend({
   id: z.string().optional(),
   name: z.string().trim().min(1).max(200),
   amount: z.number().positive(),
   currency: z.enum(['HUF', 'USD', 'EUR', 'GBP']),
-  cycle: z.enum(['MONTHLY', 'ANNUAL']),
   nextDue: z.string().regex(DAY),
-  /** Optional correction on edit. New rules take their billing day from nextDue. */
-  anchorDay: z.number().int().min(1).max(31).optional(),
+  /** Explicit billing day for edits and imports. Otherwise derived from the entered date. */
+  anchorDay: billingDaySchema.optional(),
+  scheduleSnapshot: scheduleSnapshotSchema.optional(),
+  installmentSnapshot: z.object({
+    installmentPaid: z.number().int().nullable(),
+    installmentTotal: z.number().int().nullable(),
+    installmentEndsOn: z.string().regex(DAY).nullable(),
+  }).optional(),
   kind: z.enum(['INCOME', 'EXPENSE', 'SAVINGS']),
   categoryId: z.string().min(1),
   hasInstallment: z.boolean().default(false),
@@ -31,18 +45,18 @@ export const recurringRuleSchema = z.object({
   installmentEndsOn: z.string().regex(DAY).optional().nullable(),
   /** Log the charges this rule already made (creation only). */
   backfill: z.boolean().default(true),
-  /** How many past monthly charges to log; ignored for annual rules and installment plans. */
+  /** History window. Installments and annual rules with interval 1 use their own counts. */
   backfillMonths: z.number().int().min(1).max(MAX_BACKFILL_MONTHS).default(DEFAULT_BACKFILL_MONTHS),
+}).refine(({ cycle, anchorDay }) => cycle !== 'WEEKLY' || anchorDay == null, {
+  path: ['anchorDay'],
+  message: 'Weekly rules use the weekday of the next due date.',
 })
 
 export type RecurringRuleInput = z.input<typeof recurringRuleSchema>
 export type RecurringRuleFields = z.infer<typeof recurringRuleSchema>
 
 /** UTC midnight, so the `@db.Date` column stores the intended calendar day in any timezone. */
-export function dateOnlyStringToDate(value: string): Date {
-  const [year, month, day] = value.split('-').map(Number)
-  return new Date(Date.UTC(year, month - 1, day))
-}
+export const dateOnlyStringToDate = parseDateOnly
 
 /** The rule's stored installment fields: null unless it is an installment plan. */
 export function installmentFields(fields: RecurringRuleFields) {
@@ -70,6 +84,8 @@ export function planNewRule(fields: RecurringRuleFields, today?: Date): Recurrin
     amount: fields.amount,
     currency: fields.currency,
     cycle: fields.cycle,
+    cycleInterval: fields.cycleInterval,
+    anchorDay: fields.anchorDay,
     nextDue: fields.nextDue,
     kind: fields.kind,
     categoryId: fields.categoryId,
@@ -104,6 +120,7 @@ export async function createRecurringRule(
       amount: fields.amount,
       currency: fields.currency,
       cycle: fields.cycle,
+      cycleInterval: fields.cycleInterval,
       kind: fields.kind,
       categoryId: fields.categoryId,
       ...installmentFields(fields),

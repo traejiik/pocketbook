@@ -5,6 +5,8 @@ import { prisma } from '@/lib/prisma';
 import { CACHE_TAGS, revalidateFinanceTags } from '@/lib/cache';
 import { requireAuthenticatedUser } from '@/lib/require-auth';
 import { resumeNextDue } from '@/lib/recurring/backfill';
+import { formatDateOnly, type RecurringCycle } from '@/lib/recurring/dates';
+import { lockRecurringRules } from '@/lib/recurring/locking';
 import {
   createRecurringRule,
   dateOnlyStringToDate,
@@ -30,6 +32,14 @@ type RecurringRuleResult =
     }
   | { error: string }
 
+type InstallmentSnapshot = NonNullable<RecurringRuleInput['installmentSnapshot']>;
+
+function sameInstallment(left: InstallmentSnapshot, right: InstallmentSnapshot) {
+  return left.installmentPaid === right.installmentPaid
+    && left.installmentTotal === right.installmentTotal
+    && left.installmentEndsOn === right.installmentEndsOn;
+}
+
 export async function upsertRecurringRule(input: RecurringRuleInput): Promise<RecurringRuleResult> {
   await requireAuthenticatedUser();
 
@@ -53,32 +63,79 @@ export async function upsertRecurringRule(input: RecurringRuleInput): Promise<Re
   }
 
   if (id) {
-    const nextDue = dateOnlyStringToDate(fields.nextDue);
-    const existing = fields.anchorDay == null
-      ? await prisma.recurringRule.findUnique({ where: { id }, select: { nextDue: true, anchorDay: true } })
-      : null;
-    const previousDay = existing?.nextDue.getTime() === nextDue.getTime() ? existing.anchorDay : null;
-    await prisma.recurringRule.update({
-      where: { id },
-      data: {
-        name: fields.name,
-        amount: fields.amount,
-        currency: fields.currency,
-        cycle: fields.cycle,
-        nextDue,
-        anchorDay: fields.anchorDay ?? previousDay ?? nextDue.getUTCDate(),
-        kind: fields.kind,
-        categoryId: fields.categoryId,
-        ...installmentFields(fields),
-      },
+    const updated = await prisma.$transaction(async (tx): Promise<{ error: string } | { cycle: RecurringCycle; nextDue: string }> => {
+      await lockRecurringRules(tx, [id]);
+      const existing = await tx.recurringRule.findUnique({
+        where: { id },
+        select: {
+          cycle: true, cycleInterval: true, anchorDay: true, nextDue: true,
+          installmentPaid: true, installmentTotal: true, installmentEndsOn: true,
+        },
+      });
+      if (!existing) return { error: 'Rule not found.' };
+
+      const current = { ...existing, nextDue: formatDateOnly(existing.nextDue) };
+      const baseline = fields.scheduleSnapshot ?? current;
+      const dateChanged = fields.nextDue !== baseline.nextDue;
+      const anchorChanged = fields.cycle !== 'WEEKLY' && fields.anchorDay != null && fields.anchorDay !== baseline.anchorDay;
+      const scheduleChanged = dateChanged || anchorChanged
+        || fields.cycle !== baseline.cycle || fields.cycleInterval !== baseline.cycleInterval;
+      const snapshotStale = baseline.nextDue !== current.nextDue || baseline.anchorDay !== current.anchorDay
+        || baseline.cycle !== current.cycle || baseline.cycleInterval !== current.cycleInterval;
+      if (snapshotStale && scheduleChanged) {
+        return { error: 'The rule’s schedule has changed. Reload and try again.' };
+      }
+
+      const currentInstallment = {
+        installmentPaid: existing.installmentPaid,
+        installmentTotal: existing.installmentTotal,
+        installmentEndsOn: existing.installmentEndsOn ? formatDateOnly(existing.installmentEndsOn) : null,
+      };
+      const installment = installmentFields(fields);
+      const requestedInstallment = { ...installment, installmentEndsOn: fields.hasInstallment ? fields.installmentEndsOn ?? null : null };
+      const installmentBaseline = fields.installmentSnapshot ?? currentInstallment;
+      // The editor renders an unset paid count on an existing plan as zero.
+      const displayedInstallment = installmentBaseline.installmentTotal == null
+        ? installmentBaseline
+        : { ...installmentBaseline, installmentPaid: installmentBaseline.installmentPaid ?? 0 };
+      const installmentChanged = !sameInstallment(requestedInstallment, displayedInstallment);
+      if (installmentChanged && !sameInstallment(installmentBaseline, currentInstallment)) {
+        return { error: 'The rule’s installments have changed. Reload and try again.' };
+      }
+
+      const nextDue = dateChanged ? dateOnlyStringToDate(fields.nextDue) : existing.nextDue;
+      const defaultAnchorDay = dateChanged || baseline.cycle === 'WEEKLY'
+        ? nextDue.getUTCDate()
+        : existing.anchorDay ?? nextDue.getUTCDate();
+      const anchorDay = fields.cycle === 'WEEKLY' ? null : fields.anchorDay ?? defaultAnchorDay;
+      // Older callers with no installment snapshot cannot safely overwrite the
+      // installment controls of a rule whose schedule has moved.
+      const writeInstallment = installmentChanged && (fields.installmentSnapshot || !snapshotStale);
+      await tx.recurringRule.update({
+        where: { id },
+        data: {
+          name: fields.name,
+          amount: fields.amount,
+          currency: fields.currency,
+          ...(scheduleChanged ? { cycle: fields.cycle, cycleInterval: fields.cycleInterval, nextDue, anchorDay } : {}),
+          kind: fields.kind,
+          categoryId: fields.categoryId,
+          ...(writeInstallment ? installment : {}),
+        },
+      });
+      return {
+        cycle: scheduleChanged ? fields.cycle : current.cycle,
+        nextDue: formatDateOnly(nextDue),
+      };
     });
+    if ('error' in updated) return updated;
     log.info('rule updated', {
       id,
       name: fields.name,
       amount: fields.amount,
       currency: fields.currency,
-      cycle: fields.cycle,
-      nextDue: fields.nextDue,
+      cycle: updated.cycle,
+      nextDue: updated.nextDue,
       kind: fields.kind,
     });
     revalidateFinanceTags(CACHE_TAGS.recurring);
@@ -147,13 +204,17 @@ export async function deleteRecurringRule(id: string): Promise<{ ok: true } | { 
   // A rule that has logged charges is the parent of real ledger history — deleting it
   // would orphan or cascade-destroy those transactions. Only never-charged rules
   // (mistakes created and never run) may be hard-deleted; everything else archives.
-  const linkedCount = await prisma.transaction.count({ where: { recurringRuleId: id } });
+  const linkedCount = await prisma.$transaction(async (tx) => {
+    await lockRecurringRules(tx, [id]);
+    const count = await tx.transaction.count({ where: { recurringRuleId: id } });
+    if (count === 0) await tx.recurringRule.delete({ where: { id } });
+    return count;
+  });
   if (linkedCount > 0) {
     log.warn('rule delete rejected', { id, linkedCount, reason: 'rule has logged charges' });
     return { error: 'Rules with logged charges can only be archived.' };
   }
 
-  await prisma.recurringRule.delete({ where: { id } });
   log.info('rule deleted', { id });
 
   revalidateFinanceTags(CACHE_TAGS.recurring);
@@ -167,29 +228,31 @@ export async function deleteRecurringRule(id: string): Promise<{ ok: true } | { 
 export async function unarchiveRecurringRule(id: string): Promise<{ ok: true } | { error: string }> {
   await requireAuthenticatedUser();
 
-  const rule = await prisma.recurringRule.findUnique({
-    where: { id },
-    select: { cycle: true, nextDue: true, anchorDay: true, installmentTotal: true, installmentPaid: true },
+  const restored = await prisma.$transaction(async (tx): Promise<{ error: string } | { nextDue: string }> => {
+    await lockRecurringRules(tx, [id]);
+    const rule = await tx.recurringRule.findUnique({
+      where: { id },
+      select: { cycle: true, cycleInterval: true, nextDue: true, anchorDay: true, installmentTotal: true, installmentPaid: true },
+    });
+    if (!rule) {
+      log.warn('rule restore rejected', { id, reason: 'rule not found' });
+      return { error: 'Rule not found.' };
+    }
+    if (rule.installmentTotal != null && (rule.installmentPaid ?? 0) >= rule.installmentTotal) {
+      log.warn('rule restore rejected', { id, reason: 'installment plan already complete' });
+      return { error: 'Completed installment plans can’t be restored.' };
+    }
+
+    // Resume on the same cadence without logging the missed occurrences.
+    const nextDue = resumeNextDue(rule);
+    await tx.recurringRule.update({
+      where: { id },
+      data: { archived: false, nextDue: dateOnlyStringToDate(nextDue) },
+    });
+    return { nextDue };
   });
-  if (!rule) {
-    log.warn('rule restore rejected', { id, reason: 'rule not found' });
-    return { error: 'Rule not found.' };
-  }
-
-  // Completed installment plans are terminal — restoring one is pointless because
-  // it would immediately re-archive on the next sync (no installments left to log).
-  if (rule.installmentTotal != null && (rule.installmentPaid ?? 0) >= rule.installmentTotal) {
-    log.warn('rule restore rejected', { id, reason: 'installment plan already complete' });
-    return { error: 'Completed installment plans can’t be restored.' };
-  }
-
-  // Resume going forward so a long-archived rule doesn’t backfill a gap of charges.
-  const nextDue = resumeNextDue(rule);
-
-  await prisma.recurringRule.update({
-    where: { id },
-    data: { archived: false, nextDue: dateOnlyStringToDate(nextDue) },
-  });
+  if ('error' in restored) return restored;
+  const { nextDue } = restored;
   log.info('rule restored', { id, nextDue });
 
   revalidateFinanceTags(CACHE_TAGS.recurring);

@@ -11,6 +11,7 @@ const ruleFindUnique = vi.fn()
 const ruleUpdate = vi.fn()
 
 const client = {
+  $queryRaw: vi.fn().mockResolvedValue([{ id: 'rule-rent' }, { id: 'rule-other' }]),
   transaction: { findUnique: txFindUnique, findFirst: txFindFirst, create: txCreate, update: txUpdate, delete: txDelete, count: txCount },
   recurringRule: { findUnique: ruleFindUnique, update: ruleUpdate },
 }
@@ -23,7 +24,7 @@ vi.mock('@/lib/prisma', () => ({
 }))
 
 const day = (iso: string) => new Date(iso + 'T00:00:00Z')
-const RENT = { cycle: 'MONTHLY', nextDue: day('2026-10-01'), kind: 'EXPENSE', archived: false, name: 'Rent', installmentTotal: null }
+const RENT = { cycle: 'MONTHLY', cycleInterval: 1, anchorDay: 1, nextDue: day('2026-10-01'), kind: 'EXPENSE', archived: false, name: 'Rent', installmentTotal: null }
 const input = {
   date: '2026-09-28', description: 'Rent', amount: 210000, currency: 'HUF' as const,
   type: 'EXPENSE' as const, categoryId: 'housing', recurringRuleId: 'rule-rent', logEarly: true,
@@ -48,8 +49,58 @@ describe('Log recurring early', () => {
     })
   })
 
+  it('rejects an early payment when its previewed due date has already advanced', async () => {
+    ruleFindUnique.mockResolvedValue({ ...RENT, nextDue: day('2026-11-01') })
+    const { upsertTransaction } = await import('@/server-actions/transactions')
+
+    expect(await upsertTransaction({ ...input, expectedDueDate: '2026-10-01' }))
+      .toEqual({ error: expect.stringMatching(/reload/i) })
+    expect(txCreate).not.toHaveBeenCalled()
+    expect(ruleUpdate).not.toHaveBeenCalled()
+  })
+
+  it('settles a fortnightly occurrence and restores it on delete', async () => {
+    const { upsertTransaction, deleteTransaction } = await import('@/server-actions/transactions')
+    const rule = { ...RENT, cycle: 'WEEKLY', cycleInterval: 2, anchorDay: null }
+    ruleFindUnique.mockResolvedValue(rule)
+
+    expect(await upsertTransaction(input)).toEqual({ ok: true })
+    expect(txCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({ coversDueDate: day('2026-10-01'), date: day('2026-09-28') }),
+    })
+    expect(ruleUpdate).toHaveBeenCalledWith({ where: { id: 'rule-rent' }, data: { nextDue: day('2026-10-15') } })
+
+    ruleFindUnique.mockResolvedValue({ ...rule, nextDue: day('2026-10-15') })
+    txFindUnique.mockResolvedValue({ recurringRuleId: 'rule-rent', coversDueDate: day('2026-10-01') })
+    await deleteTransaction('tx-early')
+    expect(ruleUpdate).toHaveBeenLastCalledWith({ where: { id: 'rule-rent' }, data: { nextDue: day('2026-10-01') } })
+  })
+
+  it('rejects a new early payment dated after the occurrence it covers', async () => {
+    const { upsertTransaction } = await import('@/server-actions/transactions')
+
+    expect(await upsertTransaction({ ...input, date: '2026-10-02' }))
+      .toEqual({ error: expect.stringMatching(/on or before/i) })
+    expect(txCreate).not.toHaveBeenCalled()
+    expect(ruleUpdate).not.toHaveBeenCalled()
+  })
+
+  it('preserves a legacy late payment on metadata edits and rejects another late date', async () => {
+    txFindUnique.mockResolvedValue({
+      date: day('2026-10-02'), recurringRuleId: 'rule-rent', coversDueDate: day('2026-10-01'),
+      currency: 'HUF', fxRate: 1, fxAnchor: 'HUF',
+    })
+    const { upsertTransaction } = await import('@/server-actions/transactions')
+
+    expect(await upsertTransaction({ ...input, id: 'tx-early', date: '2026-10-02', amount: 220000 }))
+      .toEqual({ ok: true })
+    expect(await upsertTransaction({ ...input, id: 'tx-early', date: '2026-10-03' }))
+      .toEqual({ error: expect.stringMatching(/on or before/i) })
+    expect(txUpdate).toHaveBeenCalledOnce()
+  })
+
   it('refuses to settle an occurrence that is already logged', async () => {
-    txFindFirst.mockResolvedValue({ id: 'tx-generated' })
+    txFindFirst.mockResolvedValue({ date: day('2026-10-01'), coversDueDate: null })
     const { upsertTransaction } = await import('@/server-actions/transactions')
     expect(await upsertTransaction(input)).toEqual({ error: 'The 2026-10-01 "Rent" payment is already logged.' })
     expect(txCreate).not.toHaveBeenCalled()
@@ -73,9 +124,9 @@ describe('Log recurring early', () => {
 
   it('refuses an archived rule or one of another kind', async () => {
     const { upsertTransaction } = await import('@/server-actions/transactions')
-    ruleFindUnique.mockResolvedValueOnce({ ...RENT, archived: true })
+    ruleFindUnique.mockResolvedValue({ ...RENT, archived: true })
     expect(await upsertTransaction(input)).toEqual({ error: 'That recurring rule is no longer active.' })
-    ruleFindUnique.mockResolvedValueOnce({ ...RENT, kind: 'INCOME' })
+    ruleFindUnique.mockResolvedValue({ ...RENT, kind: 'INCOME' })
     expect(await upsertTransaction(input)).toEqual({ error: '"Rent" is a income rule.' })
     expect(txCreate).not.toHaveBeenCalled()
   })
@@ -104,7 +155,7 @@ describe('Log recurring early', () => {
   })
 
   it('un-settles on edit when the switch is turned off, and says so if the rule moved on', async () => {
-    txFindUnique.mockResolvedValue({ recurringRuleId: 'rule-rent', coversDueDate: day('2026-10-01'), currency: 'HUF', fxRate: 1, fxAnchor: 'HUF' })
+    txFindUnique.mockResolvedValue({ date: day('2026-09-28'), recurringRuleId: 'rule-rent', coversDueDate: day('2026-10-01'), currency: 'HUF', fxRate: 1, fxAnchor: 'HUF' })
     ruleFindUnique.mockResolvedValue({ ...RENT, nextDue: day('2026-12-01') })
     const { upsertTransaction } = await import('@/server-actions/transactions')
     const result = await upsertTransaction({ ...input, id: 'tx-early', logEarly: false })
@@ -116,7 +167,7 @@ describe('Log recurring early', () => {
   })
 
   it('keeps the settlement when an early payment is edited with the switch still on', async () => {
-    txFindUnique.mockResolvedValue({ recurringRuleId: 'rule-rent', coversDueDate: day('2026-10-01'), currency: 'HUF', fxRate: 1, fxAnchor: 'HUF' })
+    txFindUnique.mockResolvedValue({ date: day('2026-09-28'), recurringRuleId: 'rule-rent', coversDueDate: day('2026-10-01'), currency: 'HUF', fxRate: 1, fxAnchor: 'HUF' })
     const { upsertTransaction } = await import('@/server-actions/transactions')
     await upsertTransaction({ ...input, id: 'tx-early', recurringRuleId: 'rule-other', amount: 220000 })
     expect(txFindFirst).not.toHaveBeenCalled()

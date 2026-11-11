@@ -25,6 +25,7 @@ enum TransactionType {
 enum RecurringCycle {
   MONTHLY
   ANNUAL
+  WEEKLY
 }
 
 enum FxMode {
@@ -93,8 +94,9 @@ model RecurringRule {
   amount            Decimal        @db.Decimal(14, 2)
   currency          String         @db.Char(3)
   cycle             RecurringCycle
+  cycleInterval     Int            @default(1)
   nextDue           DateTime       @db.Date
-  // Intended day of month, even when nextDue is clamped to the end of a shorter month.
+  // Intended day of month even when nextDue is clamped. Weekly rules have no billing day.
   anchorDay         Int?
   kind              CategoryKind
   categoryId        String

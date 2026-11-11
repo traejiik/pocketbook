@@ -4,15 +4,16 @@ import { useMemo, type CSSProperties } from 'react'
 import { AlertTriangle, Coins } from 'lucide-react'
 import { CalmCard, CalmCardHead } from '@/components/finance/CalmCard'
 import type { RecurringBudgetSummary } from '@/lib/aggregations'
+import { fmtAnchor } from '@/lib/format'
+import { monthlyEquivalent, type Cadence } from '@/lib/recurring/dates'
 
 /** Minimal rule shape the budget visualisations need (structurally compatible
  * with RecurringView's SerialisedRule). */
-export interface BudgetRule {
+export interface BudgetRule extends Pick<Cadence, 'cycle' | 'cycleInterval'> {
   id: string
   name: string
   amount: number
   currency: string
-  cycle: string
   nextDue: string
   kind: string
   anchorEquivalent: number | null
@@ -20,24 +21,23 @@ export interface BudgetRule {
 
 type Tone = 'income' | 'expense' | 'savings'
 
-function huf(n: number): string {
-  const s = Math.round(Math.abs(n)).toLocaleString('hu-HU').replace(/,/g, ' ')
-  return (n < 0 ? '−' : '') + s
-}
-
 function RecKpi({
   label,
   value,
   tone,
   hint,
   hintShort,
+  anchorCurrency,
 }: {
   label: string
   value: number
   tone: Tone
   hint: string
   hintShort?: string
+  anchorCurrency: string
 }) {
+  const formatted = fmtAnchor(value, anchorCurrency)
+  const forints = anchorCurrency === 'HUF'
   return (
     <div
       className="calm-card px-3.5 py-4 min-[1025px]:p-5 flex flex-col min-h-[112px] min-[1025px]:min-h-[150px] min-w-0"
@@ -49,8 +49,8 @@ function RecKpi({
           className="tabular font-semibold tracking-tight leading-none whitespace-nowrap"
           style={{ color: `hsl(var(--${tone}))` }}
         >
-          <span className="text-[24px] min-[1025px]:text-[33px]">{huf(value)}</span>
-          <span className="text-[11px] min-[1025px]:text-[15px] text-muted-foreground font-medium ml-1">Ft</span>
+          <span className="text-[24px] min-[1025px]:text-[33px]">{forints ? formatted.slice(0, -3) : formatted}</span>
+          {forints && <span className="text-[11px] min-[1025px]:text-[15px] text-muted-foreground font-medium ml-1">Ft</span>}
         </div>
         <div className="text-[10.5px] min-[1025px]:text-[11px] text-muted-foreground mt-2 min-[1025px]:mt-2.5">
           {hintShort ? (
@@ -70,9 +70,11 @@ function RecKpi({
 function CommittedCard({
   budget,
   fx,
+  anchorCurrency,
 }: {
   budget: RecurringBudgetSummary
-  fx: { count: number; curs: string; huf: number }
+  fx: { count: number; curs: string; monthlyTotal: number }
+  anchorCurrency: string
 }) {
   const committed = budget.monthlyExpenses + budget.monthlySavings
   const pct = budget.monthlyIncome ? Math.round((committed / budget.monthlyIncome) * 100) : 0
@@ -92,8 +94,12 @@ function CommittedCard({
         <div className="min-w-0">
           <div className="text-[14.5px] font-semibold tracking-tight">Income committed</div>
           <div className="text-[11.5px] text-muted-foreground mt-1">
-            {huf(committed)} Ft / mo of {huf(budget.monthlyIncome)} Ft
+            <span className="tabular">{fmtAnchor(committed, anchorCurrency)}</span> / mo of{' '}
+            <span className="tabular">{fmtAnchor(budget.monthlyIncome, anchorCurrency)}</span>
           </div>
+          {budget.hasNormalisedCadences && (
+            <div className="text-[10.5px] text-muted-foreground mt-1">Includes monthly estimates for other cadences</div>
+          )}
         </div>
         {/* mobile — % inline, top-right */}
         <span className="md:hidden tabular text-[34px] font-semibold tracking-tight leading-none shrink-0">
@@ -123,7 +129,7 @@ function CommittedCard({
         <span className="inline-flex items-center gap-1.5">
           <span className="w-2 h-2 rounded-full bg-income" /> Committed
         </span>
-        <span className="tabular">{huf(free)} Ft free</span>
+        <span className="tabular">{fmtAnchor(free, anchorCurrency)} free</span>
       </div>
 
       {/* category composition */}
@@ -134,7 +140,7 @@ function CommittedCard({
             {/* The composition sweeps in as one strip. */}
             <div className="motion-bar-x flex gap-px h-full">
               {segs.map((s) => (
-                <div key={s.key} title={`${s.name} · ${huf(s.v)} Ft`} style={{ width: `${(s.v / expTotal) * 100}%`, background: s.color }} />
+                <div key={s.key} title={`${s.name} · ${fmtAnchor(s.v, anchorCurrency)}`} style={{ width: `${(s.v / expTotal) * 100}%`, background: s.color }} />
               ))}
             </div>
           </div>
@@ -154,7 +160,7 @@ function CommittedCard({
         <div className="mt-auto pt-4 flex items-center gap-2 text-[11px] text-muted-foreground border-t border-border/50">
           <Coins className="w-3.5 h-3.5 shrink-0" />
           <span>
-            <span className="text-foreground/80 font-medium">{fx.count} rule{fx.count === 1 ? '' : 's'}</span> in {fx.curs} · ≈ {huf(fx.huf)} Ft/mo
+            <span className="text-foreground/80 font-medium">{fx.count} rule{fx.count === 1 ? '' : 's'}</span> in {fx.curs} · ≈ <span className="tabular">{fmtAnchor(fx.monthlyTotal, anchorCurrency)}</span>/mo
           </span>
         </div>
       )}
@@ -175,21 +181,21 @@ export function RecurringBudget({ budget, rules, counts, anchorCurrency }: Recur
       (r) => r.kind !== 'INCOME' && r.currency !== anchorCurrency && r.anchorEquivalent != null,
     )
     const total = fxRules.reduce(
-      (s, r) => s + (r.cycle === 'ANNUAL' ? (r.anchorEquivalent as number) / 12 : (r.anchorEquivalent as number)),
+      (sum, rule) => sum + monthlyEquivalent(rule.anchorEquivalent!, rule),
       0,
     )
     const curs = [...new Set(fxRules.map((r) => r.currency))].join(', ')
-    return { count: fxRules.length, curs, huf: total }
+    return { count: fxRules.length, curs, monthlyTotal: total }
   }, [rules, anchorCurrency])
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-[320px_minmax(0,1fr)] gap-3 min-[1025px]:gap-4 items-stretch">
-      <CommittedCard budget={budget} fx={fx} />
+      <CommittedCard budget={budget} fx={fx} anchorCurrency={anchorCurrency} />
       <div className="grid grid-cols-2 gap-3 min-[1025px]:gap-4 min-w-0">
-        <RecKpi label="Income" value={budget.monthlyIncome} tone="income" hint={`${counts.income} recurring source${counts.income === 1 ? '' : 's'}`} hintShort={`${counts.income} source${counts.income === 1 ? '' : 's'}`} />
-        <RecKpi label="Expenses" value={budget.monthlyExpenses} tone="expense" hint={`${counts.expense} active rule${counts.expense === 1 ? '' : 's'}`} />
-        <RecKpi label="Net" value={budget.netUsable} tone={budget.netUsable >= 0 ? 'income' : 'expense'} hint="Income − expenses − savings" hintShort="After save + spend" />
-        <RecKpi label="Savings" value={budget.monthlySavings} tone="savings" hint={`${counts.savings} auto-save rule${counts.savings === 1 ? '' : 's'}`} hintShort={`${counts.savings} auto-save${counts.savings === 1 ? '' : 's'}`} />
+        <RecKpi anchorCurrency={anchorCurrency} label="Income" value={budget.monthlyIncome} tone="income" hint={`${counts.income} recurring source${counts.income === 1 ? '' : 's'}`} hintShort={`${counts.income} source${counts.income === 1 ? '' : 's'}`} />
+        <RecKpi anchorCurrency={anchorCurrency} label="Expenses" value={budget.monthlyExpenses} tone="expense" hint={`${counts.expense} active rule${counts.expense === 1 ? '' : 's'}`} />
+        <RecKpi anchorCurrency={anchorCurrency} label="Net" value={budget.netUsable} tone={budget.netUsable >= 0 ? 'income' : 'expense'} hint="Income − expenses − savings" hintShort="After save + spend" />
+        <RecKpi anchorCurrency={anchorCurrency} label="Savings" value={budget.monthlySavings} tone="savings" hint={`${counts.savings} auto-save rule${counts.savings === 1 ? '' : 's'}`} hintShort={`${counts.savings} auto-save${counts.savings === 1 ? '' : 's'}`} />
       </div>
     </div>
   )
@@ -240,7 +246,7 @@ export function CommitmentsLane({ rules, anchorCurrency }: { rules: BudgetRule[]
     <CalmCard className="p-6">
       <CalmCardHead
         title="Commitments"
-        sub={`Next 30 days · ${huf(total30)} Ft out`}
+        sub={`Next 30 days · ${fmtAnchor(total30, anchorCurrency)} in next charges`}
         right={
           <div className="hidden md:flex items-center gap-3 text-[10.5px] text-muted-foreground">
             <span className="inline-flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-expense" /> Expense</span>
@@ -254,7 +260,7 @@ export function CommitmentsLane({ rules, anchorCurrency }: { rules: BudgetRule[]
         <div className="mt-4 flex items-center gap-2.5 rounded-[10px] px-3.5 py-2.5 bg-warning/10 border border-warning/25">
           <AlertTriangle className="w-3.5 h-3.5 text-warning shrink-0" />
           <span className="text-[12px] text-foreground/90">
-            <span className="font-semibold tabular">{soonCount} rule{soonCount === 1 ? '' : 's'}</span> · {huf(soonTotal)} Ft due in 7 days
+            <span className="font-semibold tabular">{soonCount} rule{soonCount === 1 ? '' : 's'}</span> · <span className="tabular">{fmtAnchor(soonTotal, anchorCurrency)}</span> in next charges due in 7 days
           </span>
         </div>
       )}
@@ -290,7 +296,7 @@ export function CommitmentsLane({ rules, anchorCurrency }: { rules: BudgetRule[]
                 <div className="motion-bar-label absolute left-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-income" style={{ bottom: -5, boxShadow: '0 0 0 3px hsl(var(--card))', '--i': Math.round(d / 3) } as CSSProperties} />
               )}
               <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute left-1/2 -translate-x-1/2 -top-1 bg-card border border-border rounded-[8px] px-2.5 py-1.5 text-[11px] whitespace-nowrap shadow-pb-2 z-20">
-                <span className="font-medium">{recFmtShort(list[0].nextDue)}</span> · <span className="tabular text-muted-foreground">{huf(out || list[0].h)} Ft</span>
+                <span className="font-medium">{recFmtShort(list[0].nextDue)}</span> · <span className="tabular text-muted-foreground">{fmtAnchor(out || list[0].h, anchorCurrency)}</span>
                 <div className="text-[10px] text-muted-foreground/80 max-w-[180px] truncate">{names}</div>
               </div>
             </div>

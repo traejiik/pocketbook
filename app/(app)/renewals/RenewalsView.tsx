@@ -7,14 +7,17 @@ import { CalendarIcon } from 'lucide-react'
 import { TimelineStrip } from '@/components/finance/TimelineStrip'
 import { AmountDisplay } from '@/components/finance/AmountDisplay'
 import { fmtAnchor } from '@/lib/format'
+import { cadenceLabel } from '@/lib/recurring/cadence'
+import type { Cadence } from '@/lib/recurring/dates'
+import { summariseRenewalHorizon } from '@/lib/recurring/renewals'
+
 type Category = { id: string; name: string; color: string; kind: string }
 
-type SerialisedRule = {
+type SerialisedRule = Cadence & {
   id: string
   name: string
   amount: number
   currency: string
-  cycle: string
   nextDue: string          // YYYY-MM-DD
   kind: string
   categoryId: string
@@ -39,29 +42,32 @@ interface Props {
 function groupKey(rule: SerialisedRule, grouping: 'week' | 'month') {
   const d = new Date(rule.nextDue)
   if (grouping === 'month') {
-    return d.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
+    return d.toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' })
   }
   const start = new Date(d)
-  const day = start.getDay()
-  start.setDate(d.getDate() - (day === 0 ? 6 : day - 1))
+  const day = start.getUTCDay()
+  start.setUTCDate(d.getUTCDate() - (day === 0 ? 6 : day - 1))
   const end = new Date(start)
-  end.setDate(start.getDate() + 6)
-  return `${start.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })} – ${end.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}`
+  end.setUTCDate(start.getUTCDate() + 6)
+  return `${start.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', timeZone: 'UTC' })} – ${end.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', timeZone: 'UTC' })}`
 }
 
 export function RenewalsView({ renewals, anchorCurrency = 'HUF' }: Props) {
   const [horizon, setHorizon] = useState<30 | 60 | 90>(60)
   const [grouping, setGrouping] = useState<'week' | 'month'>('week')
 
-  const filtered = useMemo(
-    () => renewals.filter((r) => r.daysAway <= horizon),
+  const { items, total, unconvertibleOccurrences } = useMemo(
+    () => summariseRenewalHorizon(renewals, horizon),
     [renewals, horizon],
   )
 
-  const total = filtered.reduce((s, r) => s + (r.hufEquivalent ?? 0), 0)
-
+  const filtered = useMemo(() => items.map(item => ({
+    ...item,
+    repeatCount: item.rule.cycle === 'WEEKLY' && item.rule.cycleInterval <= 4 ? item.occurrences : 1,
+  })), [items])
+  const hasConvertedAmount = filtered.some(item => item.hufEquivalent !== null)
   const groups = useMemo(() => {
-    const map = new Map<string, RenewalItem[]>()
+    const map = new Map<string, typeof filtered>()
     for (const item of filtered) {
       const key = groupKey(item.rule, grouping)
       const arr = map.get(key) ?? []
@@ -76,14 +82,22 @@ export function RenewalsView({ renewals, anchorCurrency = 'HUF' }: Props) {
     name: r.rule.name,
     daysAway: r.daysAway,
     categoryColor: r.rule.category.color,
-    hufEquivalent: r.hufEquivalent ?? 0,
+    hufEquivalent: r.hufEquivalent,
+    repeatCount: r.repeatCount,
   }))
 
   return (
     <div className="motion-rise px-4 lg:px-7 pb-9 pt-1 space-y-4 max-w-[1320px] mx-auto">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="text-[12.5px] text-muted-foreground">
-          {filtered.length} renewals · {fmtAnchor(total, anchorCurrency)} due in next {horizon} days
+          {filtered.length} renewals · {filtered.length > 0 && !hasConvertedAmount
+            ? `FX unavailable for the next ${horizon} days`
+            : <><span className="tabular">{fmtAnchor(total, anchorCurrency)}</span> due in next {horizon} days</>}
+          {unconvertibleOccurrences > 0 && (
+            <span className="block text-warning">
+              {unconvertibleOccurrences} charge{unconvertibleOccurrences === 1 ? '' : 's'} excluded from the total because exchange rates are missing.
+            </span>
+          )}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Segmented
@@ -118,10 +132,10 @@ export function RenewalsView({ renewals, anchorCurrency = 'HUF' }: Props) {
                   <h2 className="text-[13px] font-semibold tracking-tight">{key}</h2>
                   <span className="text-[11px] text-muted-foreground">· {list.length} renewals</span>
                 </div>
-                <div className="text-[12px] tabular text-foreground/85">{fmtAnchor(subTotal, anchorCurrency)}</div>
+                <div className="text-[12px] tabular text-foreground/85">Next charges · {list.some(item => item.hufEquivalent !== null) ? fmtAnchor(subTotal, anchorCurrency) : 'FX unavailable'}</div>
               </div>
               <div className="calm-card divide-y divide-border/40 overflow-hidden">
-                {list.map(({ rule, daysAway, hufEquivalent }) => (
+                {list.map(({ rule, daysAway, hufEquivalent, repeatCount }) => (
                   <div
                     key={rule.id}
                     className="grid grid-cols-[52px_1fr_auto] sm:grid-cols-[60px_1fr_140px_140px] items-center px-4 py-3 hover:bg-accent/40 transition-colors"
@@ -129,10 +143,10 @@ export function RenewalsView({ renewals, anchorCurrency = 'HUF' }: Props) {
                     <div className="flex justify-center sm:justify-start">
                       <div className="w-9 h-9 rounded-[10px] bg-secondary/70 flex flex-col items-center justify-center shrink-0">
                         <div className="text-[8.5px] uppercase mono text-muted-foreground leading-none">
-                          {new Date(rule.nextDue).toLocaleDateString('en-GB', { month: 'short' })}
+                          {new Date(rule.nextDue).toLocaleDateString('en-GB', { month: 'short', timeZone: 'UTC' })}
                         </div>
                         <div className="text-[12.5px] font-semibold tabular leading-none mt-0.5">
-                          {new Date(rule.nextDue).getDate()}
+                          {new Date(rule.nextDue).getUTCDate()}
                         </div>
                       </div>
                     </div>
@@ -144,7 +158,12 @@ export function RenewalsView({ renewals, anchorCurrency = 'HUF' }: Props) {
                       <div className="min-w-0">
                         <div className="text-[13px] font-medium truncate">{rule.name}</div>
                         <div className="text-[11px] text-muted-foreground capitalize">
-                          {rule.cycle.toLowerCase()} · {rule.category.name}
+                          {cadenceLabel(rule)} · {rule.category.name}
+                          {repeatCount > 1 && (
+                            <span className="ml-1.5 inline-block rounded-md bg-secondary px-1.5 py-0.5 text-[10px] tabular normal-case">
+                              ×{repeatCount} in {horizon}d
+                            </span>
+                          )}
                           {rule.installmentTotal
                             ? ` · ${rule.installmentPaid ?? 0}/${rule.installmentTotal}`
                             : ''}
@@ -165,6 +184,7 @@ export function RenewalsView({ renewals, anchorCurrency = 'HUF' }: Props) {
                     </div>
                     {/* HUF + daysAway — desktop only */}
                     <div className="hidden sm:block text-right">
+                      {hufEquivalent === null && <div className="text-[11.5px] text-warning">No FX rate</div>}
                       {rule.currency !== anchorCurrency && hufEquivalent !== null && (
                         <div className="text-[11.5px] text-muted-foreground tabular">
                           ≈ {fmtAnchor(hufEquivalent, anchorCurrency)}

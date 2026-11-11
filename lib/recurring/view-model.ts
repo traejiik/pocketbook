@@ -1,4 +1,5 @@
 import { toAnchor, isCurrency } from '@/lib/fx'
+import type { Cadence } from '@/lib/recurring/dates'
 
 type RuleCategory = {
   id: string
@@ -7,14 +8,12 @@ type RuleCategory = {
   kind: string
 }
 
-export type RecurringRuleForView = {
+export type RecurringRuleForView = Cadence & {
   id: string
   name: string
   amount: number | { toString(): string }
   currency: string
-  cycle: string
   nextDue: Date
-  anchorDay: number | null
   kind: string
   categoryId: string
   installmentPaid: number | null
@@ -46,8 +45,9 @@ export async function buildRecurringRuleViewModels(
         amount,
         currency: rule.currency,
         cycle: rule.cycle,
+        cycleInterval: rule.cycleInterval,
         nextDue: toDateStr(rule.nextDue),
-        anchorDay: rule.anchorDay ?? rule.nextDue.getUTCDate(),
+        anchorDay: rule.anchorDay,
         kind: rule.kind,
         categoryId: rule.categoryId,
         installmentPaid: rule.installmentPaid,

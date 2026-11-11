@@ -46,7 +46,7 @@ vi.mock('@/lib/fx', () => ({
   frozenToAnchor: vi.fn(async (amount: number) => amount),
 }))
 
-import { getUpcomingRenewals } from '@/lib/aggregations'
+import { getRecurringBudgetSummary, getUpcomingRenewals } from '@/lib/aggregations'
 import { AGGREGATION_TTL_SECONDS, CACHE_TAGS, revalidateFinanceTags } from '@/lib/cache'
 
 // Stands in for a Prisma `Decimal`: not a number, coerces through `Number()`,
@@ -63,6 +63,8 @@ const rule = {
   amount: decimal(4990),
   currency: 'HUF',
   cycle: 'MONTHLY',
+  cycleInterval: 1,
+  anchorDay: 20,
   nextDue: new Date('2026-06-20T00:00:00.000Z'),
   kind: 'EXPENSE',
   categoryId: 'subs',
@@ -113,6 +115,28 @@ describe('cached renewals survive the cache round-trip', () => {
   })
 })
 
+describe('recurring budget cadence', () => {
+  it('counts thirteen four-week charges and twelve monthly charges per year', async () => {
+    mocks.ruleFindMany.mockResolvedValue([
+      { ...rule, cycle: 'WEEKLY', cycleInterval: 4, anchorDay: null, amount: decimal(1200) },
+      { ...rule, amount: decimal(1200) },
+    ])
+    const budget = await getRecurringBudgetSummary()
+    // This suite's FX stub doubles the anchor amount.
+    expect(budget.monthlyExpenses).toBe(5000)
+    expect(budget.hasNormalisedCadences).toBe(true)
+  })
+
+  it('keeps fractional anchor amounts until display formatting', async () => {
+    mocks.ruleFindMany.mockResolvedValue([
+      { ...rule, currency: 'USD', cycle: 'WEEKLY', cycleInterval: 4, anchorDay: null, amount: decimal(10) },
+    ])
+    const budget = await getRecurringBudgetSummary()
+    expect(budget.monthlyExpenses).toBeCloseTo(21.67)
+    expect(budget.expensesByCategory[0].amount).toBeCloseTo(21.67)
+  })
+})
+
 describe('cache tag matrix', () => {
   // Drift here is silent and expensive: a read that forgets a tag keeps serving
   // stale money numbers until the TTL backstop expires.
@@ -123,9 +147,9 @@ describe('cache tag matrix', () => {
     ['kpis-for-range-v2', [CACHE_TAGS.transactions, CACHE_TAGS.fx]],
     ['expenses-by-category-for-range', [CACHE_TAGS.transactions, CACHE_TAGS.categories, CACHE_TAGS.fx]],
     ['monthly-trend', [CACHE_TAGS.transactions, CACHE_TAGS.fx]],
-    ['upcoming-renewals', [CACHE_TAGS.recurring, CACHE_TAGS.categories, CACHE_TAGS.fx]],
+    ['upcoming-renewals-v2', [CACHE_TAGS.recurring, CACHE_TAGS.categories, CACHE_TAGS.fx]],
     ['categories-with-stats-v3', [CACHE_TAGS.transactions, CACHE_TAGS.categories, CACHE_TAGS.fx]],
-    ['recurring-budget-summary', [CACHE_TAGS.recurring, CACHE_TAGS.categories, CACHE_TAGS.fx]],
+    ['recurring-budget-summary-v2', [CACHE_TAGS.recurring, CACHE_TAGS.categories, CACHE_TAGS.fx]],
     // `categories` because `includeInBalance` filters the carry-over sum.
     ['cumulative-net-v3', [CACHE_TAGS.transactions, CACHE_TAGS.categories, CACHE_TAGS.fx]],
     // `categories` because pots are SAVINGS-kind categories (names, colours, kind).

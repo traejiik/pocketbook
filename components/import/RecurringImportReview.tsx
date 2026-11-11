@@ -12,6 +12,7 @@ import {
   MAX_BACKFILL_MONTHS,
   planRecurringCatchUp,
 } from '@/lib/recurring/backfill'
+import { cadenceLabel } from '@/lib/recurring/cadence'
 import { commitRecurringImport, type ImportCategory } from '@/server-actions/import'
 import { createCategoryFromImport } from '@/server-actions/categories'
 import { CategoryResolver, type CategoryGap, type Kind } from './CategoryResolver'
@@ -208,6 +209,16 @@ export function RecurringImportReview({ open, onOpenChange, filename, rows, cate
               const choice = choices[r.line]
               const kindCategories = categories.filter((c) => c.kind === rule.kind)
               const cat = kindCategories.find((c) => c.id === choice?.categoryId)
+              const plan = planFor(r)
+              const details = [cadenceLabel(rule)]
+              if (rule.anchorDay != null && rule.anchorDay !== Number(rule.nextDue.slice(-2))) {
+                details.push(`billing day ${rule.anchorDay}`)
+              }
+              if (rule.hasInstallment && rule.installmentTotal != null) {
+                details.push(`${rule.installmentPaid ?? 0}/${rule.installmentTotal} paid`)
+              }
+              if (plan) details.push(backfillNote(plan))
+              const summary = details.join(' · ')
               return (
                 <li
                   key={r.line}
@@ -226,11 +237,7 @@ export function RecurringImportReview({ open, onOpenChange, filename, rows, cate
                   />
                   <div className="min-w-0">
                     <div className="text-[13px] font-medium truncate">{rule.name}</div>
-                    <div className="text-[11px] text-muted-foreground truncate tabular">
-                      {rule.cycle === 'MONTHLY' ? 'Monthly' : 'Annual'}
-                      {rule.hasInstallment && rule.installmentTotal != null && <> · {rule.installmentPaid ?? 0}/{rule.installmentTotal} paid</>}
-                      {planFor(r) && <> · {backfillNote(planFor(r)!)}</>}
-                    </div>
+                    <div className="text-[11px] text-muted-foreground truncate tabular first-letter:uppercase" title={summary}>{summary}</div>
                   </div>
                   <span className={cn('md:order-last text-right text-[13px] tabular', TONE[rule.kind])}>
                     {fmtCur(rule.kind === 'INCOME' ? rule.amount : -rule.amount, rule.currency)}

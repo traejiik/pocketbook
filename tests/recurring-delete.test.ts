@@ -11,11 +11,13 @@ vi.mock('next/cache', () => ({
   revalidatePath: revalidatePathMock,
   revalidateTag: revalidateTagMock,
 }))
+const tx = {
+  transaction: { count: transactionCount },
+  recurringRule: { delete: ruleDelete },
+  $queryRaw: vi.fn().mockResolvedValue([]),
+}
 vi.mock('@/lib/prisma', () => ({
-  prisma: {
-    transaction: { count: transactionCount },
-    recurringRule: { delete: ruleDelete },
-  },
+  prisma: { $transaction: async (callback: (client: typeof tx) => unknown) => callback(tx) },
 }))
 
 describe('deleteRecurringRule', () => {

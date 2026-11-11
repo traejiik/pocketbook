@@ -1,8 +1,11 @@
 import {
+  type Cadence,
   type RecurringCycle,
   type RuleKind,
   monthlyOccurrence,
-  annualOccurrence,
+  addCycles,
+  cycleIndexOnOrBefore,
+  firstOccurrenceAfter,
   parseDateOnly,
   formatDateOnly,
   startOfUtcDay,
@@ -17,6 +20,8 @@ export type RecurringCatchUpInput = {
   amount: number
   currency: Currency
   cycle: RecurringCycle
+  cycleInterval?: number
+  anchorDay?: number | null
   nextDue: string
   kind: RuleKind
   categoryId: string
@@ -24,7 +29,7 @@ export type RecurringCatchUpInput = {
   installmentTotal?: number | null
   /** Log the charges this rule already made? Default true. Installment plans ignore it. */
   backfill?: boolean
-  /** How many past monthly charges to log when backfilling. Default `DEFAULT_BACKFILL_MONTHS`. */
+  /** How many months of history to log when backfilling. Default `DEFAULT_BACKFILL_MONTHS`. */
   backfillMonths?: number | null
   today?: Date
 }
@@ -40,13 +45,13 @@ export type PlannedBackfillTransaction = {
 
 export type RecurringCatchUpPlan = {
   nextDue: string
-  anchorDay: number
+  anchorDay: number | null
   archived: boolean
   installmentPaid: number | null
   transactions: PlannedBackfillTransaction[]
 }
 
-/** Months of history a new monthly rule logs unless the form says otherwise. */
+/** Months of history a new rule logs unless the form says otherwise. */
 export const DEFAULT_BACKFILL_MONTHS = 4
 /** Upper bound for the form's month input — two years of catch-up is plenty. */
 export const MAX_BACKFILL_MONTHS = 24
@@ -54,7 +59,11 @@ export const MAX_BACKFILL_MONTHS = 24
 export function planRecurringCatchUp(input: RecurringCatchUpInput): RecurringCatchUpPlan {
   const today = startOfUtcDay(input.today ?? new Date())
   const enteredNextDue = parseDateOnly(input.nextDue)
-  const anchorDay = enteredNextDue.getUTCDate()
+  const cadence: Cadence = {
+    cycle: input.cycle,
+    cycleInterval: input.cycleInterval ?? 1,
+    anchorDay: input.cycle === 'WEEKLY' ? null : input.anchorDay ?? enteredNextDue.getUTCDate(),
+  }
   const installmentPaid = input.installmentPaid ?? null
   const installmentTotal = input.installmentTotal ?? null
 
@@ -63,22 +72,19 @@ export function planRecurringCatchUp(input: RecurringCatchUpInput): RecurringCat
   }
 
   const isInstallment = installmentTotal != null
-  // An installment plan backfills exactly the payments it says are already paid,
-  // so the backfill controls do not apply to it.
+  const lastIndex = cycleIndexOnOrBefore(cadence, enteredNextDue, today)
+  // Installment history is set by the number of payments already made.
   const count = isInstallment
-    ? Math.min(installmentPaid ?? 0, installmentTotal)
-    : backfillCount(input.cycle, enteredNextDue, today, input)
+    ? (installmentPaid ?? 0)
+    : backfillCount(cadence, enteredNextDue, today, lastIndex, input)
 
-  const latestDue = occurrenceOnOrBefore(input.cycle, enteredNextDue, today)
-  const dueDates = latestDue == null || count === 0
-    ? []
-    : previousOccurrences(input.cycle, latestDue, enteredNextDue, count)
+  const dueDates = Array.from({ length: count }, (_, index) =>
+    addCycles(cadence, enteredNextDue, lastIndex - count + 1 + index),
+  )
 
   return {
-    anchorDay,
-    nextDue: isAfter(enteredNextDue, today)
-      ? formatDateOnly(enteredNextDue)
-      : formatDateOnly(firstOccurrenceAfter(input.cycle, enteredNextDue.getUTCMonth(), anchorDay, today)),
+    anchorDay: cadence.anchorDay,
+    nextDue: formatDateOnly(addCycles(cadence, enteredNextDue, Math.max(0, lastIndex + 1))),
     archived: isInstallment && (installmentPaid ?? 0) >= installmentTotal,
     installmentPaid,
     transactions: dueDates.map((date) => ({
@@ -96,72 +102,35 @@ export function planRecurringCatchUp(input: RecurringCatchUpInput): RecurringCat
 // date as-is, otherwise advance to the first occurrence after today so restoring
 // never retroactively backfills a long gap of missed charges.
 export function resumeNextDue(
-  rule: { cycle: RecurringCycle; nextDue: Date; anchorDay: number | null },
+  rule: Omit<Cadence, 'cycleInterval'> & { nextDue: Date; cycleInterval?: number },
   today: Date = new Date(),
 ): string {
-  const { cycle, nextDue, anchorDay } = rule
+  const { nextDue } = rule
   const start = startOfUtcDay(today)
   return isAfter(nextDue, start)
     ? formatDateOnly(nextDue)
-    : formatDateOnly(firstOccurrenceAfter(cycle, nextDue.getUTCMonth(), anchorDay ?? nextDue.getUTCDate(), start))
+    : formatDateOnly(firstOccurrenceAfter({ ...rule, cycleInterval: rule.cycleInterval ?? 1 }, nextDue, start))
 }
 
 function backfillCount(
-  cycle: RecurringCycle,
-  enteredNextDue: Date,
+  cadence: Cadence,
+  seed: Date,
   today: Date,
+  lastIndex: number,
   opts: { backfill?: boolean; backfillMonths?: number | null },
-) {
+): number {
   if (opts.backfill === false) return 0
-  if (cycle === 'MONTHLY') {
-    const months = opts.backfillMonths ?? DEFAULT_BACKFILL_MONTHS
-    return Math.max(0, Math.min(Math.trunc(months), MAX_BACKFILL_MONTHS))
+
+  const months = Math.max(0, Math.min(Math.trunc(opts.backfillMonths ?? DEFAULT_BACKFILL_MONTHS), MAX_BACKFILL_MONTHS))
+  // Preserve the original history rules for single-month and single-year cadences.
+  if (cadence.cycleInterval === 1) {
+    if (cadence.cycle === 'MONTHLY') return months
+    if (cadence.cycle === 'ANNUAL') return isAfter(seed, today) ? 0 : 1
   }
-  // Annual rules only ever have one charge to catch up on.
-  return isAfter(enteredNextDue, today) ? 0 : 1
-}
+  if (months === 0) return 0
 
-function previousOccurrences(cycle: RecurringCycle, latest: Date, anchor: Date, count: number) {
-  const dates: Date[] = []
-  for (let i = count - 1; i >= 0; i--) {
-    dates.push(addOccurrences(cycle, latest, anchor, -i))
-  }
-  return dates
-}
-
-// All date maths runs in UTC — `@db.Date` stores the UTC calendar day, so
-// local-midnight Dates would shift the stored day in positive-offset timezones.
-function occurrenceOnOrBefore(cycle: RecurringCycle, anchor: Date, today: Date) {
-  if (cycle === 'MONTHLY') {
-    const candidate = monthlyOccurrence(today.getUTCFullYear(), today.getUTCMonth(), anchor.getUTCDate())
-    return isAfter(candidate, today)
-      ? monthlyOccurrence(today.getUTCFullYear(), today.getUTCMonth() - 1, anchor.getUTCDate())
-      : candidate
-  }
-
-  const candidate = annualOccurrence(today.getUTCFullYear(), anchor.getUTCMonth(), anchor.getUTCDate())
-  return isAfter(candidate, today)
-    ? annualOccurrence(today.getUTCFullYear() - 1, anchor.getUTCMonth(), anchor.getUTCDate())
-    : candidate
-}
-
-function firstOccurrenceAfter(cycle: RecurringCycle, month: number, anchorDay: number, today: Date) {
-  if (cycle === 'MONTHLY') {
-    const candidate = monthlyOccurrence(today.getUTCFullYear(), today.getUTCMonth(), anchorDay)
-    return isAfter(candidate, today)
-      ? candidate
-      : monthlyOccurrence(today.getUTCFullYear(), today.getUTCMonth() + 1, anchorDay)
-  }
-
-  const candidate = annualOccurrence(today.getUTCFullYear(), month, anchorDay)
-  return isAfter(candidate, today)
-    ? candidate
-    : annualOccurrence(today.getUTCFullYear() + 1, month, anchorDay)
-}
-
-function addOccurrences(cycle: RecurringCycle, date: Date, anchor: Date, amount: number) {
-  if (cycle === 'MONTHLY') {
-    return monthlyOccurrence(date.getUTCFullYear(), date.getUTCMonth() + amount, anchor.getUTCDate())
-  }
-  return annualOccurrence(date.getUTCFullYear() + amount, anchor.getUTCMonth(), anchor.getUTCDate())
+  const cutoff = monthlyOccurrence(today.getUTCFullYear(), today.getUTCMonth() - months, today.getUTCDate())
+  const cutoffIndex = cycleIndexOnOrBefore(cadence, seed, cutoff)
+  const cutoffIsOccurrence = addCycles(cadence, seed, cutoffIndex).getTime() === cutoff.getTime()
+  return lastIndex - cutoffIndex + Number(cutoffIsOccurrence)
 }

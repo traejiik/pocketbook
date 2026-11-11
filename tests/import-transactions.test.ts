@@ -10,6 +10,7 @@ const ruleUpdate = vi.fn()
 const lockRateMock = vi.fn(async (currency: string) => ({ fxRate: currency === 'EUR' ? 390 : 1, fxAnchor: 'HUF' }))
 
 const client = {
+  $queryRaw: vi.fn().mockResolvedValue([{ id: 'rule-rent' }, { id: 'rule-phone' }]),
   category: { findMany: categoryFindMany },
   recurringRule: { findMany: ruleFindMany, findUnique: ruleFindUnique, update: ruleUpdate },
   transaction: { findMany: txFindMany, createMany: txCreateMany, count: txCount },
@@ -151,10 +152,21 @@ describe('commitImportRows', () => {
     expect(txCreateMany).not.toHaveBeenCalled()
   })
 
+  it('skips a linked CSV row for an occurrence already settled on another date', async () => {
+    txFindMany.mockResolvedValue([{
+      date: new Date('2026-02-28'), coversDueDate: new Date('2026-03-01'),
+      description: 'Rent', amount: -10, currency: 'EUR', type: 'EXPENSE', recurringRuleId: 'rule-rent',
+    }])
+
+    const result = await commitImportRows([{ ...row, recurringRuleId: 'rule-rent' }])
+
+    expect(result).toMatchObject({ imported: 0, skipped: 1 })
+    expect(txCreateMany).not.toHaveBeenCalled()
+  })
+
   it('reconciles installment counters for linked rules', async () => {
     ruleFindUnique.mockResolvedValue({ installmentTotal: 3 })
     txCount.mockResolvedValue(3)
-    ruleFindMany.mockResolvedValue([{ id: 'rule-phone' }])
     const result = await commitImportRows([{ ...row, recurringRuleId: 'rule-phone' }])
     expect(result.touchedRules).toBe(true)
     expect(ruleUpdate).toHaveBeenCalledWith({ where: { id: 'rule-phone' }, data: { installmentPaid: 3, archived: true } })

@@ -394,8 +394,8 @@ export function buildPromptFromSnapshot(
     `  - Actual expenses this month: ${money(kpis.expense)}, so ${money(
       Math.max(kpis.expense - s.committed.monthlyExpenses, 0),
     )} was discretionary or one-off spending`,
-    ...(s.committed.hasNormalisedAnnuals
-      ? ['  - Annual commitments are divided by twelve in the figure above.']
+    ...(s.committed.hasNormalisedCadences
+      ? ['  - Non-monthly commitments are expressed as monthly estimates above.']
       : []),
   ]
 
@@ -408,8 +408,8 @@ export function buildPromptFromSnapshot(
 
   const installments = s.installments.map((i) => {
     const ends = i.endsOn ? `, ends ${i.endsOn.slice(0, 10)}` : ''
-    const amount = i.monthlyAmount === null ? '' : `, ${money(i.monthlyAmount)} per cycle`
-    return `  - ${i.name}: ${i.paid}/${i.total} paid${amount}${ends}`
+    const amount = i.perChargeAmount === null ? '' : `, ${money(i.perChargeAmount)} per cycle`
+    return `  - ${i.name}: ${i.paid}/${i.total} paid (${i.cadence})${amount}${ends}`
   })
 
   const caveat =

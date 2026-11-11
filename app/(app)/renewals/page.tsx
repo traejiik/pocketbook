@@ -16,6 +16,8 @@ export default async function RenewalsPage() {
       amount: Number(rule.amount),
       currency: rule.currency,
       cycle: rule.cycle,
+      cycleInterval: rule.cycleInterval,
+      anchorDay: rule.anchorDay,
       nextDue: rule.nextDue.toISOString().split('T')[0],
       kind: rule.kind,
       categoryId: rule.categoryId,

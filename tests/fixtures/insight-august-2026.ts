@@ -60,7 +60,7 @@ export const august: InsightSnapshot = {
     monthlySavings: 50_000,
     netUsable: 0,
     expenseRatio: 0.34,
-    hasNormalisedAnnuals: true,
+    hasNormalisedCadences: true,
     expensesByCategory: [],
   },
   priorNotes: [

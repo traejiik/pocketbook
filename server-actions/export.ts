@@ -28,6 +28,11 @@ const EXPORT_HEADER = [
   'category', 'category_id', 'recurring_rule_name', 'fx_rate', 'fx_anchor',
 ]
 
+const RECURRING_HEADER = [
+  'name', 'amount', 'currency', 'cycle', 'interval', 'next_due', 'anchor_day', 'kind',
+  'category', 'category_id', 'installment_paid', 'installment_total', 'installment_ends_on',
+]
+
 function filenameFor(range: z.infer<typeof rangeSchema>): string {
   if ('all' in range) return 'pocketbook-transactions-all.csv'
   const [fromMonth, toMonth] = [range.from.slice(0, 7), range.to.slice(0, 7)]
@@ -80,4 +85,39 @@ export async function exportTransactionsCsv(
   const filename = filenameFor(range)
   log.info('transactions exported', { rows: rows.length, filename })
   return { filename, csv, count: rows.length }
+}
+
+/** Export active recurring rule configuration in the reviewed import format. */
+export async function exportRecurringCsv(): Promise<{ filename: string; csv: string; count: number }> {
+  await requireAuthenticatedUser()
+  const rules = await prisma.recurringRule.findMany({
+    where: { archived: false },
+    orderBy: [{ nextDue: 'asc' }, { id: 'asc' }],
+    select: {
+      name: true, amount: true, currency: true, cycle: true, cycleInterval: true, nextDue: true,
+      anchorDay: true, kind: true, installmentPaid: true, installmentTotal: true, installmentEndsOn: true,
+      category: { select: { id: true, name: true } },
+    },
+  })
+  const csv = toCsv([
+    RECURRING_HEADER,
+    ...rules.map((rule) => [
+      rule.name,
+      rule.amount.toString(),
+      rule.currency,
+      rule.cycle,
+      rule.cycleInterval,
+      rule.nextDue.toISOString().slice(0, 10),
+      rule.anchorDay,
+      rule.kind,
+      rule.category.name,
+      rule.category.id,
+      rule.installmentPaid,
+      rule.installmentTotal,
+      rule.installmentEndsOn?.toISOString().slice(0, 10),
+    ]),
+  ])
+  const filename = 'pocketbook-recurring-rules.csv'
+  log.info('recurring rules exported', { rows: rules.length, filename })
+  return { filename, csv, count: rules.length }
 }
