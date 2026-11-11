@@ -153,14 +153,14 @@ describe('backfill controls', () => {
 
 describe('resumeNextDue', () => {
   it('advances a past monthly date to the next occurrence after today', () => {
-    expect(resumeNextDue('MONTHLY', '2026-02-10', today)).toBe('2026-06-10')
+    expect(resumeNextDue({ cycle: 'MONTHLY', nextDue: new Date(Date.UTC(2026, 1, 10)), anchorDay: 10 }, today)).toBe('2026-06-10')
   })
 
   it('keeps a still-future date unchanged', () => {
-    expect(resumeNextDue('MONTHLY', '2026-08-01', today)).toBe('2026-08-01')
+    expect(resumeNextDue({ cycle: 'MONTHLY', nextDue: new Date(Date.UTC(2026, 7, 1)), anchorDay: 31 }, today)).toBe('2026-08-01')
   })
 
   it('advances a past annual date to next year', () => {
-    expect(resumeNextDue('ANNUAL', '2026-01-15', today)).toBe('2027-01-15')
+    expect(resumeNextDue({ cycle: 'ANNUAL', nextDue: new Date(Date.UTC(2026, 0, 15)), anchorDay: 15 }, today)).toBe('2027-01-15')
   })
 })

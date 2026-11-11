@@ -45,6 +45,7 @@ function rule(overrides = {}) {
     currency: 'HUF',
     cycle: 'MONTHLY',
     nextDue: new Date(Date.UTC(2026, 2, 5)),
+    anchorDay: null as number | null,
     kind: 'EXPENSE',
     categoryId: 'cat_rent',
     installmentPaid: null,
@@ -175,5 +176,23 @@ describe('syncDueRecurringRules', () => {
     expect(result.rulesProcessed).toBe(1)
     expect(result.transactionsCreated).toBe(3)
     expect(result.created.map((tx) => tx.date)).toEqual(['2026-03-05', '2026-04-05', '2026-05-05'])
+  })
+
+  it.each([
+    ['MONTHLY', 31, ['2026-01-31', '2026-02-28', '2026-03-31', '2026-04-30', '2026-05-31', '2026-06-30']],
+    ['ANNUAL', 29, ['2024-02-29', '2025-02-28', '2026-02-28', '2027-02-28', '2028-02-29', '2029-02-28']],
+  ] as const)('keeps the %s billing day across independent sync runs', async (cycle, anchorDay, occurrences) => {
+    const { syncDueRecurringRules } = await import('@/lib/recurring/sync')
+    const day = (iso: string) => new Date(`${iso}T00:00:00Z`)
+    let stored = rule({ cycle, anchorDay, nextDue: day(occurrences[0]) })
+    mocks.findDueRules.mockImplementation(async () => [stored])
+    mocks.updateRule.mockImplementation(async ({ data }) => { stored = { ...stored, ...data } })
+    mocks.createMany.mockResolvedValue({ count: 1 })
+
+    for (const [i, occurrence] of occurrences.slice(0, -1).entries()) {
+      const result = await syncDueRecurringRules(day(occurrence))
+      expect(result.created.map((tx) => tx.date)).toEqual([occurrence])
+      expect(dateStr(stored.nextDue)).toBe(occurrences[i + 1])
+    }
   })
 })

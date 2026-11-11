@@ -93,6 +93,7 @@ export default async function TransactionsPage({
     cycle: r.cycle,
     kind: r.kind,
     nextDue: r.nextDue.toISOString().slice(0, 10),
+    anchorDay: r.anchorDay,
     amount: Number(r.amount),
     currency: r.currency as SerializedRecurringRule['currency'],
     categoryId: r.categoryId,

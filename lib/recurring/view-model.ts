@@ -14,6 +14,7 @@ export type RecurringRuleForView = {
   currency: string
   cycle: string
   nextDue: Date
+  anchorDay: number | null
   kind: string
   categoryId: string
   installmentPaid: number | null
@@ -46,6 +47,7 @@ export async function buildRecurringRuleViewModels(
         currency: rule.currency,
         cycle: rule.cycle,
         nextDue: toDateStr(rule.nextDue),
+        anchorDay: rule.anchorDay ?? rule.nextDue.getUTCDate(),
         kind: rule.kind,
         categoryId: rule.categoryId,
         installmentPaid: rule.installmentPaid,

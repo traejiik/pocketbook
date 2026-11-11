@@ -45,11 +45,12 @@ export function signedAmount(amount: number, kind: RuleKind) {
   return kind === 'INCOME' ? amount : -amount
 }
 
-// Advance one cycle from `date`, anchored to the rule's original day-of-month so
-// month-length clamping stays stable.
-export function nextOccurrence(cycle: RecurringCycle, date: Date, anchor: Date) {
+// The occurrence supplies the month for annual rules. A stored billing day
+// survives clamping, and an unset day falls back to the occurrence itself.
+export function nextOccurrence(cycle: RecurringCycle, date: Date, anchorDay: number | null) {
+  const day = anchorDay ?? date.getUTCDate()
   if (cycle === 'MONTHLY') {
-    return monthlyOccurrence(date.getUTCFullYear(), date.getUTCMonth() + 1, anchor.getUTCDate())
+    return monthlyOccurrence(date.getUTCFullYear(), date.getUTCMonth() + 1, day)
   }
-  return annualOccurrence(date.getUTCFullYear() + 1, anchor.getUTCMonth(), anchor.getUTCDate())
+  return annualOccurrence(date.getUTCFullYear() + 1, date.getUTCMonth(), day)
 }
