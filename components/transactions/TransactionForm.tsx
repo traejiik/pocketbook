@@ -74,6 +74,7 @@ export interface SerializedRecurringRule {
   kind: 'INCOME' | 'EXPENSE' | 'SAVINGS';
   /** `YYYY-MM-DD` — the occurrence an early log would settle. */
   nextDue: string;
+  anchorDay: number | null;
   amount: number;
   currency: 'HUF' | 'USD' | 'EUR' | 'GBP';
   categoryId: string;
@@ -211,7 +212,7 @@ export function TransactionForm({
     if (settledOn) return { tone: 'muted' as const, text: `Settles the ${fmtDate(settledOn)} ${editingTx?.recurringRuleName ?? ''} payment. Turn off to hand it back to the rule.` };
     if (!pickedRule) return null;
     const due = parseDateOnly(pickedRule.nextDue);
-    const after = formatDateOnly(nextOccurrence(pickedRule.cycle, due, due));
+    const after = formatDateOnly(nextOccurrence(pickedRule.cycle, due, pickedRule.anchorDay));
     if (dateVal > pickedRule.nextDue) {
       return { tone: 'warning' as const, text: `This payment was due ${fmtDate(pickedRule.nextDue)} — the scheduled entry may already exist.` };
     }

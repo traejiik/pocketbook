@@ -80,6 +80,19 @@ On each boot, `pocketbook-web` waits for PostgreSQL, then runs `prisma migrate d
 
 After one successful boot, missing environment values can be filled from `/data/.env-cache`; live environment values always win. Discord is never read from or copied into this cache.
 
+### Upgrading to 3.4.2
+
+The recurring billing migration copies the day from each rule’s current `nextDue` into `anchorDay`, preserving scheduled dates and transaction history. Rules that already drifted need a manual check. The following read-only query lists candidates on each installation, including archived rules. A result can also be a rule legitimately billed on that day.
+
+```sql
+SELECT "name", "cycle", "nextDue", "anchorDay", "archived"
+FROM "RecurringRule"
+WHERE "anchorDay" BETWEEN 28 AND 30
+ORDER BY "archived", "name";
+```
+
+Check active rules against the original billing schedule. Use **Billing day** in the recurring rule editor for future occurrences and edit **Next due** if the upcoming occurrence also needs correcting. Paused rules can be checked and corrected when you restore them.
+
 ## Scheduled operations
 
 The worker evaluates fixed UTC schedules once per minute and runs due work serially:

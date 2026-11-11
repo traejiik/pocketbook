@@ -33,7 +33,8 @@ describe('unarchiveRecurringRule', () => {
   it('restores a paused rule and advances a stale due date to the next future occurrence', async () => {
     ruleFindUnique.mockResolvedValue({
       cycle: 'MONTHLY',
-      nextDue: new Date(Date.UTC(2026, 1, 10)), // 2026-02-10, well in the past
+      nextDue: new Date(Date.UTC(2026, 1, 28)),
+      anchorDay: 31,
       installmentTotal: null,
       installmentPaid: null,
     })
@@ -44,7 +45,7 @@ describe('unarchiveRecurringRule', () => {
     expect(result).toEqual({ ok: true })
     expect(ruleUpdate).toHaveBeenCalledWith({
       where: { id: 'rule-1' },
-      data: { archived: false, nextDue: new Date(Date.UTC(2026, 5, 10)) }, // resumes 2026-06-10
+      data: { archived: false, nextDue: new Date(Date.UTC(2026, 4, 31)) },
     })
   })
 

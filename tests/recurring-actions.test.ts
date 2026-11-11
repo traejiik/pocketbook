@@ -4,6 +4,7 @@ const authMock = vi.fn()
 const revalidatePathMock = vi.fn()
 const revalidateTagMock = vi.fn()
 const findDuplicateRule = vi.fn()
+const findRule = vi.fn()
 const createRule = vi.fn()
 const updateRule = vi.fn()
 const createBackfillTransactions = vi.fn()
@@ -26,6 +27,7 @@ vi.mock('@/lib/prisma', () => ({
   prisma: {
     recurringRule: {
       findFirst: findDuplicateRule,
+      findUnique: findRule,
       create: createRule,
       update: updateRule,
     },
@@ -68,6 +70,7 @@ describe('upsertRecurringRule', () => {
     vi.setSystemTime(new Date(Date.UTC(2026, 4, 29, 9)))
     authMock.mockResolvedValue({ user: { id: 'user-1' } })
     findDuplicateRule.mockResolvedValue(null)
+    findRule.mockResolvedValue(null)
     createRule.mockResolvedValue({ id: 'rule-1' })
     updateRule.mockResolvedValue({ id: 'rule-1' })
     createBackfillTransactions.mockResolvedValue({ count: 4 })
@@ -144,6 +147,22 @@ describe('upsertRecurringRule', () => {
     })
     expect(transactionMock).not.toHaveBeenCalled()
     expect(createBackfillTransactions).not.toHaveBeenCalled()
+  })
+
+  it('preserves an unchanged billing day and allows an explicit correction', async () => {
+    const { upsertRecurringRule } = await import('@/server-actions/recurring')
+    const nextDue = new Date(Date.UTC(2026, 1, 28))
+    const input = validRule({ id: 'rule-1', nextDue: '2026-02-28' })
+    findRule.mockResolvedValue({ nextDue, anchorDay: 30 })
+
+    await upsertRecurringRule(input)
+    expect(updateRule).toHaveBeenLastCalledWith({ where: { id: 'rule-1' }, data: expect.objectContaining({ nextDue, anchorDay: 30 }) })
+
+    await upsertRecurringRule({ ...input, anchorDay: 31 })
+    expect(updateRule).toHaveBeenLastCalledWith({ where: { id: 'rule-1' }, data: expect.objectContaining({ nextDue, anchorDay: 31 }) })
+
+    await upsertRecurringRule({ ...input, nextDue: '2026-03-25' })
+    expect(updateRule).toHaveBeenLastCalledWith({ where: { id: 'rule-1' }, data: expect.objectContaining({ anchorDay: 25 }) })
   })
 
   it('signs income positive and savings negative in generated transactions', async () => {

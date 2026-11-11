@@ -21,6 +21,8 @@ export const recurringRuleSchema = z.object({
   currency: z.enum(['HUF', 'USD', 'EUR', 'GBP']),
   cycle: z.enum(['MONTHLY', 'ANNUAL']),
   nextDue: z.string().regex(DAY),
+  /** Optional correction on edit. New rules take their billing day from nextDue. */
+  anchorDay: z.number().int().min(1).max(31).optional(),
   kind: z.enum(['INCOME', 'EXPENSE', 'SAVINGS']),
   categoryId: z.string().min(1),
   hasInstallment: z.boolean().default(false),
@@ -106,6 +108,7 @@ export async function createRecurringRule(
       categoryId: fields.categoryId,
       ...installmentFields(fields),
       nextDue: dateOnlyStringToDate(plan.nextDue),
+      anchorDay: plan.anchorDay,
       archived: plan.archived,
     },
   })

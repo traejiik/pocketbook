@@ -97,6 +97,18 @@ describe('commitRecurringRows', () => {
     expect(two.backfilled).toBe(2)
   })
 
+  it('keeps the CSV billing day when catch-up leaves next due in a shorter month', async () => {
+    const now = new Date(Date.UTC(2026, 1, 1))
+    const rows = await classifyRecurringRows(parseRecurringRows(csv(
+      'Rent,210000,HUF,MONTHLY,2026-01-31,EXPENSE,Housing,,',
+    )), undefined, now)
+    expect(rows[0].backfill?.nextDue).toBe('2026-02-28')
+    expect(await commitRecurringRows([rows[0].rule], now)).toMatchObject({ imported: 1 })
+    expect(ruleCreate).toHaveBeenCalledWith({ data: expect.objectContaining({
+      nextDue: new Date(Date.UTC(2026, 1, 28)), anchorDay: 31,
+    }) })
+  })
+
   it('re-checks names and categories against the database as it is now', async () => {
     const result = await commitRecurringRows([
       { ...rent, name: 'NETFLIX' },

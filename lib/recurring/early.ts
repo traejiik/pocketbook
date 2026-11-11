@@ -21,7 +21,7 @@ export async function settleNextOccurrence(
 ): Promise<Settlement> {
   const rule = await tx.recurringRule.findUnique({
     where: { id: ruleId },
-    select: { cycle: true, nextDue: true, kind: true, archived: true, name: true },
+    select: { cycle: true, nextDue: true, anchorDay: true, kind: true, archived: true, name: true },
   })
   if (!rule || rule.archived) return { error: 'That recurring rule is no longer active.' }
   if (rule.kind !== type) return { error: `"${rule.name}" is a ${rule.kind.toLowerCase()} rule.` }
@@ -33,7 +33,7 @@ export async function settleNextOccurrence(
   })
   if (taken) return { error: `The ${formatDateOnly(occurrence)} "${rule.name}" payment is already logged.` }
 
-  const nextDue = nextOccurrence(rule.cycle as RecurringCycle, occurrence, occurrence)
+  const nextDue = nextOccurrence(rule.cycle as RecurringCycle, occurrence, rule.anchorDay)
   await tx.recurringRule.update({ where: { id: ruleId }, data: { nextDue } })
   return { coversDueDate: occurrence, nextDue }
 }
@@ -49,9 +49,9 @@ export async function releaseOccurrence(
   ruleId: string,
   coversDueDate: Date,
 ): Promise<boolean> {
-  const rule = await tx.recurringRule.findUnique({ where: { id: ruleId }, select: { cycle: true, nextDue: true } })
+  const rule = await tx.recurringRule.findUnique({ where: { id: ruleId }, select: { cycle: true, nextDue: true, anchorDay: true } })
   if (!rule) return false
-  const advanced = nextOccurrence(rule.cycle as RecurringCycle, coversDueDate, coversDueDate)
+  const advanced = nextOccurrence(rule.cycle as RecurringCycle, coversDueDate, rule.anchorDay)
   if (rule.nextDue.getTime() !== advanced.getTime()) return false
   await tx.recurringRule.update({ where: { id: ruleId }, data: { nextDue: coversDueDate } })
   return true
