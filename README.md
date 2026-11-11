@@ -39,7 +39,7 @@ Numbers lead. Surfaces recede. A single calm blue is reserved for what matters.
 
 ## ✨ Highlights
 
-- **🔒 Yours alone** — one user, seeded from your env file. No multi-tenant logic, no sign-up flow, no telemetry. Self-hosted with Docker Compose.
+- **🔒 Yours alone** — one owner, claimed once with a setup code issued by the instance operator. No multi-tenant logic or telemetry. Self-hosted with Docker Compose.
 - **🧠 Private AI insights** — monthly commentary streamed token-by-token from your own Ollama instance. It never calls out to a third party, and the app works fine if the model is offline.
 - **💱 Multi-currency, done right** — HUF-first with USD/EUR/GBP support, ECB rates auto-synced daily, triangulated conversion, and honest handling of amounts it can't convert.
 - **🔁 Recurring & installments** — subscriptions, rent, and installment plans tracked with idempotent auto-logging and reconciled counters. Paid a bill early? Log it early and the rule skips that due date instead of logging it twice.
@@ -121,7 +121,7 @@ The heavier aggregation reads (KPIs, expenses-by-category, monthly trend, upcomi
 
 ## 🚀 Quick start
 
-Pocketbook ships as a Docker image. You need **Docker + Docker Compose** and a reachable **Ollama** instance (optional — the app runs without it).
+Pocketbook ships as a Docker image. The setup instructions below apply to the owner-setup beta and later images. You need **Docker + Docker Compose** and a reachable **Ollama** instance (optional — the app runs without it).
 
 ```bash
 # 1. Clone and copy the env template
@@ -132,14 +132,19 @@ cp .env.example .env
 # 2. Fill in .env (see the table below). Generate secrets with:
 #    openssl rand -base64 32   # PB_AUTH_SECRET
 
-# 3. Start
+# 3. Start the beta channel
+export PB_IMAGE_TAG=beta
 docker compose up -d
 
-# 4. Open http://localhost:3000 and sign in with
-#    PB_SEED_USER_EMAIL / PB_SEED_USER_PASSWORD
+# 4. On a fresh instance, generate a one-time setup code
+docker compose exec --user 1001:1001 pocketbook-web /app/entrypoint.sh owner setup-code
+
+# 5. Open /setup at PB_AUTH_URL, create the owner, then sign in
 ```
 
 On boot, the `pocketbook-web` container prepares `/data` and `/backups` as root, immediately re-execs as UID 1001, builds `PB_DATABASE_URL`, runs `prisma migrate deploy`, the idempotent seed, and the FX-lock backfill (each only when a quick startup check finds work for it; `PB_FORCE_BOOTSTRAP=1` runs all three), then starts a PID-1 supervisor. The supervisor generates a per-boot internal job token and runs Next.js plus a separate UTC scheduler process. If either child exits or the worker stops heartbeating, the container exits so Docker can restart it.
+
+The setup code expires after 30 minutes. Issuing another code invalidates the first. Existing owners keep their account, password, and data when upgrading and sign in again once. See the [deployment runbook](DEPLOY.md#owner-password-recovery) for recovery.
 
 After every successful boot the validated environment configuration is persisted to `.env-cache` on the `/data` volume (`chmod 600`); if a later redeploy arrives without variables, the entrypoint restores only the missing values. Discord configuration is separate: enter the webhook in authenticated Settings. Production stores it in `/data/notifications.json`; a direct development run stores it in `.data/notifications.json`; and `PB_NOTIFICATION_CONFIG_PATH` can explicitly override either location. The file is written with mode `0600`, and the webhook is never imported from environment variables.
 
@@ -156,11 +161,9 @@ An avatar is an optional direct public HTTPS image URL sent with each Pocketbook
 | `PB_POSTGRES_PASSWORD` | ✅ | Postgres password (used to build the datasource URL). |
 | `PB_AUTH_SECRET` | ✅ | Auth.js session secret — `openssl rand -base64 32`. |
 | `PB_AUTH_URL` | ✅ | Full public URL of the instance (mapped to `AUTH_URL`). |
-| `PB_SEED_USER_EMAIL` | ✅ | Login email for the single seeded user. |
-| `PB_SEED_USER_PASSWORD` | ✅ | Login password for the seeded user. |
 | `PB_OLLAMA_BASE_URL` | – | Your Ollama base URL, e.g. `http://homelab.local:11434`. |
-| `PB_USER_DISPLAY_NAME` | – | Name shown in the sidebar header and login page. |
-| `PB_INSTANCE_NAME` | – | Optional label in the login footer (e.g. `home`, `work`). |
+| `PB_USER_DISPLAY_NAME` | – | Display name fallback for owners created before browser setup. |
+| `PB_INSTANCE_NAME` | – | Instance name fallback for the login and notification footers. |
 | `AUTH_TRUST_HOST` | – | Set `true` for custom hostnames like `pocketbook.home`. |
 | `PB_LOG_LEVEL` | – | `debug` \| `info` \| `warn` \| `error` \| `silent` (default `info`). |
 | `PB_LOG_FORMAT` | – | `pretty` (default) or `json` for line-delimited JSON. |
@@ -254,11 +257,14 @@ The day in a new rule’s first due date (`next_due` in CSV) becomes its billing
 
 ```bash
 pnpm install
-cp .env.example .env          # set PB_DATABASE_URL for local dev
+cp .env.example .env          # set PB_DATABASE_URL and local AUTH_URL / AUTH_SECRET
 pnpm prisma migrate dev
 pnpm prisma db seed
+pnpm owner setup-code         # enter this code at /setup
 pnpm dev                      # http://localhost:3000
 ```
+
+To recover a local owner, pipe the password into `pnpm owner reset-password` or pass `PB_RESET_PASSWORD` for that invocation. The command reads `PB_DATABASE_URL` from the environment or local dotenv files. Run the integration tests with `PB_OWNER_TEST_DATABASE_URL` pointing at a migrated disposable PostgreSQL 16 database.
 
 Useful scripts: `pnpm test` (Vitest), `pnpm lint`, `pnpm db:generate`, `pnpm db:migrate`, `pnpm db:seed`, `pnpm db:backfill-fx` (local FX-lock diagnostics), `pnpm analyze:bundle` (per-route client JS, run after `pnpm build`), and `pnpm insights:probe` (generate one month's insight note against a live Ollama, persisting nothing, and write a report with timing, form defects and invented-figure counts per run — reasoning arms and prompt variants are flags; the header of `scripts/insight-thinking-probe.ts` has the recipe for running it inside the production container).
 

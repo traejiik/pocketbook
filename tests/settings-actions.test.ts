@@ -1,8 +1,11 @@
+import bcrypt from 'bcryptjs'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const authMock = vi.fn()
 const deleteMany = vi.fn()
 const settingsUpdate = vi.fn()
+const ownerLookup = vi.fn()
+const ownerUpdate = vi.fn()
 
 vi.mock('@/lib/auth', () => ({ auth: authMock }))
 vi.mock('@/lib/prisma', () => ({
@@ -13,7 +16,7 @@ vi.mock('@/lib/prisma', () => ({
     category: { deleteMany },
     appSettings: { update: settingsUpdate, findUnique: vi.fn() },
     exchangeRate: { upsert: vi.fn(), deleteMany: vi.fn() },
-    user: { findFirst: vi.fn(), update: vi.fn() },
+    user: { findUnique: ownerLookup, updateMany: ownerUpdate },
   },
 }))
 vi.mock('@/lib/frankfurter', () => ({ syncAllAutoRates: vi.fn() }))
@@ -83,6 +86,45 @@ describe('opening balance', () => {
     expect(settingsUpdate).toHaveBeenCalledWith({
       where: { id: 'singleton' },
       data: { openingBalance: 0, openingBalanceMonth: null },
+    })
+  })
+})
+
+describe('changePassword', () => {
+  const current = 'my current password'
+  const next = 'a newer example password'
+  const passwordHash = bcrypt.hashSync(current, 4)
+
+  beforeEach(() => {
+    authMock.mockResolvedValue({ user: { id: 'u1' } })
+    ownerLookup.mockReset().mockResolvedValue({ passwordHash })
+    ownerUpdate.mockReset().mockResolvedValue({ count: 1 })
+  })
+
+  it('validates new passwords before reading or changing the owner', async () => {
+    const { changePassword } = await import('@/server-actions/settings')
+    await expect(changePassword({ current, next: 'short' })).resolves.toMatchObject({
+      error: expect.stringContaining('12 characters'),
+    })
+    expect(ownerLookup).not.toHaveBeenCalled()
+    expect(ownerUpdate).not.toHaveBeenCalled()
+  })
+
+  it('writes the new hash and revokes sessions in one conditional update', async () => {
+    const { changePassword } = await import('@/server-actions/settings')
+    await expect(changePassword({ current, next })).resolves.toEqual({ success: true })
+    expect(ownerUpdate).toHaveBeenCalledWith({
+      where: { id: 'u1', passwordHash },
+      data: { passwordHash: expect.any(String), sessionVersion: { increment: 1 } },
+    })
+    expect(await bcrypt.compare(next, ownerUpdate.mock.calls[0][0].data.passwordHash)).toBe(true)
+  })
+
+  it('does not overwrite a password changed by recovery during the request', async () => {
+    ownerUpdate.mockResolvedValue({ count: 0 })
+    const { changePassword } = await import('@/server-actions/settings')
+    await expect(changePassword({ current, next })).resolves.toMatchObject({
+      error: expect.stringContaining('password changed'),
     })
   })
 })

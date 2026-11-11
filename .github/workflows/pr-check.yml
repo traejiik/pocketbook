@@ -67,6 +67,11 @@ jobs:
           PB_DATABASE_URL: postgresql://pocketbook:pocketbook@localhost:5432/pocketbook
         run: pnpm prisma migrate deploy
 
+      - name: Owner setup integration tests
+        env:
+          PB_OWNER_TEST_DATABASE_URL: postgresql://pocketbook:pocketbook@localhost:5432/pocketbook
+        run: pnpm exec vitest run tests/owner-setup.test.ts
+
       - name: Check schema/migration drift
         env:
           PB_DATABASE_URL: postgresql://pocketbook:pocketbook@localhost:5432/pocketbook
@@ -79,14 +84,11 @@ jobs:
       - name: Build
         env:
           PB_DATABASE_URL: postgresql://pocketbook:pocketbook@localhost:5432/pocketbook
-          PB_NEXTAUTH_URL: http://localhost:3000
-          PB_NEXTAUTH_SECRET: ci-secret-not-for-production
+          AUTH_URL: http://localhost:3000
+          AUTH_SECRET: ci-secret-not-for-production
           AUTH_TRUST_HOST: "true"
           PB_OLLAMA_BASE_URL: http://localhost:11434
-          PB_FX_SYNC_SECRET: ci-fx-secret
           PB_USER_DISPLAY_NAME: CI
-          PB_SEED_USER_EMAIL: ci@example.com
-          PB_SEED_USER_PASSWORD: ci-password
         run: pnpm build
 
       # Build the production image exactly as the release does (no database, no

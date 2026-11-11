@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { lockRate, type FxLock } from '@/lib/fx'
-import { sendNotification } from '@/lib/notifications/send'
+import { sendInstanceNotification } from '@/lib/notifications/instance'
 import { logger } from '@/lib/logger'
 import {
   type RecurringCycle,
@@ -197,17 +197,17 @@ export async function syncDueRecurringRules(today: Date = new Date()): Promise<R
   }
 
   // Notify after the transaction commits, never before — and never let a
-  // webhook failure fail the sync itself (sendNotification does not throw).
+  // webhook failure fail the sync itself (delivery failures are handled internally).
   if (transactionsCreated > 0) {
     const lines = created
       .slice(0, 15)
       .map((tx) => `**${tx.description}** · ${formatSignedAmount(tx.amount, tx.currency)} · ${tx.date}`)
     if (created.length > 15) lines.push(`… and ${created.length - 15} more`)
-    await sendNotification({
+    await sendInstanceNotification({
       type: 'recurringActivity',
       count: transactionsCreated,
       lines,
-    }, { instanceName: process.env.PB_INSTANCE_NAME })
+    })
   }
 
   return {

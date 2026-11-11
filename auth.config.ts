@@ -1,7 +1,6 @@
 import type { NextAuthConfig } from 'next-auth';
 
-// Edge-safe config — no Node.js-only dependencies (bcryptjs, Prisma).
-// Used by middleware to validate the JWT without touching the database.
+// Shared defaults. All session validation uses lib/auth.ts in the Node runtime.
 export const authConfig = {
   session: { strategy: 'jwt' },
   providers: [],

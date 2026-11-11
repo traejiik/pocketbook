@@ -1,6 +1,6 @@
 import { createConnection } from 'node:net'
 
-import { sendNotification } from '@/lib/notifications/send'
+import { sendInstanceNotification } from '@/lib/notifications/instance'
 import { logger } from '@/lib/logger'
 import type { NotificationEvent } from '@/lib/notifications/types'
 import { runBackup, type BackupResult } from '@/lib/operations/backup'
@@ -53,9 +53,7 @@ export function createJobHandlers(options: {
   const fetchImpl = options.fetchImpl ?? fetch
   const runBackupImpl = options.runBackupImpl ?? (() => runBackup({
     source: 'scheduled',
-    notify: createScheduledBackupNotifier((event) => sendNotification(event, {
-      instanceName: process.env.PB_INSTANCE_NAME,
-    })),
+    notify: createScheduledBackupNotifier(sendInstanceNotification),
   }))
 
   return {
@@ -133,13 +131,12 @@ export async function runScheduler() {
       handlers,
       notifyFailure: async (event) => {
         if (event.type === 'scheduledJobFailures' && event.job === 'backup') {
-          await sendNotification(
+          await sendInstanceNotification(
             { type: 'backupFailed', source: 'scheduled', error: event.error },
-            { instanceName: process.env.PB_INSTANCE_NAME },
           )
           return
         }
-        await sendNotification(event, { instanceName: process.env.PB_INSTANCE_NAME })
+        await sendInstanceNotification(event)
       },
     }).catch((error) => {
       log.error('tick failed', { err: error })

@@ -1,9 +1,7 @@
-import NextAuth from 'next-auth';
-import { authConfig } from './auth.config';
-import { NextResponse } from 'next/server';
+import { type NextFetchEvent, type NextRequest, NextResponse } from 'next/server';
+import type { NextAuthRequest } from 'next-auth';
+import { auth } from '@/lib/auth';
 import { logger, loggerConfig } from '@/lib/logger';
-
-const { auth } = NextAuth(authConfig);
 
 const SECRET_AUTHENTICATED_CRON_PATHS = new Set([
   '/api/fx/sync',
@@ -39,30 +37,39 @@ function logRequest(req: Request & { method: string }, pathname: string, outcome
   else log.info(message, fields);
 }
 
-export default auth((req) => {
-  const isLoggedIn = !!req.auth;
-  const { pathname } = req.nextUrl;
+const publicPages = new Set(['/login', '/setup']);
 
-  if (pathname.startsWith('/api/auth')) {
-    logRequest(req, pathname, 'allow:auth', isLoggedIn);
-    return NextResponse.next();
-  }
-  if (SECRET_AUTHENTICATED_CRON_PATHS.has(pathname)) {
-    // Token-authenticated scheduler traffic. The route handler logs the outcome.
-    logRequest(req, pathname, 'allow:internal', isLoggedIn);
-    return NextResponse.next();
-  }
-  if (!isLoggedIn && pathname !== '/login') {
-    logRequest(req, pathname, 'redirect:/login', isLoggedIn);
+const withSession = auth((req: NextAuthRequest, _event: NextFetchEvent) => {
+  const isLoggedIn = !!req.auth?.user?.id;
+  const { pathname } = req.nextUrl;
+  if (!isLoggedIn && !publicPages.has(pathname)) {
+    if (pathname.startsWith('/api/')) {
+      logRequest(req, pathname, 'deny:unauthorised', false);
+      return new NextResponse('Unauthorised', { status: 401 });
+    }
+    logRequest(req, pathname, 'redirect:/login', false);
     return NextResponse.redirect(new URL('/login', req.url));
   }
-  if (isLoggedIn && pathname === '/login') {
-    logRequest(req, pathname, 'redirect:/dashboard', isLoggedIn);
+  if (isLoggedIn && publicPages.has(pathname)) {
+    logRequest(req, pathname, 'redirect:/dashboard', true);
     return NextResponse.redirect(new URL('/dashboard', req.url));
   }
   logRequest(req, pathname, 'allow', isLoggedIn);
   return NextResponse.next();
 });
+
+export default function proxy(req: NextRequest, event: NextFetchEvent) {
+  const { pathname } = req.nextUrl;
+  if (pathname.startsWith('/api/auth/')) {
+    logRequest(req, pathname, 'allow:auth', false);
+    return NextResponse.next();
+  }
+  if (SECRET_AUTHENTICATED_CRON_PATHS.has(pathname)) {
+    logRequest(req, pathname, 'allow:internal', false);
+    return NextResponse.next();
+  }
+  return withSession(req, event);
+}
 
 export const config = {
   // PWA assets (manifest + icons) must stay public so the install prompt works

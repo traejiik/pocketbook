@@ -20,8 +20,9 @@ RUN pnpm prisma generate
 RUN npm install -g esbuild && esbuild prisma/seed.ts --bundle --platform=node --target=node24 --outfile=prisma/seed.js --external:@prisma/client
 RUN esbuild prisma/backfill-fx.ts --bundle --platform=node --target=node24 --outfile=prisma/backfill-fx.js --external:@prisma/client
 RUN esbuild prisma/bootstrap-check.ts --bundle --platform=node --target=node24 --outfile=prisma/bootstrap-check.js --external:@prisma/client
-RUN esbuild runtime/supervisor.ts --bundle --platform=node --target=node24 --format=cjs --outfile=runtime/supervisor.js && \
-    esbuild runtime/scheduler.ts --bundle --platform=node --target=node24 --format=cjs --outfile=runtime/scheduler.js && \
+RUN esbuild scripts/owner.ts --bundle --platform=node --target=node24 --outfile=scripts/owner.js --external:@prisma/client
+RUN esbuild runtime/supervisor.ts --bundle --platform=node --target=node24 --format=cjs --outfile=runtime/supervisor.js --external:@prisma/client && \
+    esbuild runtime/scheduler.ts --bundle --platform=node --target=node24 --format=cjs --outfile=runtime/scheduler.js --external:@prisma/client && \
     esbuild runtime/notify-cli.ts --bundle --platform=node --target=node24 --format=cjs --outfile=runtime/notify-cli.js
 RUN pnpm build
 
@@ -43,6 +44,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
 COPY --from=builder --chown=nextjs:nodejs /app/prisma.config.ts ./prisma.config.ts
 COPY --from=builder --chown=nextjs:nodejs /app/runtime ./runtime
+COPY --from=builder --chown=nextjs:nodejs /app/scripts/owner.js ./scripts/owner.js
 
 COPY entrypoint.sh ./entrypoint.sh
 RUN chmod +x ./entrypoint.sh

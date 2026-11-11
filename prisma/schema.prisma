@@ -33,11 +33,13 @@ enum FxMode {
 }
 
 model User {
-  id           String      @id @default(cuid())
-  email        String      @unique
-  passwordHash String
-  createdAt    DateTime    @default(now())
-  insights     AiInsight[]
+  id             String      @id @default(cuid())
+  email          String      @unique
+  passwordHash   String
+  displayName    String?
+  sessionVersion Int         @default(0)
+  createdAt      DateTime    @default(now())
+  insights       AiInsight[]
 }
 
 model Category {
@@ -128,6 +130,9 @@ model AppSettings {
   ollamaModel            String  @default("llama3.1:8b")
   fxAutoSync             Boolean @default(true)
   autoInsightsMonthly    Boolean @default(true)
+  instanceName           String?
+  setupCodeHash          String?
+  setupCodeExpiresAt     DateTime?
   // One-time starting point for the derived running balance: the balance held on
   // the first day of `openingBalanceMonth` (`YYYY-MM`). Transactions before that
   // month are excluded from carry-over because this figure already includes them.

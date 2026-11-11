@@ -50,11 +50,8 @@ async function checkMigrations(prisma: PrismaClient): Promise<string[]> {
 }
 
 async function checkSeed(prisma: PrismaClient): Promise<string[]> {
-  const email = process.env.SEED_USER_EMAIL;
-  const password = process.env.SEED_USER_PASSWORD;
-  if (!email || !password) throw new Error('SEED_USER_EMAIL and SEED_USER_PASSWORD must be set');
   const csvPresent = existsSync(resolve(process.cwd(), 'seed', 'transactions.csv'));
-  return seedWork(prisma, { email, password, csvPresent });
+  return seedWork(prisma, { csvPresent });
 }
 
 async function checkFxBackfill(prisma: PrismaClient): Promise<string[]> {

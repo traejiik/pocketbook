@@ -13,7 +13,7 @@ import {
 import { join } from 'node:path'
 import { z } from 'zod'
 
-import { sendNotification } from '@/lib/notifications/send'
+import { sendInstanceNotification } from '@/lib/notifications/instance'
 import { logger } from '@/lib/logger'
 import type { NotificationEvent } from '@/lib/notifications/types'
 
@@ -236,7 +236,7 @@ export async function runBackup(options: {
   const startedAt = clock()
   const deadline = startedAt + BACKUP_TIMEOUT_MS
   const remainingTimeout = () => Math.max(1, deadline - clock())
-  const notify = options.notify ?? ((event) => sendNotification(event, { instanceName: process.env.PB_INSTANCE_NAME }))
+  const notify = options.notify ?? sendInstanceNotification
   const notifyBestEffort = async (event: NotificationEvent) => {
     try {
       await notify(event)
