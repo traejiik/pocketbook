@@ -2,6 +2,13 @@
 set -e
 umask 077
 
+# Reset input is accepted only for this operator invocation. Neither fallback
+# can restore it, and an ordinary boot discards it before starting anything.
+if [ "${1:-}" != owner ] || [ "${2:-}" != reset-password ]; then
+  unset PB_RESET_PASSWORD
+fi
+unset SEED_USER_EMAIL SEED_USER_PASSWORD PB_SEED_USER_EMAIL PB_SEED_USER_PASSWORD
+
 # Bind mounts arrive with host ownership. Prepare the persistent runtime
 # directories once, then restart this script as the unprivileged application
 # user. Migrations, Next.js, the worker, and pg_dump all run as UID 1001.
@@ -28,11 +35,15 @@ FAIL_LOG="${PB_FAIL_LOG:-/data/startup-failures.log}"
 # /data is a bind mount; if the host dir isn't writable by this uid (1001) the
 # persistent log can't be created. Fall back to /tmp so a diagnostic is never
 # lost. (To keep it across container recreation, chown the host dir to 1001.)
-if ! : >> "$FAIL_LOG" 2>/dev/null; then FAIL_LOG=/tmp/startup-failures.log; fi
-RUN_LOG="/tmp/pb-startup.$$"
-STEP="/tmp/pb-step.$$"
+RUN_LOG=/dev/null
+STEP=/dev/null
 STAGE="init"
-if ! : > "$RUN_LOG" 2>/dev/null; then RUN_LOG=/dev/null; STEP=/dev/null; fi
+if [ "${1:-}" != owner ]; then
+  if ! : >> "$FAIL_LOG" 2>/dev/null; then FAIL_LOG=/tmp/startup-failures.log; fi
+  RUN_LOG="/tmp/pb-startup.$$"
+  STEP="/tmp/pb-step.$$"
+  if ! : > "$RUN_LOG" 2>/dev/null; then RUN_LOG=/dev/null; STEP=/dev/null; fi
+fi
 
 # echo to console AND this run's capture buffer
 say() { echo "$@"; echo "$@" >> "$RUN_LOG" 2>/dev/null || true; }
@@ -53,7 +64,7 @@ on_exit() {
     echo "==================================================================="
     echo "[$ts] pocketbook-web STARTUP FAILED — stage=$STAGE exit=$code"
     echo "Required variables (resolved; pass the bare name via compose OR the PB_ name via the Portainer panel):"
-    for v in AUTH_URL AUTH_SECRET PB_POSTGRES_PASSWORD SEED_USER_EMAIL SEED_USER_PASSWORD; do
+    for v in AUTH_URL AUTH_SECRET PB_POSTGRES_PASSWORD; do
       eval "val=\${$v}"
       [ -n "$val" ] && echo "  $v = set" || echo "  $v = MISSING"
     done
@@ -67,7 +78,7 @@ on_exit() {
   node /app/runtime/notify-cli.js system-alert \
     "Pocketbook startup failed" "stage=$STAGE · exit=$code" 2>/dev/null || true
 }
-trap on_exit EXIT
+if [ "${1:-}" != owner ]; then trap on_exit EXIT; fi
 
 # ---------------------------------------------------------------------------
 # Optional host-side fallback: bind-mount a KEY=value file (no quotes, no
@@ -81,7 +92,9 @@ STAGE="load-fallback-env"
 if [ -f /run/pb-stack.env ]; then
   loaded=""
   while IFS='=' read -r key value; do
-    case "$key" in ''|\#*) continue ;; esac
+    case "$key" in
+      ''|[0-9]*|*[!A-Za-z0-9_]*|SEED_USER_*|PB_SEED_USER_*|PB_RESET_PASSWORD) continue ;;
+    esac
     eval "current=\${$key:-}"
     if [ -z "$current" ] && [ -n "$value" ]; then
       export "$key=$value"
@@ -93,7 +106,7 @@ fi
 
 # ---------------------------------------------------------------------------
 # Resolve config to the bare names the app + Auth.js read (AUTH_URL, AUTH_SECRET,
-# SEED_USER_*, OLLAMA_BASE_URL). Accept either form:
+# OLLAMA_BASE_URL). Accept either form:
 #   - a bare name passed straight through by compose (e.g. AUTH_URL=...), or
 #   - the PB_-prefixed name from the Portainer panel (e.g. PB_AUTH_URL=...).
 # A bare name that's already set wins; otherwise fall back to its PB_ counterpart.
@@ -102,8 +115,6 @@ STAGE="map-env"
 export AUTH_URL="${AUTH_URL:-$PB_AUTH_URL}"
 export AUTH_SECRET="${AUTH_SECRET:-$PB_AUTH_SECRET}"
 export OLLAMA_BASE_URL="${OLLAMA_BASE_URL:-$PB_OLLAMA_BASE_URL}"
-export SEED_USER_EMAIL="${SEED_USER_EMAIL:-$PB_SEED_USER_EMAIL}"
-export SEED_USER_PASSWORD="${SEED_USER_PASSWORD:-$PB_SEED_USER_PASSWORD}"
 export PB_POSTGRES_PASSWORD="${PB_POSTGRES_PASSWORD:-$POSTGRES_PASSWORD}"
 
 # ---------------------------------------------------------------------------
@@ -120,13 +131,17 @@ export PB_POSTGRES_PASSWORD="${PB_POSTGRES_PASSWORD:-$POSTGRES_PASSWORD}"
 # Delete the file on the host to invalidate it (rewritten on next good boot).
 # ---------------------------------------------------------------------------
 ENV_CACHE="${PB_ENV_CACHE:-/data/.env-cache}"
-CACHE_KEYS="AUTH_URL AUTH_SECRET OLLAMA_BASE_URL SEED_USER_EMAIL SEED_USER_PASSWORD PB_POSTGRES_PASSWORD PB_USER_DISPLAY_NAME PB_INSTANCE_NAME"
+CACHE_KEYS="AUTH_URL AUTH_SECRET OLLAMA_BASE_URL PB_POSTGRES_PASSWORD PB_USER_DISPLAY_NAME PB_INSTANCE_NAME"
 
 STAGE="restore-env-cache"
 restored=""
 if [ -f "$ENV_CACHE" ]; then
   while IFS='=' read -r key value; do
-    case "$key" in ''|\#*|*[!A-Za-z0-9_]*) continue ;; esac
+    case "$key" in ''|[0-9]*|*[!A-Za-z0-9_]*) continue ;; esac
+    case " $CACHE_KEYS " in
+      *" $key "*) ;;
+      *) continue ;;
+    esac
     eval "current=\${$key:-}"
     if [ -z "$current" ] && [ -n "$value" ]; then
       export "$key=$value"
@@ -136,14 +151,22 @@ if [ -f "$ENV_CACHE" ]; then
   [ -n "$restored" ] && say "WARNING: environment did not deliver:$restored — restored from last known good config ($ENV_CACHE). Check the Portainer stack environment panel."
 fi
 
+if [ "${1:-}" = owner ]; then
+  if [ -z "$PB_POSTGRES_PASSWORD" ]; then
+    echo "Owner command requires PB_POSTGRES_PASSWORD or the saved database configuration." >&2
+    exit 1
+  fi
+  export PB_DATABASE_URL="postgresql://${PB_POSTGRES_USER}:${PB_POSTGRES_PASSWORD}@pocketbook-db:5432/${PB_POSTGRES_DB}"
+  shift
+  exec node /app/scripts/owner.js "$@"
+fi
+
 # Fail fast with one clear message listing every missing required var.
 STAGE="validate-env"
 missing=""
 [ -z "$AUTH_URL" ] && missing="$missing AUTH_URL/PB_AUTH_URL"
 [ -z "$AUTH_SECRET" ] && missing="$missing AUTH_SECRET/PB_AUTH_SECRET"
 [ -z "$PB_POSTGRES_PASSWORD" ] && missing="$missing PB_POSTGRES_PASSWORD"
-[ -z "$SEED_USER_EMAIL" ] && missing="$missing SEED_USER_EMAIL/PB_SEED_USER_EMAIL"
-[ -z "$SEED_USER_PASSWORD" ] && missing="$missing SEED_USER_PASSWORD/PB_SEED_USER_PASSWORD"
 if [ -n "$missing" ]; then
   say "ERROR: missing required variables (set them in the Portainer stack environment panel):"
   say "  $missing"
@@ -156,7 +179,7 @@ fi
 # writable by uid 1001 the cache is skipped and startup continues unaffected.
 STAGE="write-env-cache"
 write_env_cache() {
-  ( umask 077 && : > "$ENV_CACHE.tmp" ) 2>/dev/null || return 1
+  ( umask 077 && : > "$ENV_CACHE.tmp" && chmod 600 "$ENV_CACHE.tmp" ) 2>/dev/null || return 1
   for k in $CACHE_KEYS; do
     eval "val=\${$k:-}"
     [ -n "$val" ] && printf '%s=%s\n' "$k" "$val" >> "$ENV_CACHE.tmp"

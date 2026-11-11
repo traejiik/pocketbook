@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { generateAndSaveInsight } from '@/lib/insights/generation'
-import { sendNotification } from '@/lib/notifications/send'
+import { sendInstanceNotification } from '@/lib/notifications/instance'
 import { logger } from '@/lib/logger'
 
 const log = logger('insights')
@@ -59,12 +59,10 @@ export async function POST(request: Request) {
     year: 'numeric',
     timeZone: 'UTC',
   })
-  await sendNotification({
+  await sendInstanceNotification({
     type: 'monthlyInsightReady',
     month: monthName,
     model: settings.ollamaModel,
-  }, {
-    instanceName: process.env.PB_INSTANCE_NAME,
   })
 
   log.info('monthly insight generated', { month: monthCovered, id: insight.id })

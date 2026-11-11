@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { notify } from '@/lib/ui-notify';
 import { cn } from '@/lib/utils';
 import { changePassword } from '@/server-actions/settings';
 
@@ -34,8 +33,7 @@ export function SecuritySettings() {
     startTransition(async () => {
       const result = await changePassword({ current: currentPw, next: newPw });
       if (result.error) { toast.error(result.error); return; }
-      notify.success('Password updated');
-      setCurrentPw(''); setNewPw(''); setConfirmPw('');
+      window.location.replace('/login?passwordChanged=1');
     });
   };
 

@@ -4,7 +4,6 @@
 // invariants next to the check means the two can never disagree about what
 // "seeded" means.
 import { FxMode, type PrismaClient } from '@prisma/client';
-import bcrypt from 'bcryptjs';
 
 // Every declared currency (USD/EUR/GBP) needs a HUF pair so it is convertible
 // to the anchor. Missing pairs make transactions in that currency drop out of
@@ -46,19 +45,14 @@ export function pendingMigrations(
 
 /**
  * Reasons the idempotent seed still has work to do; empty means it would be a
- * no-op. Mirrors each step of `prisma/seed.ts`: the env user exists with the env
- * password (so a rotated `PB_SEED_USER_PASSWORD` re-seeds), the settings row,
- * every default FX pair, a Savings category, and no pending bootstrap CSV.
+ * no-op. Mirrors `prisma/seed.ts`: settings, default FX pairs, a Savings
+ * category, and the optional bootstrap CSV.
  */
 export async function seedWork(
   prisma: PrismaClient,
-  opts: { email: string; password: string; csvPresent: boolean },
+  opts: { csvPresent: boolean },
 ): Promise<string[]> {
   const reasons: string[] = [];
-
-  const user = await prisma.user.findUnique({ where: { email: opts.email }, select: { passwordHash: true } });
-  if (!user) reasons.push('seed user missing');
-  else if (!(await bcrypt.compare(opts.password, user.passwordHash))) reasons.push('seed user password changed');
 
   const settings = await prisma.appSettings.findUnique({ where: { id: 'singleton' }, select: { id: true } });
   if (!settings) reasons.push('app settings missing');

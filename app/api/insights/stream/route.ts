@@ -12,7 +12,7 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(req: Request) {
   const session = await auth();
-  if (!session?.user) {
+  if (!session?.user?.id) {
     log.warn('insight stream refused', { reason: 'unauthorised' });
     return new Response('Unauthorised', { status: 401 });
   }

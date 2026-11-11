@@ -9,6 +9,7 @@ import { lockRate } from '@/lib/fx';
 import { CACHE_TAGS, revalidateFinanceTags } from '@/lib/cache';
 import { requireAuthenticatedUser } from '@/lib/require-auth';
 import { logger } from '@/lib/logger';
+import { hashPassword, passwordSchema, passwordUpdate } from '@/lib/owner/password';
 
 const log = logger('settings');
 
@@ -168,21 +169,24 @@ export async function setOllamaModel(model: string) {
 }
 
 export async function changePassword(input: { current: string; next: string }) {
-  await requireAuthenticatedUser();
-  const user = await prisma.user.findFirst();
-  if (!user) {
-    log.error('password change failed', { reason: 'no user row' });
-    return { error: 'No user found' };
-  }
+  const { id } = await requireAuthenticatedUser();
+  const password = passwordSchema.safeParse(input?.next);
+  if (!password.success) return { error: password.error.issues[0].message };
+  if (typeof input.current !== 'string' || !input.current) return { error: 'Enter your current password.' };
 
-  const valid = await bcrypt.compare(input.current, user.passwordHash);
-  if (!valid) {
+  const user = await prisma.user.findUnique({ where: { id }, select: { passwordHash: true } });
+  if (!user || !(await bcrypt.compare(input.current, user.passwordHash))) {
     log.warn('password change rejected', { reason: 'current password incorrect' });
-    return { error: 'Current password is incorrect' };
+    return { error: 'Current password is incorrect.' };
   }
 
-  const hash = await bcrypt.hash(input.next, 12);
-  await prisma.user.update({ where: { id: user.id }, data: { passwordHash: hash } });
+  const hash = await hashPassword(password.data);
+  const changed = await prisma.user.updateMany({
+    where: { id, passwordHash: user.passwordHash },
+    data: passwordUpdate(hash),
+  });
+  if (!changed.count) return { error: 'Your password changed while this form was open. Sign in and try again.' };
+
   log.info('password changed');
   return { success: true };
 }

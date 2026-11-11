@@ -1,4 +1,3 @@
-import bcrypt from 'bcryptjs'
 import { describe, expect, it, vi } from 'vitest'
 import type { PrismaClient } from '@prisma/client'
 import { DEFAULT_FX_RATES, pendingMigrations, seedWork } from '../prisma/bootstrap-state'
@@ -26,13 +25,11 @@ describe('pendingMigrations', () => {
 })
 
 function fakePrisma(opts: {
-  passwordHash?: string | null
   settings?: boolean
   pairs?: { fromCurrency: string; toCurrency: string }[]
   savings?: boolean
 }) {
   return {
-    user: { findUnique: vi.fn(async () => (opts.passwordHash ? { passwordHash: opts.passwordHash } : null)) },
     appSettings: { findUnique: vi.fn(async () => (opts.settings === false ? null : { id: 'singleton' })) },
     exchangeRate: {
       findMany: vi.fn(async () => opts.pairs ?? DEFAULT_FX_RATES.map(({ fromCurrency, toCurrency }) => ({ fromCurrency, toCurrency }))),
@@ -42,26 +39,24 @@ function fakePrisma(opts: {
 }
 
 describe('seedWork', () => {
-  const password = 'correct horse'
-  const passwordHash = bcrypt.hashSync(password, 4)
-  const base = { email: 'me@example.com', password, csvPresent: false }
-
-  it('is empty when every seed invariant already holds', async () => {
-    expect(await seedWork(fakePrisma({ passwordHash }), base)).toEqual([])
+  it('is empty when non-user bootstrap is complete, even without an owner', async () => {
+    expect(await seedWork(fakePrisma({}), { csvPresent: false })).toEqual([])
   })
 
-  it('re-seeds when the env password no longer matches the stored hash', async () => {
-    expect(await seedWork(fakePrisma({ passwordHash }), { ...base, password: 'rotated' }))
-      .toEqual(['seed user password changed'])
+  it('does not query credentials on an existing database', async () => {
+    const prisma = fakePrisma({})
+    const lookup = vi.fn(() => { throw new Error('Bootstrap must never read credentials') })
+    Object.assign(prisma, { user: { findUnique: lookup } })
+    expect(await seedWork(prisma, { csvPresent: false })).toEqual([])
+    expect(lookup).not.toHaveBeenCalled()
   })
 
   it('reports each missing piece', async () => {
     const reasons = await seedWork(
-      fakePrisma({ passwordHash: null, settings: false, pairs: [], savings: false }),
-      { ...base, csvPresent: true },
+      fakePrisma({ settings: false, pairs: [], savings: false }),
+      { csvPresent: true },
     )
     expect(reasons).toEqual([
-      'seed user missing',
       'app settings missing',
       `${DEFAULT_FX_RATES.length} default FX pair(s) missing`,
       'savings category missing',

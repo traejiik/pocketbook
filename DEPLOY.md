@@ -23,11 +23,9 @@ Required:
 | --- | --- |
 | `PB_AUTH_URL` | `https://pocketbook.yourdomain.com` |
 | `PB_AUTH_SECRET` | output of `openssl rand -base64 32` |
-| `PB_SEED_USER_EMAIL` | `you@yourdomain.com` |
-| `PB_SEED_USER_PASSWORD` | a strong password |
 | `PB_POSTGRES_PASSWORD` | output of `openssl rand -hex 32` |
 
-Optional:
+Optional. Display name and instance name values serve as fallbacks for installations upgraded from stable.
 
 | Key | Default |
 | --- | --- |
@@ -76,9 +74,35 @@ docker compose logs -f pocketbook-web
 
 `PB_IMAGE_TAG` selects the image (default `latest`, the newest stable release). Set `PB_IMAGE_TAG=beta` to follow the rolling pre-release image, rebuilt on every push to the `beta` branch, or pin one build with `beta-<short-sha>` (or a stable version such as `3.1.0`). Betas can carry new migrations: take a backup (`Settings → Backups`, or the restore drill below) before switching, because returning to a stable image after a beta migration means restoring that backup, not just changing the tag.
 
-On each boot, `pocketbook-web` waits for PostgreSQL, then runs `prisma migrate deploy`, the idempotent seed, and the FX-lock backfill **only when needed**. `prisma/bootstrap-check.js` decides each step: migrations run when a migration folder has no finished row in `_prisma_migrations` (or one is stuck unfinished, so Prisma reports it); the seed runs when the env user is missing or its password no longer matches `PB_SEED_USER_PASSWORD`, when settings, a default FX pair or the Savings category is missing, or when `seed/transactions.csv` is present; the backfill runs when any transaction lacks a locked FX rate. Each skipped step logs `… up to date — skipping.`, and a failing check aborts startup under its usual stage name. Set `PB_FORCE_BOOTSTRAP=1` to run all three regardless. It then starts the supervisor. If Next.js exits, the worker exits, or worker heartbeats stop, the supervisor terminates its sibling and exits so Docker restarts the service.
+On each boot, `pocketbook-web` waits for PostgreSQL, then runs `prisma migrate deploy`, the idempotent seed, and the FX-lock backfill **only when needed**. `prisma/bootstrap-check.js` decides each step: migrations run when a migration folder has no finished row in `_prisma_migrations` (or one is stuck unfinished, so Prisma reports it); the seed runs when settings, a default FX pair or the Savings category is missing, or when `seed/transactions.csv` is present; the backfill runs when any transaction lacks a locked FX rate. Each skipped step logs `… up to date — skipping.`, and a failing check aborts startup under its usual stage name. Set `PB_FORCE_BOOTSTRAP=1` to run all three regardless. It then starts the supervisor. If Next.js exits, the worker exits, or worker heartbeats stop, the supervisor terminates its sibling and exits so Docker restarts the service.
 
-After one successful boot, missing environment values can be filled from `/data/.env-cache`; live environment values always win. Discord is never read from or copied into this cache.
+After one successful boot, missing allowlisted configuration can be filled from `/data/.env-cache`; live environment values always win. Discord is never read from or copied into this cache.
+
+### First-run owner setup
+
+These commands apply to the owner-setup beta and later images. Once a fresh instance has started, run:
+
+```sh
+docker compose exec --user 1001:1001 pocketbook-web /app/entrypoint.sh owner setup-code
+```
+
+Open `/setup` at your instance URL and enter the code, account details, instance name, and theme. A code expires after 30 minutes. Re-running the command replaces any outstanding code, and the command refuses to issue one after setup. Sign in with the password you chose. For a local dev database, run `pnpm prisma db seed` followed by `pnpm owner setup-code`.
+
+### Upgrading to the owner-setup beta
+
+Back up the stable database and keep a copy of the matching stable deployment configuration. The owner migration preserves the current account ID, email, password hash, and finance data. Sign in again once because the new session validation expires legacy cookies. Remove `PB_SEED_USER_EMAIL`, `PB_SEED_USER_PASSWORD` and the bare aliases `SEED_USER_EMAIL`, `SEED_USER_PASSWORD` from the deployment environment and any mounted fallback file. The entrypoint ignores these keys and removes them when rewriting the app-managed cache. Retain the stable configuration with the stable backup for rollback.
+
+### Owner password recovery
+
+Use Settings → Security when you know the current password. If you are locked out, run the following from a zsh shell with access to the deployment:
+
+```zsh
+IFS= read -rs new_password
+printf '%s\n' "$new_password" | docker compose exec -T --user 1001:1001 pocketbook-web /app/entrypoint.sh owner reset-password
+unset new_password
+```
+
+Both methods require at least 12 characters and accept up to 72 UTF-8 bytes. They revoke every existing session and keep the same owner and finance data. The recovery command requires exactly one owner. For automation, you can pass `PB_RESET_PASSWORD` explicitly for the `docker compose exec` invocation. Keep it out of Compose, Portainer, and dotenv files. Use `pnpm owner reset-password` with the same input options for a local database.
 
 ### Upgrading to 3.4.2
 

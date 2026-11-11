@@ -28,6 +28,7 @@ export type NotificationTransportOptions = {
 
 export type NotificationDeliveryOptions = NotificationTransportOptions & {
   configPath?: string
+  resolveInstanceName?: () => Promise<string | undefined>
 }
 
 type RenderedNotification = {
@@ -172,5 +173,6 @@ export async function sendNotification(
     }
   }
 
-  return deliverNotificationWithConfig(config, event, options)
+  const instanceName = options.instanceName ?? await options.resolveInstanceName?.()
+  return deliverNotificationWithConfig(config, event, { ...options, instanceName })
 }

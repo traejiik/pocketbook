@@ -2,7 +2,7 @@ import { fork, spawn } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
 import type { EventEmitter } from 'node:events'
 
-import { sendNotification } from '@/lib/notifications/send'
+import { sendInstanceNotification } from '@/lib/notifications/instance'
 import { logger } from '@/lib/logger'
 import type { NotificationEvent } from '@/lib/notifications/types'
 
@@ -117,7 +117,7 @@ export function runSupervisor() {
   const control = superviseChildren({
     web,
     worker,
-    notify: (event) => sendNotification(event, { instanceName: process.env.PB_INSTANCE_NAME }),
+    notify: sendInstanceNotification,
     exit: (code) => process.exit(code),
   })
 

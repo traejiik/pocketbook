@@ -1,3 +1,5 @@
+import { redirect } from 'next/navigation';
+import { auth } from '@/lib/auth';
 import { SessionProvider } from 'next-auth/react';
 import { AppShell } from '@/components/shell/AppShell';
 import { TransactionSheetProvider } from '@/components/providers/sheet-context';
@@ -8,6 +10,9 @@ import { prisma } from '@/lib/prisma';
 import type { SerializedCategory, SerializedRecurringRule } from '@/components/transactions/TransactionForm';
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
+  const session = await auth();
+  if (!session?.user?.id) redirect('/login');
+
   const [renewals, renewalsSoon, categories, recurringRules, exchangeRates, pots] = await Promise.all([
     getUpcomingRenewals(30),
     getUpcomingRenewals(7),
@@ -37,7 +42,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   }
 
   return (
-    <SessionProvider>
+    <SessionProvider session={session}>
       {/* Before the page paints, so a repeat visit never starts a draw. */}
       <script dangerouslySetInnerHTML={{ __html: DRAW_ONCE_SCRIPT }} />
       <NotificationsProvider renewalsCount={renewalsSoon.length}>
@@ -47,7 +52,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             categories={serialisedCategories}
             recurringRules={serialisedRules}
             fxRates={fxRates}
-            displayName={process.env.PB_USER_DISPLAY_NAME ?? 'User'}
+            displayName={session.user.name ?? process.env.PB_USER_DISPLAY_NAME ?? 'User'}
           >
             {children}
           </AppShell>

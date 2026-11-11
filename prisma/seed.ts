@@ -1,11 +1,10 @@
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
-import bcrypt from 'bcryptjs';
 import { readFileSync, existsSync } from 'fs';
 import { resolve } from 'path';
 import { DEFAULT_FX_RATES } from './bootstrap-state';
 
-// Load .env.local then .env so SEED_USER_* and PB_DATABASE_URL are available when
+// Load .env.local then .env so PB_DATABASE_URL is available when
 // run via tsx directly. `.env` matters because that is where PB_DATABASE_URL
 // actually lives (see .env.example); reading only .env.local made `pnpm db:seed`
 // fail locally for anyone who never created that optional override file.
@@ -34,19 +33,6 @@ const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString }) })
 
 async function main() {
   console.log('Seeding database…');
-
-  // ── User ──────────────────────────────────────────────────────────────────
-  const email = process.env.SEED_USER_EMAIL;
-  const password = process.env.SEED_USER_PASSWORD;
-  if (!email || !password) throw new Error('SEED_USER_EMAIL and SEED_USER_PASSWORD must be set');
-
-  const passwordHash = await bcrypt.hash(password, 12);
-  await prisma.user.upsert({
-    where: { email },
-    update: { passwordHash },
-    create: { email, passwordHash },
-  });
-  console.log(`  ✓ User: ${email}`);
 
   // ── AppSettings ───────────────────────────────────────────────────────────
   await prisma.appSettings.upsert({
