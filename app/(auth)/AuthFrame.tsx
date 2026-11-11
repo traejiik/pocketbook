@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { LogoMark } from '@/components/shell/LogoMark';
 
-export function AuthFrame({ children }: { children: ReactNode }) {
+export function AuthFrame({ children, wide = false }: { children: ReactNode; wide?: boolean }) {
   return (
     <div className="w-full min-h-dvh grid place-items-center relative overflow-hidden py-8">
       {/* Near-black backdrop */}
@@ -58,7 +58,7 @@ export function AuthFrame({ children }: { children: ReactNode }) {
       </div>
 
       {/* Auth card */}
-      <div className="relative w-full max-w-[380px] px-4 sm:px-0">
+      <div className={`relative w-full px-4 ${wide ? 'max-w-[680px]' : 'max-w-[380px] sm:px-0'}`}>
         <div className="flex items-center gap-2.5 justify-center mb-6">
           <LogoMark size={24} className="text-foreground" />
           <div className="text-[18px] font-semibold tracking-tight text-foreground">Pocketbook</div>

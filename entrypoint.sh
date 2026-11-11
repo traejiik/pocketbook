@@ -232,7 +232,13 @@ needs() {
   exit "$rc"
 }
 
+section() {
+  say ""
+  say "==========[$1]=========="
+}
+
 STAGE="prisma-migrate"
+section "Migrations"
 say "Checking Prisma migrations..."
 if needs migrations; then
   say "Running Prisma migrations..."
@@ -242,6 +248,7 @@ else
 fi
 
 STAGE="seed"
+section "Seeding"
 say "Checking seed state..."
 if needs seed; then
   say "Seeding database..."
@@ -251,6 +258,7 @@ else
 fi
 
 STAGE="fx-backfill"
+section "FX Locks"
 say "Checking transaction FX locks..."
 if needs fx-backfill; then
   say "Backfilling transaction FX locks..."
@@ -258,6 +266,11 @@ if needs fx-backfill; then
 else
   say "FX locks up to date — skipping."
 fi
+
+STAGE="owner-setup"
+section "Startup"
+# Keep the one-time code out of the failure buffer used for startup alerts.
+node /app/scripts/owner.js startup-setup-code
 
 STAGE="start"
 say "Starting supervised Next.js and scheduler processes..."
