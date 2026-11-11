@@ -242,6 +242,8 @@ Phone,15000,HUF,MONTHLY,2026-10-10,EXPENSE,Phone,2,12
 
 A CSV `recurring_rule_name` is a plain link: it never settles an occurrence or moves a rule's next due date. To pay a bill before it is due, use **Log recurring early** in the transaction form instead.
 
+The day in a new rule’s first due date (`next_due` in CSV) becomes its billing day. A rule billed on the 31st can fall on February 28 and return to March 31. An annual February 29 rule returns to February 29 in leap years. For an older rule that already drifted, open **Recurring → Edit** and correct **Billing day**. That field applies after the saved **Next due** date, which you can also edit if needed.
+
 **Export (Transactions → Export CSV).** On tablet and desktop the button is in the header; on phones it is a full-width muted button under the transaction list. Download this month (the month you are viewing), a date range, or all time. The export uses the import columns plus `category_id`, `fx_rate` and `fx_anchor`, so it opens in a spreadsheet and re-imports entirely as duplicates.
 
 **Bootstrap.** A file at `seed/transactions.csv` is imported automatically by the seed on first boot (every new row with a resolved category; the rest are logged). For ad-hoc imports from the shell: `pnpm tsx scripts/csv-import.ts`.

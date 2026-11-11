@@ -25,6 +25,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const serialisedRules: SerializedRecurringRule[] = recurringRules.map(r => ({
     id: r.id, name: r.name, cycle: r.cycle, kind: r.kind,
     nextDue: r.nextDue.toISOString().slice(0, 10),
+    anchorDay: r.anchorDay,
     amount: Number(r.amount),
     currency: r.currency as SerializedRecurringRule['currency'],
     categoryId: r.categoryId,

@@ -92,6 +92,8 @@ model RecurringRule {
   currency          String         @db.Char(3)
   cycle             RecurringCycle
   nextDue           DateTime       @db.Date
+  // Intended day of month, even when nextDue is clamped to the end of a shorter month.
+  anchorDay         Int?
   kind              CategoryKind
   categoryId        String
   category          Category       @relation(fields: [categoryId], references: [id])

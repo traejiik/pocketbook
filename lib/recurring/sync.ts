@@ -21,6 +21,7 @@ type DueRule = {
   currency: string
   cycle: string
   nextDue: Date
+  anchorDay: number | null
   kind: string
   categoryId: string
   installmentPaid: number | null
@@ -57,7 +58,8 @@ export function planDueRecurringRule(rule: DueRule, todayInput: Date = new Date(
   const cycle = rule.cycle as RecurringCycle
   const kind = rule.kind as RuleKind
   const currency = rule.currency as Currency
-  const anchor = startOfUtcDay(rule.nextDue)
+  const nextDue = startOfUtcDay(rule.nextDue)
+  const anchorDay = rule.anchorDay ?? nextDue.getUTCDate()
   // An occurrence is taken when a linked row sits on its date (generated) or
   // settled it early (`coversDueDate`, from "Log recurring early").
   const existingDates = new Set(rule.transactions.flatMap((tx) => [
@@ -66,10 +68,10 @@ export function planDueRecurringRule(rule: DueRule, todayInput: Date = new Date(
   ]))
   const dueDates: Date[] = []
 
-  let cursor = anchor
+  let cursor = nextDue
   while (cursor.getTime() <= today.getTime()) {
     dueDates.push(cursor)
-    cursor = nextOccurrence(cycle, cursor, anchor)
+    cursor = nextOccurrence(cycle, cursor, anchorDay)
   }
 
   const remainingInstallments = rule.installmentTotal == null
