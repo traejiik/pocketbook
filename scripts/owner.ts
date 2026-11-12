@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { parseEnv } from 'node:util';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
-import { OwnerRecoveryError, resetOwnerPassword } from '../lib/owner/password';
+import { applyBootPasswordReset, OwnerRecoveryError, resetOwnerPassword } from '../lib/owner/password';
 import { ensureSetupCode, issueSetupCode, OwnerSetupError } from '../lib/owner/setup';
 import { printSetupCode } from '../lib/owner/setup-output';
 import { importLegacyOwnerNames } from '../lib/owner/names';
@@ -22,7 +22,7 @@ function databaseUrl() {
 }
 
 async function readPassword() {
-  if (invocationPassword !== undefined) return invocationPassword;
+  if (invocationPassword) return invocationPassword;
   if (process.stdin.isTTY) throw new OwnerRecoveryError('Pass the new password through stdin or PB_RESET_PASSWORD.');
   const chunks: Buffer[] = [];
   let bytes = 0;
@@ -46,6 +46,16 @@ async function main() {
     if (command === 'setup-code') {
       process.stdout.write(`${await issueSetupCode(db)}\n`);
     } else if (command === 'startup-setup-code') {
+      try {
+        const reset = await applyBootPasswordReset(db, invocationPassword);
+        if (reset === 'applied') process.stdout.write('[owner] Password reset. All existing sessions have been revoked.\n');
+        if (reset === 'unclaimed') process.stdout.write('[owner] Password reset skipped. Create the owner at /setup.\n');
+        if (reset === 'same-password') process.stdout.write('[owner] Password reset skipped. Use a different value after a boot with PB_RESET_PASSWORD unset.\n');
+        if (reset === 'already-configured') process.stdout.write('[owner] Password reset skipped. Remove PB_RESET_PASSWORD and recreate the web container to rearm it.\n');
+      } catch (error) {
+        if (!(error instanceof OwnerRecoveryError)) throw error;
+        process.stderr.write(`[owner] Password reset skipped. ${error.message}\n`);
+      }
       await importLegacyOwnerNames(db, process.env);
       const result = await ensureSetupCode(db);
       if (result.status === 'issued') printSetupCode(result.code);

@@ -96,15 +96,19 @@ Back up the stable database and keep a copy of the matching stable deployment co
 
 ### Owner password recovery
 
-Use Settings → Security when you know the current password. If you are locked out, run the following from a zsh shell with access to the deployment:
+Use **Settings → Security** when you know the current password. If you are locked out, set `PB_RESET_PASSWORD` for the web service in Compose or Portainer and recreate the container. The bundled Compose file passes it through from your stack variables. Startup resets the existing owner once and logs the outcome. Fresh databases still use `/setup` to create the owner.
+
+After the reset, remove the variable and recreate the web container again. This clears the password from Docker’s container configuration and enables a future reset. A future reset requires a different value from the last successful startup reset. Changing the value in place or restarting with it still configured leaves the saved password alone.
+
+To recover from a shell without storing a password in the container configuration, run the following from zsh with access to the deployment:
 
 ```zsh
 IFS= read -rs new_password
-printf '%s\n' "$new_password" | docker compose exec -T --user 1001:1001 pocketbook-web /app/entrypoint.sh owner reset-password
+printf '%s\n' "$new_password" | docker compose exec -T --user 1001:1001 -e PB_RESET_PASSWORD= pocketbook-web /app/entrypoint.sh owner reset-password
 unset new_password
 ```
 
-Both methods require at least 12 characters and accept up to 72 UTF-8 bytes. They revoke every existing session and keep the same owner and finance data. The recovery command requires exactly one owner. For automation, you can pass `PB_RESET_PASSWORD` explicitly for the `docker compose exec` invocation. Keep it out of Compose, Portainer, and dotenv files. Use `pnpm owner reset-password` with the same input options for a local database.
+All methods require at least 12 characters and accept up to 72 UTF-8 bytes. A successful reset revokes every existing session and keeps the same owner and finance data. The recovery command requires exactly one owner. For automation, you can also pass `PB_RESET_PASSWORD` explicitly for the `docker compose exec` invocation. Use `pnpm owner reset-password` with the same input options for a local database.
 
 ### Upgrading to 3.4.2
 

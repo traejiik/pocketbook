@@ -177,6 +177,7 @@ environment:
 
   # Advanced. Uncomment the settings you use.
   # PB_FORCE_BOOTSTRAP: "1"                           # Force migrations, seed, and FX backfill on boot
+  # PB_RESET_PASSWORD: "${PB_RESET_PASSWORD:-}"      # One-time owner password reset on startup
   # PB_NOTIFICATION_CONFIG_PATH: "/data/notifications.json"
   # PB_ENV_CACHE: "/data/.env-cache"
   # PB_FAIL_LOG: "/data/startup-failures.log"
@@ -185,6 +186,8 @@ environment:
 ```
 
 Recreate the web container after changing its environment. Manage both names under **Settings → General → Profile & instance**. On upgrade, the first boot copies any legacy `PB_USER_DISPLAY_NAME` or `PB_INSTANCE_NAME` values into missing saved names. Keep those values available for that boot, then remove them from the stack. See [`.env.example`](.env.example) and the [deployment runbook](DEPLOY.md).
+
+If you’re locked out, set `PB_RESET_PASSWORD` and recreate the web container. After the reset, remove the variable and recreate the container again. A future startup reset requires a different value from the last startup reset. See [owner password recovery](DEPLOY.md#owner-password-recovery).
 
 ### Integrated operations
 

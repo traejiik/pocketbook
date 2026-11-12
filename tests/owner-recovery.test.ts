@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs';
 import type { PrismaClient } from '@prisma/client';
 import { describe, expect, it, vi } from 'vitest';
-import { passwordSchema, resetOwnerPassword } from '@/lib/owner/password';
+import { applyBootPasswordReset, passwordSchema, resetOwnerPassword } from '@/lib/owner/password';
 
 describe('owner recovery', () => {
   const password = 'a replacement password';
@@ -37,6 +37,44 @@ describe('owner recovery', () => {
     await expect(resetOwnerPassword(db, 'two lines\nof password')).rejects.toThrow('single line');
     await expect(resetOwnerPassword(db, 'é'.repeat(37))).rejects.toThrow('72 bytes');
     expect(findMany).not.toHaveBeenCalled();
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('resets once while configured and rearms on a boot without a value', async () => {
+    const { db, update } = fakeDb(['owner']);
+    const state = { bootPasswordResetArmed: true, lastBootPasswordResetHash: null as string | null };
+    const appSettings = {
+      updateMany: vi.fn(async ({ where, data }) => {
+        if (where.bootPasswordResetArmed !== state.bootPasswordResetArmed) return { count: 0 };
+        Object.assign(state, data);
+        return { count: 1 };
+      }),
+      findUniqueOrThrow: vi.fn(async () => ({ ...state })),
+      update: vi.fn(async ({ data }) => Object.assign(state, data)),
+    };
+    Object.assign(db, { appSettings, $transaction: async (work: (tx: PrismaClient) => unknown) => work(db) });
+
+    expect(await applyBootPasswordReset(db, password)).toBe('applied');
+    const different = 'another replacement password';
+    expect(await applyBootPasswordReset(db, different)).toBe('already-configured');
+    expect(update).toHaveBeenCalledOnce();
+    expect(await applyBootPasswordReset(db, '')).toBe('idle');
+    expect(await applyBootPasswordReset(db, password)).toBe('same-password');
+    expect(await applyBootPasswordReset(db, different)).toBe('already-configured');
+    expect(update).toHaveBeenCalledOnce();
+    expect(await applyBootPasswordReset(db, undefined)).toBe('idle');
+    expect(await applyBootPasswordReset(db, different)).toBe('applied');
+    expect(update).toHaveBeenCalledTimes(2);
+    expect(update.mock.calls[0][0].data.sessionVersion).toEqual({ increment: 1 });
+    expect(await bcrypt.compare(different, update.mock.calls[1][0].data.passwordHash)).toBe(true);
+  });
+
+  it('leaves first-run setup available when there is no owner', async () => {
+    const { db, update } = fakeDb([]);
+    const updateMany = vi.fn().mockResolvedValue({ count: 1 });
+    Object.assign(db, { appSettings: { updateMany }, $transaction: async (work: (tx: PrismaClient) => unknown) => work(db) });
+
+    expect(await applyBootPasswordReset(db, password)).toBe('unclaimed');
     expect(update).not.toHaveBeenCalled();
   });
 });
