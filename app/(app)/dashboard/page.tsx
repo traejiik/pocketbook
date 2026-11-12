@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import Link from 'next/link'
+import { cookies } from 'next/headers'
 import { ChevronRight, Sparkles, ArrowRight, TriangleAlert } from 'lucide-react'
 import {
   getCurrentMonthKpis,
@@ -28,14 +29,20 @@ import { CategoryAvatar } from '@/components/finance/CategoryAvatar'
 import { SavingsCard } from '@/components/dashboard/SavingsCard'
 import { isSavingsType, typeGlyph } from '@/lib/transactions/type'
 import { DashboardChartSection } from './DashboardChartSection'
+import { Button, buttonVariants } from '@/components/ui/button'
+import { ownerNamesDismissalCookie } from '@/lib/owner/names'
+import { dismissOwnerNamesPrompt } from '@/server-actions/owner-names'
 
 export default async function DashboardPage() {
   // Fetch settings first so pingOllama can start as soon as the URL is known,
   // overlapping with the remaining DB queries rather than running serially after them.
   const settingsPromise = prisma.appSettings.findUnique({ where: { id: 'singleton' } })
   const pingPromise = settingsPromise.then(s => pingOllama(s?.ollamaUrl ?? 'http://ollama:11434'))
+  const ownerNames = cookies().then(store => store.has(ownerNamesDismissalCookie)
+    ? null
+    : prisma.user.findFirst({ select: { displayName: true } }))
 
-  const [kpis, lastKpis, opening, balanceNet, balanceTrend, byCategory, lastMonthByCategory, upcoming, recentTx, trend6mo, lastInsight, insightCount, savings, settings, ollamaReachable] = await Promise.all([
+  const [kpis, lastKpis, opening, balanceNet, balanceTrend, byCategory, lastMonthByCategory, upcoming, recentTx, trend6mo, lastInsight, insightCount, savings, settings, ollamaReachable, owner] = await Promise.all([
     getCurrentMonthKpis(),
     getLastMonthKpis(),
     getCurrentMonthOpeningBalance(),
@@ -51,6 +58,7 @@ export default async function DashboardPage() {
     getSavingsSummary(),
     settingsPromise,
     pingPromise,
+    ownerNames,
   ])
 
   const anchor = settings?.anchorCurrency ?? 'HUF'
@@ -90,6 +98,17 @@ export default async function DashboardPage() {
 
   return (
     <div className="motion-rise px-4 lg:px-7 pb-9 pt-1 space-y-4 max-w-[1320px] mx-auto">
+      {owner && (!settings?.instanceName || !owner.displayName) && (
+        <aside className="calm-card flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+          <p className="text-sm">Add your display name and instance name in Settings.</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <Link href="/settings/general#owner-names" className={buttonVariants({ variant: 'outline', size: 'sm' })}>Edit names</Link>
+            <form action={dismissOwnerNamesPrompt}>
+              <Button type="submit" variant="ghost" size="sm">Dismiss</Button>
+            </form>
+          </div>
+        </aside>
+      )}
       {/* Unconvertible-currency notice — totals exclude rows with no FX path */}
       {excludedCount > 0 && (
         <div className="calm-card px-4 py-3 text-[12.5px] flex items-start gap-2.5">

@@ -1,7 +1,10 @@
 import { EventEmitter } from 'node:events'
+import { Readable, Writable } from 'node:stream'
+import { pipeline } from 'node:stream/promises'
 import { describe, expect, it, vi } from 'vitest'
 
 import { createInternalJobToken, superviseChildren, type ManagedChild } from '@/runtime/supervisor'
+import { frameNextStartup } from '@/runtime/next-startup'
 
 class FakeChild extends EventEmitter implements ManagedChild {
   killedWith: NodeJS.Signals[] = []
@@ -12,6 +15,34 @@ class FakeChild extends EventEmitter implements ManagedChild {
 }
 
 describe('runtime supervisor', () => {
+  it('frames the original Next.js banner across chunk boundaries and streams later logs unchanged', async () => {
+    const title = '\x1b[35m▲ Next.js 16.2.6\x1b[39m\n'
+    const addresses = '- Local:         http://localhost:3000\n- Network:       http://0.0.0.0:3000\n'
+    const ready = '\x1b[32m✓\x1b[39m Ready in 0ms\n'
+    const boot = 'INFO [boot] pocketbook starting\n'
+    const banner = Buffer.from(title + addresses + ready)
+    const output: string[] = []
+
+    await pipeline(
+      Readable.from([Buffer.from('before\n'), banner.subarray(0, 6), banner.subarray(6), Buffer.from(boot)]),
+      frameNextStartup(),
+      new Writable({ write(chunk, _encoding, done) { output.push(chunk.toString()); done() } }),
+    )
+
+    expect(output).toEqual(['before\n', `\n${title}${addresses}${ready}\n`, boot])
+  })
+
+  it('forwards a partial banner if the web child exits before reporting readiness', async () => {
+    const partial = '▲ Next.js 16.2.6\n- Local: http://localhost:3000\n'
+    const output: string[] = []
+    await pipeline(
+      Readable.from([Buffer.from(partial)]),
+      frameNextStartup(),
+      new Writable({ write(chunk, _encoding, done) { output.push(chunk.toString()); done() } }),
+    )
+    expect(output.join('')).toBe(partial)
+  })
+
   it('generates a 256-bit internal token without external configuration', () => {
     expect(createInternalJobToken(() => Buffer.alloc(32, 0xab))).toBe('ab'.repeat(32))
   })

@@ -25,12 +25,10 @@ Required:
 | `PB_AUTH_SECRET` | output of `openssl rand -base64 32` |
 | `PB_POSTGRES_PASSWORD` | output of `openssl rand -hex 32` |
 
-Optional. Display name and instance name values serve as fallbacks for installations upgraded from stable.
+Optional:
 
 | Key | Default |
 | --- | --- |
-| `PB_USER_DISPLAY_NAME` | `Pocketbook` |
-| `PB_INSTANCE_NAME` | empty |
 | `PB_OLLAMA_BASE_URL` | `http://ollama:11434` |
 | `PB_DOCKER_DIR` | `/opt/docker` |
 | `PB_LOG_LEVEL` | `info` (`debug` \| `info` \| `warn` \| `error` \| `silent`) |
@@ -74,15 +72,17 @@ docker compose logs -f pocketbook-web
 
 `PB_IMAGE_TAG` selects the image (default `latest`, the newest stable release). Set `PB_IMAGE_TAG=beta` to follow the rolling pre-release image, rebuilt on every push to the `beta` branch, or pin one build with `beta-<short-sha>` (or a stable version such as `3.1.0`). Betas can carry new migrations: take a backup (`Settings → Backups`, or the restore drill below) before switching, because returning to a stable image after a beta migration means restoring that backup, not just changing the tag.
 
-On each boot, `pocketbook-web` waits for PostgreSQL, then runs `prisma migrate deploy`, the idempotent seed, and the FX-lock backfill **only when needed**. `prisma/bootstrap-check.js` decides each step: migrations run when a migration folder has no finished row in `_prisma_migrations` (or one is stuck unfinished, so Prisma reports it); the seed runs when settings, a default FX pair or the Savings category is missing, or when `seed/transactions.csv` is present; the backfill runs when any transaction lacks a locked FX rate. Each skipped step logs `… up to date — skipping.`, and a failing check aborts startup under its usual stage name. Set `PB_FORCE_BOOTSTRAP=1` to run all three regardless. It then starts the supervisor. If Next.js exits, the worker exits, or worker heartbeats stop, the supervisor terminates its sibling and exits so Docker restarts the service.
+On each boot, `pocketbook-web` waits for PostgreSQL, then runs `prisma migrate deploy`, the idempotent seed, and the FX-lock backfill **only when needed**. `prisma/bootstrap-check.js` decides each step: migrations run when a migration folder has no finished row in `_prisma_migrations` (or one is stuck unfinished, so Prisma reports it); the seed runs when settings, a default FX pair or the Savings category is missing, or when `seed/transactions.csv` is present; the backfill runs when any transaction lacks a locked FX rate. Each skipped step logs `… up to date — skipping.`, and a failing check aborts startup under its usual stage name. Set `PB_FORCE_BOOTSTRAP=1` to run all three regardless. It then starts the supervisor, which places a blank line above and below the Next.js startup banner. If Next.js exits, the worker exits, or worker heartbeats stop, the supervisor terminates its sibling and exits so Docker restarts the service.
 
 After one successful boot, missing allowlisted configuration can be filled from `/data/.env-cache`; live environment values always win. Discord is never read from or copied into this cache.
+
+On the first boot after upgrading, Pocketbook copies legacy `PB_USER_DISPLAY_NAME` and `PB_INSTANCE_NAME` values into any missing names for the existing owner. Keep any configured values available for that boot. You can then remove them from the stack. **Settings → General → Profile & instance** controls both names. If either is missing, the dashboard shows a dismissible prompt after sign-in.
 
 ### First-run owner setup
 
 On an instance without an account, Pocketbook prints a one-time code in the `[setup]` block of the container startup logs. Open `/setup` at your instance URL, select **Get started**, and enter the code and your account details. Anyone with the code can create the owner account while setup is pending, so keep the startup logs private.
 
-The code expires after 30 minutes. Restarting during that window keeps the same code valid. If the code is missing or expired, issue a new one:
+The code expires after 30 minutes. Restarting during that window keeps the same code valid. If it is missing or expired, select **Generate new code** at `/setup` and check the newest `[setup]` block in `docker compose logs pocketbook-web`. Your other form entries stay in place. The operator can also issue a code from the CLI:
 
 ```sh
 docker compose exec --user 1001:1001 pocketbook-web /app/entrypoint.sh owner setup-code

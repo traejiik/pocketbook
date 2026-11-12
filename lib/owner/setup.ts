@@ -6,6 +6,14 @@ import { hashPassword, passwordSchema } from './password';
 const settingsKey = { id: 'singleton' } as const;
 const validityMs = 30 * 60_000;
 
+type StoredSetupCode = { setupCodeHash: string | null; setupCodeExpiresAt: Date | null };
+
+export function activeSetupCodeExpiry(setup: StoredSetupCode | null, now = Date.now()): number | null {
+  if (!setup?.setupCodeHash || !setup.setupCodeExpiresAt) return null;
+  const expiry = setup.setupCodeExpiresAt.getTime();
+  return expiry > now ? expiry : null;
+}
+
 const setupSchema = z.object({
   code: z.string().trim().regex(/^[A-Za-z0-9_-]{43}$/, 'Enter a valid setup code.'),
   displayName: z.string().trim().min(1, 'Enter your display name.').max(80),
@@ -32,7 +40,7 @@ async function assertNoOwner(db: Prisma.TransactionClient) {
 }
 
 async function lockSetup(db: Prisma.TransactionClient) {
-  const [settings] = await db.$queryRaw<{ setupCodeHash: string | null; setupCodeExpiresAt: Date | null }[]>`
+  const [settings] = await db.$queryRaw<StoredSetupCode[]>`
     SELECT "setupCodeHash", "setupCodeExpiresAt" FROM "AppSettings" WHERE "id" = ${settingsKey.id} FOR UPDATE
   `;
   if (!settings) throw new OwnerSetupError('Finish database bootstrap before setting up an owner.');
@@ -45,7 +53,7 @@ async function verifyCode(db: Prisma.TransactionClient, code: Buffer) {
     select: { setupCodeHash: true, setupCodeExpiresAt: true },
   });
   const expected = Buffer.from(setup?.setupCodeHash ?? '', 'hex');
-  if (!setup?.setupCodeExpiresAt || setup.setupCodeExpiresAt.getTime() <= Date.now()
+  if (activeSetupCodeExpiry(setup) === null
     || expected.length !== code.length || !timingSafeEqual(expected, code)) {
     throw new OwnerSetupError('The setup code is invalid or expired.', 'code');
   }
@@ -53,31 +61,39 @@ async function verifyCode(db: Prisma.TransactionClient, code: Buffer) {
 
 async function writeSetupCode(db: Prisma.TransactionClient, now = new Date()) {
   const code = randomBytes(32).toString('base64url');
+  const expiresAt = now.getTime() + validityMs;
   await db.appSettings.update({
     where: settingsKey,
     data: {
       setupCodeHash: digest(code).toString('hex'),
-      setupCodeExpiresAt: new Date(now.getTime() + validityMs),
+      setupCodeExpiresAt: new Date(expiresAt),
     },
   });
-  return code;
+  return { code, expiresAt };
 }
 
 export async function issueSetupCode(db: PrismaClient, now?: Date) {
   return db.$transaction(async tx => {
     await lockSetup(tx);
     await assertNoOwner(tx);
-    return writeSetupCode(tx, now);
+    const { code } = await writeSetupCode(tx, now);
+    return code;
   }, { isolationLevel: 'ReadCommitted' });
 }
 
-export async function issueSetupCodeOnStartup(db: PrismaClient) {
+type SetupCodeStatus =
+  | { status: 'configured' }
+  | { status: 'active'; expiresAt: number }
+  | { status: 'issued'; expiresAt: number; code: string };
+
+export async function ensureSetupCode(db: PrismaClient): Promise<SetupCodeStatus> {
   return db.$transaction(async tx => {
-    const { setupCodeHash, setupCodeExpiresAt } = await lockSetup(tx);
-    if (await tx.user.findFirst({ select: { id: true } })) return null;
+    const setup = await lockSetup(tx);
+    if (await tx.user.findFirst({ select: { id: true } })) return { status: 'configured' };
     const now = new Date();
-    if (setupCodeHash && setupCodeExpiresAt && setupCodeExpiresAt > now) return null;
-    return writeSetupCode(tx, now);
+    const expiresAt = activeSetupCodeExpiry(setup, now.getTime());
+    if (expiresAt !== null) return { status: 'active', expiresAt };
+    return { status: 'issued', ...await writeSetupCode(tx, now) };
   }, { isolationLevel: 'ReadCommitted' });
 }
 
@@ -100,7 +116,7 @@ export async function claimOwner(db: PrismaClient, input: unknown) {
     await tx.user.create({ data: { email, displayName, passwordHash } });
     await tx.appSettings.update({
       where: settingsKey,
-      data: { instanceName, setupCodeHash: null, setupCodeExpiresAt: null },
+      data: { instanceName, legacyNamesImported: true, setupCodeHash: null, setupCodeExpiresAt: null },
     });
   }, { isolationLevel: 'ReadCommitted' });
 }

@@ -5,6 +5,7 @@ import type { EventEmitter } from 'node:events'
 import { sendInstanceNotification } from '@/lib/notifications/instance'
 import { logger } from '@/lib/logger'
 import type { NotificationEvent } from '@/lib/notifications/types'
+import { frameNextStartup } from './next-startup'
 
 const log = logger('supervisor')
 
@@ -103,7 +104,8 @@ export function superviseChildren(options: {
 export function runSupervisor() {
   const token = createInternalJobToken()
   const env = { ...process.env, PB_INTERNAL_JOB_TOKEN: token }
-  const web = spawn(process.execPath, ['/app/server.js'], { env, stdio: 'inherit' })
+  const web = spawn(process.execPath, ['/app/server.js'], { env, stdio: ['inherit', 'pipe', 'inherit'] })
+  web.stdout.pipe(frameNextStartup()).pipe(process.stdout, { end: false })
   const worker = fork('/app/runtime/scheduler.js', [], {
     env,
     stdio: ['inherit', 'inherit', 'inherit', 'ipc'],

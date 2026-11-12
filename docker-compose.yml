@@ -39,6 +39,7 @@ services:
       - PB_AUTH_SECRET=${PB_AUTH_SECRET:-}
       - PB_POSTGRES_PASSWORD=${PB_POSTGRES_PASSWORD:-}
       - PB_OLLAMA_BASE_URL=${PB_OLLAMA_BASE_URL:-}
+      # Upgrade only. The first boot copies these into any missing saved names.
       - PB_USER_DISPLAY_NAME=${PB_USER_DISPLAY_NAME:-}
       - PB_INSTANCE_NAME=${PB_INSTANCE_NAME:-}
       # Set to 1 to run migrate/seed/FX backfill even when the startup checks say they are current.

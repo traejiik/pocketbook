@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { AuthFrame } from '../AuthFrame';
 
-export function LoginForm({ displayName, version, instanceName, host, passwordChanged }: { displayName: string; version: string; instanceName: string; host: string; passwordChanged: boolean }) {
+export function LoginForm({ displayName, version, instanceName, host, passwordChanged }: { displayName: string | null; version: string; instanceName: string; host: string; passwordChanged: boolean }) {
   const [password, setPassword] = useState('');
   const [show, setShow] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -34,7 +34,7 @@ export function LoginForm({ displayName, version, instanceName, host, passwordCh
       <Card className="p-6 shadow-pb-3">
         <div className="text-center mb-5">
           <h1 className="text-[16px] font-semibold tracking-tight">
-            Welcome {displayName === 'back' ? 'back' : `back, ${displayName}`}
+            Welcome back{displayName && `, ${displayName}`}
           </h1>
           <div className="text-[12.5px] text-muted-foreground mt-1">Sign in to your personal ledger</div>
         </div>

@@ -36,6 +36,7 @@ type Rate = {
 };
 
 type Props = {
+  children: React.ReactNode;
   anchorCurrency: string;
   exchangeRates: Rate[];
   fxAutoSync: boolean;
@@ -53,6 +54,7 @@ const ANCHOR_OPTIONS = [
 ];
 
 export function GeneralSettings({
+  children,
   anchorCurrency: initialAnchor,
   exchangeRates: initialRates,
   fxAutoSync: initialAutoSync,
@@ -203,6 +205,7 @@ export function GeneralSettings({
   return (
     <>
       <div className="motion-rise space-y-7">
+        {children}
         {/* ── Currencies & FX rates ──────────────────────────────────── */}
         <section id="currencies">
           <div className="flex items-center gap-2 mb-3">

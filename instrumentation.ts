@@ -31,7 +31,6 @@ export function register() {
     logFormat: config.format,
     requestLog: config.requests,
     tz: process.env.TZ ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
-    instance: process.env.PB_INSTANCE_NAME || undefined,
     ollama: process.env.OLLAMA_BASE_URL || process.env.PB_OLLAMA_BASE_URL || undefined,
     scheduler: process.env.PB_INTERNAL_JOB_TOKEN ? 'supervised' : 'not-supervised',
   })

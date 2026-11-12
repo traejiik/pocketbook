@@ -2,11 +2,13 @@ export const dynamic = 'force-dynamic'
 
 import { prisma } from '@/lib/prisma';
 import { GeneralSettings } from '../GeneralSettings';
+import { OwnerNamesSettings } from '../OwnerNamesSettings';
 
 export default async function GeneralSettingsPage() {
-  const [settings, rates] = await Promise.all([
+  const [settings, rates, owner] = await Promise.all([
     prisma.appSettings.findUnique({ where: { id: 'singleton' } }),
     prisma.exchangeRate.findMany({ orderBy: { fromCurrency: 'asc' } }),
+    prisma.user.findFirst({ select: { displayName: true } }),
   ]);
 
   return (
@@ -25,6 +27,8 @@ export default async function GeneralSettingsPage() {
       openingBalance={Number(settings?.openingBalance ?? 0)}
       openingBalanceCurrency={settings?.openingBalanceCurrency ?? settings?.anchorCurrency ?? 'HUF'}
       openingBalanceMonth={settings?.openingBalanceMonth ?? null}
-    />
+    >
+      <OwnerNamesSettings displayName={owner?.displayName ?? ''} instanceName={settings?.instanceName ?? ''} />
+    </GeneralSettings>
   );
 }

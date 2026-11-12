@@ -1,7 +1,8 @@
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
-import { claimOwner, issueSetupCode, issueSetupCodeOnStartup } from '@/lib/owner/setup';
+import { claimOwner, ensureSetupCode, issueSetupCode } from '@/lib/owner/setup';
+import { importLegacyOwnerNames } from '@/lib/owner/names';
 
 const url = process.env.PB_OWNER_TEST_DATABASE_URL;
 
@@ -23,7 +24,7 @@ describe.skipIf(!url)('owner setup on PostgreSQL', () => {
     await first.appSettings.upsert({
       where: { id: 'singleton' },
       create: { id: 'singleton' },
-      update: { instanceName: null, setupCodeHash: null, setupCodeExpiresAt: null },
+      update: { instanceName: null, legacyNamesImported: false, setupCodeHash: null, setupCodeExpiresAt: null },
     });
   });
 
@@ -31,25 +32,53 @@ describe.skipIf(!url)('owner setup on PostgreSQL', () => {
     await Promise.all([first.$disconnect(), second.$disconnect()]);
   });
 
-  it('issues one startup code across concurrent boots and preserves it on restart', async () => {
-    const codes = await Promise.all([issueSetupCodeOnStartup(first), issueSetupCodeOnStartup(second)]);
-    const issued = codes.filter(code => code !== null);
-    expect(issued).toHaveLength(1);
-    expect(await issueSetupCodeOnStartup(first)).toBeNull();
+  it('imports only missing names for an existing owner and never reapplies them after a restart', async () => {
+    const owner = await first.user.create({ data: { email: input.email, passwordHash: 'unused', displayName: 'Saved owner' } });
+    const legacy = { PB_USER_DISPLAY_NAME: ' Legacy owner ', PB_INSTANCE_NAME: ' Legacy ledger ' };
+    const key = { id: 'singleton' };
 
-    await claimOwner(first, { ...input, code: issued[0] });
-    expect(await issueSetupCodeOnStartup(second)).toBeNull();
+    await Promise.all([importLegacyOwnerNames(first, legacy), importLegacyOwnerNames(second, legacy)]);
+    expect(await first.user.findUnique({ where: { id: owner.id } })).toMatchObject({ displayName: 'Saved owner' });
+    expect(await first.appSettings.findUnique({ where: key })).toMatchObject({ instanceName: 'Legacy ledger' });
+
+    await first.appSettings.update({ where: key, data: { instanceName: null } });
+    await importLegacyOwnerNames(second, legacy);
+    expect(await first.appSettings.findUnique({ where: key })).toMatchObject({ instanceName: null });
+  });
+
+  it('imports a trimmed display name and preserves the existing instance name', async () => {
+    const owner = await first.user.create({ data: { email: input.email, passwordHash: 'unused' } });
+    const key = { id: 'singleton' };
+    await first.appSettings.update({ where: key, data: { instanceName: 'Saved ledger' } });
+
+    await importLegacyOwnerNames(first, { PB_USER_DISPLAY_NAME: ' Legacy owner ', PB_INSTANCE_NAME: 'Legacy ledger' });
+
+    expect(await first.user.findUnique({ where: { id: owner.id } })).toMatchObject({ displayName: 'Legacy owner' });
+    expect(await first.appSettings.findUnique({ where: key })).toMatchObject({ instanceName: 'Saved ledger' });
+  });
+
+  it('issues one code across concurrent requests and preserves it while active', async () => {
+    const results = await Promise.all([ensureSetupCode(first), ensureSetupCode(second)]);
+    const issued = results.filter(result => result.status === 'issued');
+    expect(issued).toHaveLength(1);
+    const active = { status: 'active', expiresAt: issued[0].expiresAt };
+    expect(results).toContainEqual(active);
+    expect(await ensureSetupCode(first)).toEqual(active);
+
+    await claimOwner(first, { ...input, code: issued[0].code });
+    expect(await ensureSetupCode(second)).toEqual({ status: 'configured' });
   });
 
   it('replaces an expired startup code', async () => {
     const expired = await issueSetupCode(first, new Date(Date.now() - 31 * 60_000));
-    const fresh = await issueSetupCodeOnStartup(first);
-    expect(fresh).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    const fresh = await ensureSetupCode(first);
+    if (fresh.status !== 'issued') throw new Error(`Expected a fresh code, got ${fresh.status}`);
+    expect(fresh.code).toMatch(/^[A-Za-z0-9_-]{43}$/);
     await expect(claimOwner(first, { ...input, code: expired })).rejects.toMatchObject({
       field: 'code',
       message: 'The setup code is invalid or expired.',
     });
-    await expect(claimOwner(first, { ...input, code: fresh })).resolves.toBeUndefined();
+    await expect(claimOwner(first, { ...input, code: fresh.code })).resolves.toBeUndefined();
   });
 
   it('rejects invalid, expired and replaced codes', async () => {

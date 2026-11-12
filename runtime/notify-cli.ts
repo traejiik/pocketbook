@@ -11,7 +11,7 @@ export function notificationEventFromArgs(args: string[]): NotificationEvent | n
 export async function runNotificationCli(args = process.argv.slice(2)) {
   const event = notificationEventFromArgs(args)
   if (!event) return 2
-  const result = await sendNotification(event, { instanceName: process.env.PB_INSTANCE_NAME })
+  const result = await sendNotification(event)
   return result.delivered || result.reason !== 'delivery-failed' ? 0 : 1
 }
 

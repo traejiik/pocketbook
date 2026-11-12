@@ -13,9 +13,9 @@ export default async function LoginPage({ searchParams }: {
   const owner = await prisma.user.findFirst({ select: { displayName: true } });
   if (!owner) redirect('/setup');
   const settings = await prisma.appSettings.findUnique({ where: { id: 'singleton' }, select: { instanceName: true } });
-  const displayName = owner.displayName ?? process.env.PB_USER_DISPLAY_NAME ?? 'back';
+  const displayName = owner.displayName;
   const version = `v${JSON.parse(readFileSync(join(process.cwd(), 'package.json'), 'utf-8')).version}`;
-  const instanceName = settings?.instanceName ?? process.env.PB_INSTANCE_NAME ?? '';
+  const instanceName = settings?.instanceName ?? '';
   const host = (await headers()).get('host') ?? '';
   return <LoginForm displayName={displayName} version={version} instanceName={instanceName} host={host} passwordChanged={(await searchParams).passwordChanged === '1'} />;
 }

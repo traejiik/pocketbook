@@ -10,6 +10,15 @@ function commandPosition(command: string): number {
 }
 
 describe('container entrypoint', () => {
+  it('defines the section helper before its first use and only labels missing env on failure', () => {
+    const defineSection = commandPosition('section() {')
+    const missingSection = commandPosition('section "Missing Env Values"')
+    expect(defineSection).toBeLessThan(missingSection)
+    expect(defineSection).toBeLessThan(commandPosition('section "DB"'))
+    expect(entrypoint).toContain('if [ -n "$missing" ]; then\n  section "Missing Env Values"')
+    expect(entrypoint).not.toContain('section "Setup"')
+  })
+
   it('runs the FX backfill after seed and before the supervisor', () => {
     const seed = commandPosition('run node /app/prisma/seed.js')
     const backfillStage = commandPosition('STAGE="fx-backfill"')

@@ -220,7 +220,6 @@ describe('instance notification footer', () => {
 
   it('only queries the saved instance name for an enabled delivery', async () => {
     const transport = mockTransport()
-    vi.stubEnv('PB_INSTANCE_NAME', 'Legacy instance')
     vi.stubEnv('PB_NOTIFICATION_CONFIG_PATH', await configuredPath({ enabled: false }))
     await expect(sendInstanceNotification(event)).resolves.toMatchObject({ reason: 'disabled' })
     expect(readSettings).not.toHaveBeenCalled()
@@ -231,16 +230,15 @@ describe('instance notification footer', () => {
     expect(JSON.parse(String(transport.mock.calls[0][1]?.body)).embeds[0].footer.text).toBe('Pocketbook · Saved instance')
   })
 
-  it('delivers with the environment fallback while a database lookup is stalled', async () => {
+  it('delivers with the default label while a database lookup is stalled', async () => {
     const transport = mockTransport()
-    vi.stubEnv('PB_INSTANCE_NAME', 'Legacy instance')
     vi.stubEnv('PB_NOTIFICATION_CONFIG_PATH', await configuredPath())
     let finishLookup!: (value: null) => void
     readSettings.mockReturnValue(new Promise<null>(resolve => { finishLookup = resolve }))
 
     try {
       await expect(sendInstanceNotification(event)).resolves.toEqual({ delivered: true })
-      expect(JSON.parse(String(transport.mock.calls[0][1]?.body)).embeds[0].footer.text).toBe('Pocketbook · Legacy instance')
+      expect(JSON.parse(String(transport.mock.calls[0][1]?.body)).embeds[0].footer.text).toBe('Pocketbook')
     } finally {
       finishLookup(null)
     }
