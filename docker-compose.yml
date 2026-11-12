@@ -44,6 +44,8 @@ services:
       - PB_INSTANCE_NAME=${PB_INSTANCE_NAME:-}
       # Set to 1 to run migrate/seed/FX backfill even when the startup checks say they are current.
       - PB_FORCE_BOOTSTRAP=${PB_FORCE_BOOTSTRAP:-}
+      # Optional owner recovery. Remove the value and recreate after use.
+      - PB_RESET_PASSWORD=${PB_RESET_PASSWORD:-}
       # Logging (all optional). Level defaults to info; requests default to on.
       - PB_LOG_LEVEL=${PB_LOG_LEVEL:-}
       - PB_LOG_FORMAT=${PB_LOG_FORMAT:-}

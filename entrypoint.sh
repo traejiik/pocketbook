@@ -2,11 +2,6 @@
 set -e
 umask 077
 
-# Reset input is accepted only for this operator invocation. Neither fallback
-# can restore it, and an ordinary boot discards it before starting anything.
-if [ "${1:-}" != owner ] || [ "${2:-}" != reset-password ]; then
-  unset PB_RESET_PASSWORD
-fi
 unset SEED_USER_EMAIL SEED_USER_PASSWORD PB_SEED_USER_EMAIL PB_SEED_USER_PASSWORD
 
 # Bind mounts arrive with host ownership. Prepare the persistent runtime
@@ -17,6 +12,16 @@ if [ "$(id -u)" -eq 0 ]; then
   chown nextjs:nodejs /data /backups
   chmod 700 /data /backups
   exec su-exec nextjs:nodejs "$0" "$@"
+fi
+
+# Keep reset input out of migration, seed, diagnostics and supervised processes.
+# Only the startup owner command receives it, after the schema is ready.
+unset pb_boot_reset_password
+if [ "${1:-}" != owner ]; then
+  pb_boot_reset_password="${PB_RESET_PASSWORD:-}"
+  unset PB_RESET_PASSWORD
+elif [ "${2:-}" != reset-password ]; then
+  unset PB_RESET_PASSWORD
 fi
 
 # ---------------------------------------------------------------------------
@@ -271,7 +276,8 @@ fi
 
 STAGE="owner-setup"
 # Keep the one-time code out of the failure buffer used for startup alerts.
-node /app/scripts/owner.js startup-setup-code
+PB_RESET_PASSWORD="$pb_boot_reset_password" node /app/scripts/owner.js startup-setup-code
+unset pb_boot_reset_password
 
 STAGE="start"
 section "Startup"
