@@ -48,6 +48,11 @@ fi
 # echo to console AND this run's capture buffer
 say() { echo "$@"; echo "$@" >> "$RUN_LOG" 2>/dev/null || true; }
 
+section() {
+  say ""
+  say "==========[$1]=========="
+}
+
 # run a command; mirror its output to console + buffer; preserve its exit code
 run() {
   if "$@" > "$STEP" 2>&1; then rc=0; else rc=$?; fi
@@ -168,6 +173,7 @@ missing=""
 [ -z "$AUTH_SECRET" ] && missing="$missing AUTH_SECRET/PB_AUTH_SECRET"
 [ -z "$PB_POSTGRES_PASSWORD" ] && missing="$missing PB_POSTGRES_PASSWORD"
 if [ -n "$missing" ]; then
+  section "Missing Env Values"
   say "ERROR: missing required variables (set them in the Portainer stack environment panel):"
   say "  $missing"
   say "Either name form works: pass the bare name via compose, or the PB_ name via the panel. See DEPLOY.md."
@@ -204,6 +210,7 @@ export PB_DATABASE_URL="postgresql://${PB_POSTGRES_USER}:${PB_POSTGRES_PASSWORD}
 # Wait for Postgres to accept TCP connections. depends_on: service_healthy only
 # gates `compose up`, not restart-policy restarts after a reboot/Watchtower recreate.
 STAGE="wait-for-db"
+section "DB"
 say "Waiting for database..."
 i=0
 until node -e "const s=require('net').createConnection(5432,'pocketbook-db');s.setTimeout(2000);s.on('connect',()=>{s.end();process.exit(0)});s.on('timeout',()=>process.exit(1));s.on('error',()=>process.exit(1))" 2>/dev/null; do
@@ -232,11 +239,6 @@ needs() {
   exit "$rc"
 }
 
-section() {
-  say ""
-  say "==========[$1]=========="
-}
-
 STAGE="prisma-migrate"
 section "Migrations"
 say "Checking Prisma migrations..."
@@ -258,7 +260,7 @@ else
 fi
 
 STAGE="fx-backfill"
-section "FX Locks"
+section "FX Backfill"
 say "Checking transaction FX locks..."
 if needs fx-backfill; then
   say "Backfilling transaction FX locks..."
@@ -268,10 +270,10 @@ else
 fi
 
 STAGE="owner-setup"
-section "Startup"
 # Keep the one-time code out of the failure buffer used for startup alerts.
 node /app/scripts/owner.js startup-setup-code
 
 STAGE="start"
+section "Startup"
 say "Starting supervised Next.js and scheduler processes..."
 exec node /app/runtime/supervisor.js
