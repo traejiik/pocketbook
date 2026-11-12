@@ -39,7 +39,7 @@ Numbers lead. Surfaces recede. A single calm blue is reserved for what matters.
 
 ## ✨ Highlights
 
-- **🔒 Yours alone** — one owner, claimed once with a setup code issued by the instance operator. No multi-tenant logic or telemetry. Self-hosted with Docker Compose.
+- **🔒 Yours alone** — one owner, claimed once with a setup code from the web container logs. No multi-tenant logic or telemetry. Self-hosted with Docker Compose.
 - **🧠 Private AI insights** — monthly commentary streamed token-by-token from your own Ollama instance. It never calls out to a third party, and the app works fine if the model is offline.
 - **💱 Multi-currency, done right** — HUF-first with USD/EUR/GBP support, ECB rates auto-synced daily, triangulated conversion, and honest handling of amounts it can't convert.
 - **🔁 Recurring & installments** — subscriptions, rent, and installment plans tracked with idempotent auto-logging and reconciled counters. Paid a bill early? Log it early and the rule skips that due date instead of logging it twice.
@@ -144,7 +144,7 @@ docker compose logs pocketbook-web
 
 On boot, the `pocketbook-web` container prepares `/data` and `/backups` as root, immediately re-execs as UID 1001, builds `PB_DATABASE_URL`, runs `prisma migrate deploy`, the idempotent seed, and the FX-lock backfill (each only when a quick startup check finds work for it; `PB_FORCE_BOOTSTRAP=1` runs all three), then starts a PID-1 supervisor. The supervisor generates a per-boot internal job token and runs Next.js plus a separate UTC scheduler process. If either child exits or the worker stops heartbeating, the container exits so Docker can restart it.
 
-The setup code expires after 30 minutes and can be used once. Keep the code private while setup is pending because anyone with the code can create the owner account. If the code is missing or expired, follow the [first-run setup instructions](DEPLOY.md#first-run-owner-setup) to issue a new one. Existing owners keep their account, password, and data when upgrading and sign in again once. See the [deployment runbook](DEPLOY.md#owner-password-recovery) for recovery.
+The setup code expires after 30 minutes and can be used once. Keep the code private while setup is pending because anyone with the code can create the owner account. If the code is missing or expired, select **Generate new code** at `/setup` and check the web container logs for the newest `[setup]` block. The [first-run setup instructions](DEPLOY.md#first-run-owner-setup) also cover the operator CLI. Existing owners keep their account, password, and data when upgrading and sign in again once. See the [deployment runbook](DEPLOY.md#owner-password-recovery) for recovery.
 
 After every successful boot the validated environment configuration is persisted to `.env-cache` on the `/data` volume (`chmod 600`); if a later redeploy arrives without variables, the entrypoint restores only the missing values. Discord configuration is separate: enter the webhook in authenticated Settings. Production stores it in `/data/notifications.json`; a direct development run stores it in `.data/notifications.json`; and `PB_NOTIFICATION_CONFIG_PATH` can explicitly override either location. The file is written with mode `0600`, and the webhook is never imported from environment variables.
 
@@ -156,20 +156,35 @@ An avatar is an optional direct public HTTPS image URL sent with each Pocketbook
 
 ### Configuration
 
-| Variable | Required | Description |
-| --- | :---: | --- |
-| `PB_POSTGRES_PASSWORD` | ✅ | Postgres password (used to build the datasource URL). |
-| `PB_AUTH_SECRET` | ✅ | Auth.js session secret — `openssl rand -base64 32`. |
-| `PB_AUTH_URL` | ✅ | Full public URL of the instance (mapped to `AUTH_URL`). |
-| `PB_OLLAMA_BASE_URL` | – | Your Ollama base URL, e.g. `http://homelab.local:11434`. |
-| `PB_USER_DISPLAY_NAME` | – | Display name fallback for owners created before browser setup. |
-| `PB_INSTANCE_NAME` | – | Instance name fallback for the login and notification footers. |
-| `AUTH_TRUST_HOST` | – | Set `true` for custom hostnames like `pocketbook.home`. |
-| `PB_LOG_LEVEL` | – | `debug` \| `info` \| `warn` \| `error` \| `silent` (default `info`). |
-| `PB_LOG_FORMAT` | – | `pretty` (default) or `json` for line-delimited JSON. |
-| `PB_LOG_REQUESTS` | – | `0` to stop logging one line per request. |
+Set the public URL, Auth.js secret, and database password in `.env` or Portainer’s stack variables. Generate the secret with `openssl rand -base64 32`. The database user, name, and password must match the database service. Use the following `environment:` block under the web service when writing a custom Compose file. Each alternate name is accepted as a container variable and can replace its corresponding primary entry.
 
-See [`.env.example`](.env.example) for the full annotated template and [`DEPLOY.md`](DEPLOY.md) for homelab deployment notes.
+```yaml
+environment:
+  # Required
+  PB_AUTH_URL: "${PB_AUTH_URL:-}"                     # Alternate: AUTH_URL
+  PB_AUTH_SECRET: "${PB_AUTH_SECRET:-}"               # Alternate: AUTH_SECRET
+  PB_POSTGRES_PASSWORD: "${PB_POSTGRES_PASSWORD:-}"   # Alternate: POSTGRES_PASSWORD
+  PB_POSTGRES_USER: pocketbook
+  PB_POSTGRES_DB: pocketbook
+  AUTH_TRUST_HOST: "true"
+
+  # Optional
+  PB_OLLAMA_BASE_URL: "${PB_OLLAMA_BASE_URL:-http://ollama:11434}" # Alternate: OLLAMA_BASE_URL. Initial URL.
+  PB_LOG_LEVEL: "${PB_LOG_LEVEL:-info}"                # debug, info, warn, error, silent
+  PB_LOG_FORMAT: "${PB_LOG_FORMAT:-pretty}"           # pretty or json
+  PB_LOG_REQUESTS: "${PB_LOG_REQUESTS:-1}"            # 0 hides incoming HTTP request lines
+  PB_LOG_COLOR: "${PB_LOG_COLOR:-0}"                  # 1 adds color to pretty logs
+
+  # Advanced. Uncomment the settings you use.
+  # PB_FORCE_BOOTSTRAP: "1"                           # Force migrations, seed, and FX backfill on boot
+  # PB_NOTIFICATION_CONFIG_PATH: "/data/notifications.json"
+  # PB_ENV_CACHE: "/data/.env-cache"
+  # PB_FAIL_LOG: "/data/startup-failures.log"
+  # PB_POSTGRES_HOST: "pocketbook-db"                  # Database host used by backups
+  # TZ: "Europe/Budapest"                             # Web timezone. The scheduler uses UTC.
+```
+
+Recreate the web container after changing its environment. Manage both names under **Settings → General → Profile & instance**. On upgrade, the first boot copies any legacy `PB_USER_DISPLAY_NAME` or `PB_INSTANCE_NAME` values into missing saved names. Keep those values available for that boot, then remove them from the stack. See [`.env.example`](.env.example) and the [deployment runbook](DEPLOY.md).
 
 ### Integrated operations
 
@@ -194,7 +209,7 @@ docker logs -f pocketbook-web | grep '\[ollama\]'     # model behaviour: timings
 docker logs pocketbook-web | grep -E 'WARN|ERROR'      # just the problems
 ```
 
-Credentials never reach the log (passwords, secrets, tokens and Discord webhooks are redacted by field name and by pattern), but ordinary financial detail does — amounts, descriptions, and category ids — so treat the output as private and redact before sharing. `PB_LOG_LEVEL=warn` keeps only problems; `PB_LOG_LEVEL=debug` adds prompt sizes, a 200-character preview of each generated note, per-rate FX updates, and router prefetches.
+Treat container logs as private. The `[setup]` block contains the one-time owner code, and application events can include amounts, descriptions, and category IDs. The application logger redacts passwords, secrets, tokens, and Discord webhooks by field name and by pattern. `PB_LOG_LEVEL=warn` keeps only problems; `PB_LOG_LEVEL=debug` adds prompt sizes, a 200-character preview of each generated note, per-rate FX updates, and router prefetches.
 
 ---
 

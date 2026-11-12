@@ -8,7 +8,7 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { passwordIssue } from '@/lib/owner/password-policy';
-import { createOwner } from '@/server-actions/setup';
+import { createOwner, generateSetupCode } from '@/server-actions/setup';
 import { AuthFrame } from '../AuthFrame';
 
 const details = [
@@ -32,14 +32,18 @@ function FieldFeedback({ id, error, hint }: { id: string; error?: string; hint?:
   );
 }
 
-export function SetupForm() {
+export function SetupForm({ initialCodeExpiry }: { initialCodeExpiry: number | null }) {
   const { theme, setTheme } = useTheme();
   const [showForm, setShowForm] = useState(false);
   const [password, setPassword] = useState('');
   const [confirmation, setConfirmation] = useState('');
   const [error, setError] = useState('');
   const [codeRejected, setCodeRejected] = useState(false);
+  const [codeExpiry, setCodeExpiry] = useState(initialCodeExpiry);
+  const [codeNotice, setCodeNotice] = useState('');
+  const [refreshError, setRefreshError] = useState('');
   const [pending, startTransition] = useTransition();
+  const [refreshing, startRefresh] = useTransition();
   const welcomeHeading = useRef<HTMLHeadingElement>(null);
   const formHeading = useRef<HTMLHeadingElement>(null);
   const getStarted = useRef<HTMLButtonElement>(null);
@@ -47,6 +51,13 @@ export function SetupForm() {
   const selectedTheme = theme === 'light' ? 'light' : 'dark';
   const passwordError = password ? passwordIssue(password) : undefined;
   const confirmationError = confirmation && confirmation !== password ? mismatchMessage : undefined;
+  const busy = pending || refreshing;
+
+  useEffect(() => {
+    if (codeExpiry === null) return;
+    const timer = window.setTimeout(() => setCodeExpiry(null), Math.max(0, codeExpiry - Date.now()));
+    return () => window.clearTimeout(timer);
+  }, [codeExpiry]);
 
   useEffect(() => {
     if (showForm) formHeading.current?.focus();
@@ -58,8 +69,32 @@ export function SetupForm() {
     requestAnimationFrame(() => getStarted.current?.focus());
   }
 
+  function refreshCode() {
+    setRefreshError('');
+    startRefresh(async () => {
+      try {
+        const result = await generateSetupCode();
+        if (result.status === 'configured') {
+          window.location.replace('/login');
+        } else if (result.status === 'error') {
+          setRefreshError(result.error);
+        } else {
+          setCodeExpiry(result.expiresAt);
+          setCodeRejected(false);
+          setCodeNotice(result.status === 'issued'
+            ? 'Check the Pocketbook web container logs for your new setup code.'
+            : 'A setup code is already active. Check the Pocketbook web container logs.');
+          codeInput.current?.focus();
+        }
+      } catch {
+        setRefreshError('Could not generate a setup code. Try again.');
+      }
+    });
+  }
+
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (busy) return;
     const form = new FormData(event.currentTarget);
     const submittedPassword = String(form.get('password') ?? '');
     const submittedConfirmation = String(form.get('confirmPassword') ?? '');
@@ -123,11 +158,21 @@ export function SetupForm() {
             <div className="grid gap-x-4 gap-y-4 sm:grid-cols-2">
               <div className="space-y-1.5 sm:col-span-2">
                 <Label htmlFor="code">Setup code</Label>
-                <Input ref={codeInput} id="code" name="code" type="password" autoComplete="off" required readOnly={pending}
-                  aria-describedby="code-feedback" aria-invalid={codeRejected} onChange={() => setCodeRejected(false)} />
-                <FieldFeedback id="code-feedback" error={codeRejected
-                  ? 'Check the code and try again. If it expired, ask your instance operator for a new one.'
-                  : undefined} />
+                <div className="flex items-center gap-2">
+                  <Input ref={codeInput} id="code" name="code" type="password" autoComplete="off" required readOnly={busy}
+                    className="flex-1" aria-describedby="code-feedback" aria-invalid={codeRejected}
+                    onChange={() => setCodeRejected(false)} />
+                  {codeExpiry === null && (
+                    <Button type="button" variant="outline" size="sm" className="h-9" onClick={refreshCode} disabled={busy}>
+                      {refreshing ? 'Generating code…' : 'Generate new code'}
+                    </Button>
+                  )}
+                </div>
+                <FieldFeedback id="code-feedback"
+                  error={refreshError || (codeRejected ? 'Check the code and try again.' : undefined)}
+                  hint={codeExpiry === null
+                    ? 'Generate a code to find it under [setup] in the Pocketbook web container logs.'
+                    : codeNotice || 'Find your code under [setup] in the Pocketbook web container logs.'} />
               </div>
               {details.map(({ name, label, ...props }) => (
                 <div key={name} className={name === 'email' ? 'space-y-1.5 sm:col-span-2' : 'space-y-1.5'}>
@@ -168,10 +213,10 @@ export function SetupForm() {
               </p>
             )}
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <Button type="button" variant="ghost" size="lg" onClick={back} disabled={pending}>
+              <Button type="button" variant="ghost" size="lg" onClick={back} disabled={busy}>
                 <ArrowLeft aria-hidden="true" /> Back
               </Button>
-              <Button type="submit" size="lg" disabled={pending}>
+              <Button type="submit" size="lg" disabled={busy}>
                 {pending ? 'Creating account…' : 'Create Account'}
               </Button>
             </div>

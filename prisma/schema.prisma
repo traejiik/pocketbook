@@ -133,6 +133,7 @@ model AppSettings {
   fxAutoSync             Boolean @default(true)
   autoInsightsMonthly    Boolean @default(true)
   instanceName           String?
+  legacyNamesImported    Boolean @default(false)
   setupCodeHash          String?
   setupCodeExpiresAt     DateTime?
   // One-time starting point for the derived running balance: the balance held on

@@ -14,7 +14,6 @@ async function readInstanceName() {
 }
 
 async function resolveInstanceName() {
-  const fallback = process.env.PB_INSTANCE_NAME
   // Allow one pending lookup per process. Even when PostgreSQL stalls, a
   // notification must not hold the scheduler tick or supervisor exit open.
   lookup ??= readInstanceName().catch(() => undefined).finally(() => { lookup = undefined })
@@ -23,7 +22,7 @@ async function resolveInstanceName() {
     const deadline = new Promise<undefined>(resolve => {
       timeout = setTimeout(() => resolve(undefined), 1500)
     })
-    return (await Promise.race([lookup, deadline])) ?? fallback
+    return (await Promise.race([lookup, deadline])) ?? undefined
   } finally {
     clearTimeout(timeout)
   }

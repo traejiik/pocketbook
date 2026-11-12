@@ -93,7 +93,6 @@ jobs:
           AUTH_SECRET: ci-secret-not-for-production
           AUTH_TRUST_HOST: "true"
           PB_OLLAMA_BASE_URL: http://localhost:11434
-          PB_USER_DISPLAY_NAME: CI
         run: pnpm build
 
       # Build the production image exactly as the release does (no database, no

@@ -21,8 +21,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       // session update may supply data, but never supplies the token version.
       if (!token.sub || !Number.isInteger(token.sessionVersion)) return null;
       try {
-        const owner = await prisma.user.findFirst({ select: { id: true, sessionVersion: true } });
-        return owner?.id === token.sub && owner.sessionVersion === token.sessionVersion ? token : null;
+        const owner = await prisma.user.findFirst({ select: { id: true, sessionVersion: true, displayName: true } });
+        if (owner?.id !== token.sub || owner.sessionVersion !== token.sessionVersion) return null;
+        token.name = owner.displayName;
+        return token;
       } catch (err) {
         log.error('session validation failed', { err });
         return null;

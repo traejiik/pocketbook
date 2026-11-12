@@ -52,7 +52,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             categories={serialisedCategories}
             recurringRules={serialisedRules}
             fxRates={fxRates}
-            displayName={session.user.name ?? process.env.PB_USER_DISPLAY_NAME ?? 'User'}
+            displayName={session.user.name ?? 'User'}
           >
             {children}
           </AppShell>
